@@ -19,19 +19,35 @@ export function setError([a, b]: SetScore): string | null {
   return null;
 }
 
-export function validateMatch(sets: SetScore[], bestOf: number): { result: ValidResult } | { error: string } {
+/** `set` (da 1) indica la riga da evidenziare, quando l'errore riguarda un set preciso. */
+export function validateMatch(sets: SetScore[], bestOf: number): { result: ValidResult } | { error: string; set?: number } {
   const toWin = Math.ceil(bestOf / 2);
   if (sets.length === 0) return { error: "Inserisci almeno un set." };
   if (sets.length > bestOf) return { error: `Al massimo ${bestOf} set.` };
   let setsA = 0, setsB = 0;
   for (let i = 0; i < sets.length; i++) {
     if (setsA === toWin || setsB === toWin)
-      return { error: `La partita era già finita dopo il set ${i}: togli i set in più.` };
+      return { error: `La partita era già finita dopo il set ${i}: togli i set in più.`, set: i + 1 };
     const err = setError(sets[i]);
-    if (err) return { error: `Set ${i + 1}: ${err}.` };
+    if (err) return { error: `Set ${i + 1}: ${err}.`, set: i + 1 };
     if (sets[i][0] > sets[i][1]) setsA++; else setsB++;
   }
   if (setsA !== toWin && setsB !== toWin)
     return { error: `Partita non finita: servono ${toWin} set vinti (al meglio dei ${bestOf}).` };
   return { result: { setsA, setsB, sets } };
+}
+
+/** Legge i set dal modulo: campi a1/b1 ... a7/b7; le righe vuote finali sono ignorate. */
+export function setsFromForm(formData: FormData): SetScore[] | { error: string; set: number } {
+  const sets: SetScore[] = [];
+  let emptyRow = 0; // prima riga vuota incontrata
+  for (let i = 1; i <= 7; i++) {
+    const a = String(formData.get(`a${i}`) ?? "").trim();
+    const b = String(formData.get(`b${i}`) ?? "").trim();
+    if (a === "" && b === "") { emptyRow ||= i; continue; }
+    if (emptyRow) return { error: `Set ${emptyRow}: è vuoto ma il set ${i} è compilato.`, set: emptyRow };
+    if (a === "" || b === "") return { error: `Set ${i}: inserisci entrambi i punteggi.`, set: i };
+    sets.push([Number(a), Number(b)]);
+  }
+  return sets;
 }

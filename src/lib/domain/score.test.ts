@@ -27,3 +27,28 @@ describe("partita", () => {
     expect(validateMatch([[11, 10]], 1)).toMatchObject({ error: expect.stringMatching(/Set 1/) });
   });
 });
+
+describe("set da evidenziare", () => {
+  it("indica il set sbagliato o di troppo", () => {
+    expect(validateMatch([[11, 7], [11, 10]], 3)).toMatchObject({ set: 2 });
+    expect(validateMatch([[11, 7], [11, 9], [11, 2]], 3)).toMatchObject({ set: 3 });
+    expect(validateMatch([[11, 7], [9, 11]], 3)).not.toHaveProperty("set");
+  });
+});
+
+import { setsFromForm } from "./score";
+
+describe("lettura dei set dal modulo", () => {
+  const form = (rows: [string, string][]) => {
+    const f = new FormData();
+    rows.forEach(([a, b], i) => { f.set(`a${i + 1}`, a); f.set(`b${i + 1}`, b); });
+    return f;
+  };
+  it("ignora le righe vuote finali", () => {
+    expect(setsFromForm(form([["11", "7"], ["11", "9"], ["", ""]]))).toEqual([[11, 7], [11, 9]]);
+  });
+  it("segnala un set vuoto in mezzo e un punteggio mancante", () => {
+    expect(setsFromForm(form([["11", "7"], ["", ""], ["11", "5"]]))).toMatchObject({ set: 2 });
+    expect(setsFromForm(form([["11", ""]]))).toMatchObject({ set: 1 });
+  });
+});

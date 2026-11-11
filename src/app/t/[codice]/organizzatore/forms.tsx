@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
+import { setError } from "@/lib/domain/score";
 import { login, submitResult, type OrgState } from "./actions";
 
 const btn = "rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black";
@@ -32,6 +33,14 @@ export function MatchForm({ publicCode, matchId, bestOf, a, b, initial }:
     setValues(values.map((row, j) => (j === i ? (side === 0 ? [v.replace(/\D/g, ""), row[1]] : [row[0], v.replace(/\D/g, "")]) : row)));
   const toWin = Math.ceil(bestOf / 2);
   const num = "w-14 rounded border bg-transparent px-2 py-1 text-center tabular-nums";
+  const bad = "border-2 border-red-600 dark:border-red-400";
+  /** Errore del set mentre si scrive (solo se entrambi i punteggi sono compilati). */
+  const liveError = (i: number) => {
+    const [x, y] = values[i];
+    return x !== "" && y !== "" ? setError([Number(x), Number(y)]) : null;
+  };
+  // Dopo un errore del server la riga resta evidenziata finché non si salva di nuovo.
+  const serverRow = state.error ? state.set : undefined;
   if (!open) return (
     <button type="button" onClick={() => setOpen(true)} className="rounded border px-3 py-1 text-sm">
       {initial ? "Correggi" : "Inserisci risultato"}</button>
@@ -44,13 +53,18 @@ export function MatchForm({ publicCode, matchId, bestOf, a, b, initial }:
         {bestOf === 1 ? "Set unico." : `Al meglio dei ${bestOf}: vince chi arriva a ${toWin} set.`} Lascia vuoti i set non giocati.</p>
       <table className="text-sm"><thead><tr><th></th><th className="px-1 text-left">{a}</th><th className="px-1 text-left">{b}</th></tr></thead>
         <tbody>
-          {Array.from({ length: bestOf }, (_, i) => (
-            <tr key={i}>
+          {Array.from({ length: bestOf }, (_, i) => {
+            const live = liveError(i);
+            const wrong = Boolean(live) || serverRow === i + 1;
+            return (
+            <tr key={i} className={wrong ? "text-red-700 dark:text-red-400" : ""}>
               <td className="pr-2">Set {i + 1}</td>
-              <td className="px-1"><input name={`a${i + 1}`} inputMode="numeric" pattern="[0-9]*" value={values[i][0]} onChange={(e) => setValue(i, 0, e.target.value)} className={num} aria-label={`Set ${i + 1} ${a}`} /></td>
-              <td className="px-1"><input name={`b${i + 1}`} inputMode="numeric" pattern="[0-9]*" value={values[i][1]} onChange={(e) => setValue(i, 1, e.target.value)} className={num} aria-label={`Set ${i + 1} ${b}`} /></td>
+              <td className="px-1"><input name={`a${i + 1}`} inputMode="numeric" pattern="[0-9]*" value={values[i][0]} onChange={(e) => setValue(i, 0, e.target.value)} className={`${num} ${wrong ? bad : ""}`} aria-invalid={wrong} aria-label={`Set ${i + 1} ${a}`} /></td>
+              <td className="px-1"><input name={`b${i + 1}`} inputMode="numeric" pattern="[0-9]*" value={values[i][1]} onChange={(e) => setValue(i, 1, e.target.value)} className={`${num} ${wrong ? bad : ""}`} aria-invalid={wrong} aria-label={`Set ${i + 1} ${b}`} /></td>
+              <td className="pl-2 text-xs">{live}</td>
             </tr>
-          ))}
+            );
+          })}
         </tbody></table>
       <div className="flex flex-wrap items-center gap-3">
         <button disabled={pending} className={btn}>{pending ? "Salvataggio…" : "Salva"}</button>

@@ -4,7 +4,7 @@ import { normalizeCode } from "@/lib/codes";
 import { hasServiceKey, organizerLogin, organizerLogout, organizerTournamentId } from "@/lib/organizer";
 import { saveResult, setsFromForm } from "@/lib/results";
 
-export type OrgState = { error?: string; ok?: string };
+export type OrgState = { error?: string; ok?: string; set?: number };
 
 const pc = (formData: FormData) => normalizeCode(String(formData.get("public_code") ?? ""));
 
@@ -30,7 +30,7 @@ export async function submitResult(_prev: OrgState, formData: FormData): Promise
   if (!tournamentId) return { error: "Sessione scaduta: inserisci di nuovo il codice organizzatore." };
   const clear = formData.get("intent") === "clear";
   const sets = clear ? null : setsFromForm(formData);
-  if (sets && "error" in sets) return { error: sets.error };
+  if (sets && "error" in sets) return { error: sets.error, set: sets.set };
   const r = await saveResult(tournamentId, String(formData.get("match_id") ?? ""), sets);
   if (r.ok) { revalidatePath(`/t/${code}`); revalidatePath(`/t/${code}/organizzatore`); }
   return r;
