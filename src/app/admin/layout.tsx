@@ -21,6 +21,8 @@ async function Header() {
       <Link href="/admin" className="font-bold">Amministrazione</Link>
       <Link href="/admin/giocatori" className="hover:underline">Giocatori</Link>
       <Link href="/admin/tornei" className="hover:underline">Tornei</Link>
+      {admin.role === "owner" && <Link href="/admin/amministratori" className="hover:underline">Amministratori</Link>}
+      <Link href="/admin/password" className="hover:underline">Password</Link>
       <span className="ml-auto text-sm text-neutral-600 dark:text-neutral-400">
         {admin.email} ({admin.role === "owner" ? "proprietario" : "admin"})
       </span>
