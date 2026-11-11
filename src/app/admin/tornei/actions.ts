@@ -137,11 +137,11 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
   const { error: e2 } = e1 ? { error: e1 } : await supabase.from("matches").insert([
     ...plan.matches.map((m) => ({
       tournament_id: tournamentId, phase: "group", group_no: m.group, round: m.round, position: m.position,
-      player_a: m.a, player_b: m.b, best_of: m.bestOf,
+      player_a: m.a, player_b: m.b, best_of: m.bestOf, set_points: m.set.points, golden_point: m.set.golden,
     })),
     ...plan.knockout.map((k) => ({
       tournament_id: tournamentId, phase: "knockout", stage: k.stage, round: 1, position: k.position,
-      source_a: k.a, source_b: k.b, best_of: k.bestOf,
+      source_a: k.a, source_b: k.b, best_of: k.bestOf, set_points: k.set.points, golden_point: k.set.golden,
     })),
   ]);
   if (e2) { await rollback(); return { error: "Non sono riuscito a creare le partite. Nulla è stato modificato." }; }

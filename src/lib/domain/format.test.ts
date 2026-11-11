@@ -75,11 +75,11 @@ describe("lettura e descrizione del formato", () => {
   });
   it("descrive il caso a 24 giocatori in italiano", () => {
     const d = describeFormat(base);
-    expect(d[0]).toBe("4 gironi all'italiana, partite a set unico.");
+    expect(d[0]).toBe("4 gironi all'italiana, partite a set unico (set a 11).");
     expect(d).toContain("2° e 3° di ogni girone → ottavi di finale.");
     expect(d).toContain("1° di ogni girone → quarti di finale.");
-    expect(d).toContain("Ottavi di finale: 4 partite al meglio dei 3 set.");
-    expect(d).toContain("Finale: 1 partita al meglio dei 5 set.");
+    expect(d).toContain("Ottavi di finale: 4 partite al meglio dei 3 set (set a 11).");
+    expect(d).toContain("Finale: 1 partita al meglio dei 5 set (set a 11).");
   });
 });
 
@@ -98,5 +98,26 @@ describe("niente rivincite tra compagni di girone", () => {
     const plan = planBracket({ ...base, groupCount: 2, qualification: [{ positions: [1, 2], stage: 1 }] });
     for (const m of plan.rounds[0].matches)
       if (m.a.kind === "group" && m.b.kind === "group") expect(m.a.group).not.toBe(m.b.group);
+  });
+});
+
+describe("andata e ritorno, punti e golden point", () => {
+  it("descrive e valida le nuove opzioni", () => {
+    const f = { ...base, groupLegs: 2 as const, groupSet: { points: 11, golden: 15 }, knockoutSet: { 0: { points: 21, golden: null } } };
+    expect(validateFormat(f)).toEqual([]);
+    const d = describeFormat(f);
+    expect(d[0]).toBe("4 gironi all'italiana con andata e ritorno, partite a set unico (set a 11, golden point sul 15 pari).");
+    expect(d).toContain("Finale: 1 partita al meglio dei 5 set (set a 21).");
+    expect(planBracket(f).rounds.at(-1)!.matches[0].set).toEqual({ points: 21, golden: null });
+  });
+  it("rifiuta regole del set impossibili e passa per parseFormat", () => {
+    expect(validateFormat({ ...base, groupSet: { points: 11, golden: 8 } }).join(" ")).toMatch(/golden point/);
+    expect(validateFormat({ ...base, groupSet: { points: 1, golden: null } }).join(" ")).toMatch(/tra 3 e 50/);
+    expect(validateFormat({ ...base, groupLegs: 3 as never }).join(" ")).toMatch(/andata/);
+    const r = parseFormat(JSON.parse(JSON.stringify({ ...base, groupLegs: 2, groupSet: { points: 11, golden: 15 } })));
+    expect("format" in r && r.format.groupSet).toEqual({ points: 11, golden: 15 });
+    // Formati salvati prima di queste opzioni restano validi (sola andata, set a 11).
+    const old = parseFormat(JSON.parse(JSON.stringify(base)));
+    expect("format" in old && old.format.groupLegs).toBe(1);
   });
 });

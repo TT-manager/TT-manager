@@ -3,7 +3,8 @@
  * Funzioni pure: nessun accesso al database.
  */
 import { computeStandings, roundRobinSchedule, snakeGroups, type Standing } from "./groups";
-import { planBracket, stageName, validateFormat, type SlotSource, type TournamentFormat } from "./format";
+import { groupSetRules, planBracket, stageName, validateFormat, type SlotSource, type TournamentFormat } from "./format";
+import type { SetRules } from "./score";
 
 export const groupLabel = (g: number) => (g >= 1 && g <= 26 ? String.fromCharCode(64 + g) : String(g));
 
@@ -11,8 +12,8 @@ export interface SeededPlayer { id: string; rating: number }
 
 export interface GroupStagePlan {
   assignments: { playerId: string; seed: number; group: number }[];
-  matches: { group: number; round: number; position: number; a: string; b: string; bestOf: number }[];
-  knockout: { stage: number; position: number; a: SlotSource; b: SlotSource; bestOf: number }[];
+  matches: { group: number; round: number; position: number; a: string; b: string; bestOf: number; set: SetRules }[];
+  knockout: { stage: number; position: number; a: SlotSource; b: SlotSource; bestOf: number; set: SetRules }[];
 }
 
 /**
@@ -32,12 +33,16 @@ export function buildTournament(players: SeededPlayer[], f: TournamentFormat): G
     playerId: p.id, seed: i + 1, group: groups.findIndex((g) => g.includes(p)) + 1,
   }));
   const matches: GroupStagePlan["matches"] = [];
+  const set = groupSetRules(f);
   groups.forEach((g, gi) => {
-    roundRobinSchedule(g.map((p) => p.id)).forEach((round, ri) =>
-      round.forEach(([a, b], pi) => matches.push({ group: gi + 1, round: ri + 1, position: pi, a, b, bestOf: f.groupBestOf })));
+    const firstLeg = roundRobinSchedule(g.map((p) => p.id));
+    // Ritorno: stessi turni, campi invertiti, numerati dopo l'andata.
+    const rounds = f.groupLegs === 2 ? [...firstLeg, ...firstLeg.map((r) => r.map(([a, b]) => [b, a] as [string, string]))] : firstLeg;
+    rounds.forEach((round, ri) =>
+      round.forEach(([a, b], pi) => matches.push({ group: gi + 1, round: ri + 1, position: pi, a, b, bestOf: f.groupBestOf, set })));
   });
   const knockout = planBracket(f).rounds.flatMap((r) =>
-    r.matches.map((m) => ({ stage: m.stage, position: m.match, a: m.a, b: m.b, bestOf: m.bestOf })));
+    r.matches.map((m) => ({ stage: m.stage, position: m.match, a: m.a, b: m.b, bestOf: m.bestOf, set: m.set })));
   return { assignments, matches, knockout };
 }
 

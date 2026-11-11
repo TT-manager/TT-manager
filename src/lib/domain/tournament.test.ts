@@ -109,3 +109,16 @@ describe("inserimento e correzione dei risultati", () => {
     expect(applyResult(rated, members, lastG2.id, { sets_a: 2, sets_b: 0, set_scores: null })).toMatchObject({ error: expect.stringMatching(/amministratore/) });
   });
 });
+
+describe("gironi con andata e ritorno", () => {
+  it("raddoppia il calendario con i campi invertiti e porta le regole del set", () => {
+    const f2 = { ...fmt, groupLegs: 2 as const, groupSet: { points: 11, golden: 15 } };
+    const plan = buildTournament(players, f2);
+    expect(plan.matches).toHaveLength(2 * 12);
+    const g1 = plan.matches.filter((m) => m.group === 1);
+    const pairs = g1.map((m) => `${m.a}-${m.b}`);
+    for (const m of g1.filter((x) => x.round <= 3)) expect(pairs).toContain(`${m.b}-${m.a}`);
+    expect(Math.max(...g1.map((m) => m.round))).toBe(6);
+    expect(plan.matches.every((m) => m.set.golden === 15)).toBe(true);
+  });
+});

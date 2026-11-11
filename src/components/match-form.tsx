@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
-import { setError } from "@/lib/domain/score";
+import { setError, type SetRules } from "@/lib/domain/score";
 
 const btn = "rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black";
 const Msg = ({ s }: { s: ResultState }) =>
@@ -10,9 +10,9 @@ const Msg = ({ s }: { s: ResultState }) =>
 export type ResultState = { error?: string; ok?: string; set?: number };
 
 /** Modulo di inserimento/correzione risultato, usato da organizzatore e admin. */
-export function MatchForm({ action: submit, hidden, matchId, bestOf, a, b, initial }: {
+export function MatchForm({ action: submit, hidden, matchId, bestOf, rules, a, b, initial }: {
   action: (prev: ResultState, formData: FormData) => Promise<ResultState>;
-  hidden: Record<string, string>; matchId: string; bestOf: number; a: string; b: string; initial: [number, number][] | null;
+  hidden: Record<string, string>; matchId: string; bestOf: number; rules: SetRules; a: string; b: string; initial: [number, number][] | null;
 }) {
   const [state, action, pending] = useActionState<ResultState, FormData>(submit, {});
   const [open, setOpen] = useState(false);
@@ -32,7 +32,7 @@ export function MatchForm({ action: submit, hidden, matchId, bestOf, a, b, initi
   /** Errore del set, mostrato solo dopo essere usciti dal campo e con entrambi i punteggi compilati. */
   const liveError = (i: number) => {
     const [x, y] = values[i];
-    return checked.has(i) && x !== "" && y !== "" ? setError([Number(x), Number(y)]) : null;
+    return checked.has(i) && x !== "" && y !== "" ? setError([Number(x), Number(y)], rules) : null;
   };
   // Dopo un errore del server la riga resta evidenziata finché non si salva di nuovo.
   const serverRow = state.error ? state.set : undefined;
@@ -45,7 +45,8 @@ export function MatchForm({ action: submit, hidden, matchId, bestOf, a, b, initi
       {Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       <input type="hidden" name="match_id" value={matchId} />
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        {bestOf === 1 ? "Set unico." : `Al meglio dei ${bestOf}: vince chi arriva a ${toWin} set.`} Lascia vuoti i set non giocati.</p>
+        {bestOf === 1 ? "Set unico" : `Al meglio dei ${bestOf}: vince chi arriva a ${toWin} set`}, set a {rules.points}
+        {rules.golden !== null ? `, golden point sul ${rules.golden} pari` : ""}. Lascia vuoti i set non giocati.</p>
       <table className="text-sm"><thead><tr><th></th><th className="px-1 text-left">{a}</th><th className="px-1 text-left">{b}</th></tr></thead>
         <tbody>
           {Array.from({ length: bestOf }, (_, i) => {
