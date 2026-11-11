@@ -25,6 +25,11 @@ export function MatchForm({ publicCode, matchId, bestOf, a, b, initial }:
   { publicCode: string; matchId: string; bestOf: number; a: string; b: string; initial: [number, number][] | null }) {
   const [state, action, pending] = useActionState<OrgState, FormData>(submitResult, {});
   const [open, setOpen] = useState(false);
+  // Valori controllati: restano nel modulo anche dopo un errore (React svuota solo i campi non controllati).
+  const [values, setValues] = useState<[string, string][]>(() =>
+    Array.from({ length: bestOf }, (_, i) => [String(initial?.[i]?.[0] ?? ""), String(initial?.[i]?.[1] ?? "")]));
+  const setValue = (i: number, side: 0 | 1, v: string) =>
+    setValues(values.map((row, j) => (j === i ? (side === 0 ? [v.replace(/\D/g, ""), row[1]] : [row[0], v.replace(/\D/g, "")]) : row)));
   const toWin = Math.ceil(bestOf / 2);
   const num = "w-14 rounded border bg-transparent px-2 py-1 text-center tabular-nums";
   if (!open) return (
@@ -42,8 +47,8 @@ export function MatchForm({ publicCode, matchId, bestOf, a, b, initial }:
           {Array.from({ length: bestOf }, (_, i) => (
             <tr key={i}>
               <td className="pr-2">Set {i + 1}</td>
-              <td className="px-1"><input name={`a${i + 1}`} inputMode="numeric" pattern="[0-9]*" defaultValue={initial?.[i]?.[0] ?? ""} className={num} aria-label={`Set ${i + 1} ${a}`} /></td>
-              <td className="px-1"><input name={`b${i + 1}`} inputMode="numeric" pattern="[0-9]*" defaultValue={initial?.[i]?.[1] ?? ""} className={num} aria-label={`Set ${i + 1} ${b}`} /></td>
+              <td className="px-1"><input name={`a${i + 1}`} inputMode="numeric" pattern="[0-9]*" value={values[i][0]} onChange={(e) => setValue(i, 0, e.target.value)} className={num} aria-label={`Set ${i + 1} ${a}`} /></td>
+              <td className="px-1"><input name={`b${i + 1}`} inputMode="numeric" pattern="[0-9]*" value={values[i][1]} onChange={(e) => setValue(i, 1, e.target.value)} className={num} aria-label={`Set ${i + 1} ${b}`} /></td>
             </tr>
           ))}
         </tbody></table>
