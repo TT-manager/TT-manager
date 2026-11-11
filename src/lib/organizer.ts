@@ -4,7 +4,7 @@ import { cookies, headers } from "next/headers";
 import { verifyCode } from "./codes";
 import { createServiceClient } from "./supabase/admin";
 
-export const hasServiceKey = () => Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+export const hasServiceKey = () => Boolean(process.env.SUPABASE_SECRET_KEY);
 
 const SESSION_HOURS = 24;
 const WINDOW_MIN = 15;

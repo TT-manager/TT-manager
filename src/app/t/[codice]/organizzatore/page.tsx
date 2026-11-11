@@ -27,7 +27,7 @@ async function Content({ params }: { params: PageProps<"/t/[codice]/organizzator
   const { tournament: t, names, matches } = data;
   const back = <Link href={`/t/${code}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {t.name}</Link>;
 
-  if (!hasServiceKey()) return <>{back}<p className="mt-6">Inserimento risultati non ancora attivo: manca la configurazione del server (chiave service_role).</p></>;
+  if (!hasServiceKey()) return <>{back}<p className="mt-6">Inserimento risultati non ancora attivo: manca la configurazione del server (chiave segreta).</p></>;
   const tid = await organizerTournamentId(code);
   if (!tid) return (<>{back}<h1 className="mt-4 text-2xl font-bold">Inserimento risultati</h1><OrganizerLogin publicCode={code} /></>);
   if (t.status === "draft") return <>{back}<p className="mt-6">I gironi non sono ancora stati generati.</p></>;
