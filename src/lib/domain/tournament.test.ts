@@ -63,3 +63,49 @@ describe("torneo completo", () => {
     expect(r[2]).toMatchObject({ player_a: null, player_b: null }); // finale ancora da definire
   });
 });
+
+import { applyResult } from "./tournament";
+
+describe("inserimento e correzione dei risultati", () => {
+  const plan = buildTournament(players, fmt);
+  const members = plan.assignments.map((a) => ({ playerId: a.playerId, group: a.group }));
+  const num = (id: string | null) => Number(id!.slice(1));
+  // Tutti i gironi giocati tranne l'ultima partita del girone 2.
+  const base = rows(plan).map((m, i, all) => {
+    const lastOfG2 = all.filter((x) => x.phase === "group" && x.group_no === 2).at(-1)!.id;
+    if (m.phase !== "group" || m.id === lastOfG2) return m;
+    const aWins = num(m.player_a) < num(m.player_b);
+    return { ...m, sets_a: aWins ? 2 : 0, sets_b: aWins ? 0 : 2 };
+  });
+  const lastG2 = base.filter((m) => m.phase === "group" && m.group_no === 2).at(-1)!;
+
+  it("l'ultimo risultato dei gironi riempie le semifinali", () => {
+    const aWins = num(lastG2.player_a) < num(lastG2.player_b);
+    const r = applyResult(base, members, lastG2.id, { sets_a: aWins ? 2 : 0, sets_b: aWins ? 0 : 2, set_scores: null });
+    if ("error" in r) throw new Error(r.error);
+    expect(r.allGroupsComplete).toBe(true);
+    expect(r.knockoutUpdates).toHaveLength(2);
+    expect(r.knockoutUpdates.every((u) => u.player_a && u.player_b)).toBe(true);
+  });
+
+  it("rifiuta una correzione che cambierebbe una semifinale già giocata", () => {
+    const aWins = num(lastG2.player_a) < num(lastG2.player_b);
+    const first = applyResult(base, members, lastG2.id, { sets_a: aWins ? 2 : 0, sets_b: aWins ? 0 : 2, set_scores: null });
+    if ("error" in first) throw new Error(first.error);
+    let db = base.map((m) => (m.id === lastG2.id ? { ...m, sets_a: aWins ? 2 : 0, sets_b: aWins ? 0 : 2 } : m));
+    db = db.map((m) => { const u = first.knockoutUpdates.find((x) => x.id === m.id); return u ? { ...m, ...u } : m; });
+    db = db.map((m) => (m.phase === "knockout" && m.stage === 1 ? { ...m, sets_a: 3, sets_b: 0 } : m));
+    // Invertendo una partita decisiva del girone 1 cambierebbe chi è in semifinale.
+    const g1 = db.find((m) => m.phase === "group" && m.group_no === 1 && [m.player_a, m.player_b].sort().join() === "p1,p4")!;
+    const flipped = { sets_a: g1.sets_b, sets_b: g1.sets_a, set_scores: null };
+    const r = applyResult(db, members, g1.id, flipped);
+    expect(r).toMatchObject({ error: expect.stringMatching(/già giocata/) });
+  });
+
+  it("non si inserisce un risultato se i giocatori non sono definiti o è già conteggiato", () => {
+    const final = base.find((m) => m.phase === "knockout" && m.stage === 0)!;
+    expect(applyResult(base, members, final.id, { sets_a: 3, sets_b: 0, set_scores: null })).toHaveProperty("error");
+    const rated = base.map((m) => (m.id === lastG2.id ? { ...m, rated: true } : m));
+    expect(applyResult(rated, members, lastG2.id, { sets_a: 2, sets_b: 0, set_scores: null })).toMatchObject({ error: expect.stringMatching(/amministratore/) });
+  });
+});

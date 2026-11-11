@@ -5,6 +5,7 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { formatOrganizerCode, hashCode, newOrganizerCode, newPublicCode } from "@/lib/codes";
 import { parseFormat } from "@/lib/domain/format";
 import { buildTournament } from "@/lib/domain/tournament";
+import { revokeOrganizerSessions } from "@/lib/organizer";
 
 export type CreateState = {
   errors?: string[];
@@ -92,6 +93,7 @@ export async function regenerateOrganizerCode(_prev: RegenState, formData: FormD
   const { data, error } = await supabase.from("tournaments")
     .update({ organizer_code_hash: await hashCode(code) }).eq("id", tournamentId).select("id");
   if (error || !data?.length) return { error: "Non sono riuscito a generare il nuovo codice." };
+  await revokeOrganizerSessions(tournamentId); // chi era entrato col vecchio codice deve rientrare
   return { organizerCode: formatOrganizerCode(code) };
 }
 

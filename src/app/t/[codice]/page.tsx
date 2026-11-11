@@ -50,7 +50,12 @@ async function Tournament({ params }: { params: PageProps<"/t/[codice]">["params
               .filter(Boolean).join(" · ")}
           </p>
         </div>
-        {t.status !== "closed" && <AutoRefresh />}
+        {t.status !== "closed" && (
+          <div className="text-right">
+            <AutoRefresh />
+            <Link href={`/t/${t.public_code}/organizzatore`} className="text-sm underline">Inserisci risultati (organizzatore)</Link>
+          </div>
+        )}
       </header>
 
       {"format" in parsed && (

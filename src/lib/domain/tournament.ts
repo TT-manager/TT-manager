@@ -115,3 +115,55 @@ export function resolveKnockout(groups: GroupView[], knockout: MatchRow[]) {
     player_b: m.source_b ? resolveSource(m.source_b, groups, knockout) : m.player_b,
   }));
 }
+
+export interface ResultChange {
+  sets_a: number | null; sets_b: number | null; set_scores: [number, number][] | null;
+}
+
+export type ApplyOutcome =
+  | { error: string }
+  | { knockoutUpdates: { id: string; player_a: string | null; player_b: string | null }[]; allGroupsComplete: boolean };
+
+/**
+ * Calcola l'effetto di un risultato (o della sua cancellazione) su tutto il torneo.
+ * Rifiuta le modifiche che cambierebbero i giocatori di partite del tabellone già giocate.
+ */
+export function applyResult(
+  matches: (MatchRow & { rated?: boolean })[],
+  members: { playerId: string; group: number }[],
+  matchId: string,
+  change: ResultChange,
+): ApplyOutcome {
+  const target = matches.find((m) => m.id === matchId);
+  if (!target) return { error: "Partita non trovata." };
+  if (target.rated) return { error: "Questa partita è già stata conteggiata nella classifica generale: può correggerla solo un amministratore." };
+  if (!target.player_a || !target.player_b) return { error: "I giocatori di questa partita non sono ancora definiti." };
+
+  let next = matches.map((m) => (m.id === matchId ? { ...m, ...change } : m));
+  const groups = groupViews(members, next);
+  // Propaga turno per turno finché il tabellone non cambia più.
+  for (let i = 0; i < 10; i++) {
+    const ko = next.filter((m) => m.phase === "knockout");
+    const resolved = new Map(resolveKnockout(groups, ko).map((r) => [r.id, r]));
+    let changed = false;
+    next = next.map((m) => {
+      const r = resolved.get(m.id);
+      if (!r || (r.player_a === m.player_a && r.player_b === m.player_b)) return m;
+      changed = true;
+      return { ...m, player_a: r.player_a, player_b: r.player_b };
+    });
+    if (!changed) break;
+  }
+
+  const updates: { id: string; player_a: string | null; player_b: string | null }[] = [];
+  for (const before of matches) {
+    if (before.phase !== "knockout" || before.id === matchId) continue;
+    const after = next.find((m) => m.id === before.id)!;
+    if (after.player_a === before.player_a && after.player_b === before.player_b) continue;
+    if (isPlayed(before))
+      return { error: "Questa modifica cambierebbe i giocatori di una partita del tabellone già giocata: cancella prima quel risultato." };
+    updates.push({ id: before.id, player_a: after.player_a, player_b: after.player_b });
+  }
+  const allGroupsComplete = groups.length > 0 && groups.every((g) => g.complete);
+  return { knockoutUpdates: updates, allGroupsComplete };
+}
