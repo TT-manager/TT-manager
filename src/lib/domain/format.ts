@@ -155,3 +155,51 @@ function pairSlots(slots: SlotSource[]): [SlotSource, SlotSource][] {
   }
   return top.map((t, i) => [t, bottom[i]]);
 }
+
+/**
+ * Legge un formato da dati non fidati (modulo, JSON dal database).
+ * Restituisce il formato pulito oppure gli errori.
+ */
+export function parseFormat(raw: unknown): { format: TournamentFormat } | { errors: string[] } {
+  const bad = { errors: ["Formato del torneo non valido."] };
+  if (typeof raw !== "object" || raw === null) return bad;
+  const o = raw as Record<string, unknown>;
+  const int = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? v : NaN);
+  if (!Array.isArray(o.qualification)) return bad;
+  const kb = (typeof o.knockoutBestOf === "object" && o.knockoutBestOf) || {};
+  const format: TournamentFormat = {
+    groupCount: int(o.groupCount),
+    groupBestOf: int(o.groupBestOf) as BestOf,
+    defaultKnockoutBestOf: int(o.defaultKnockoutBestOf) as BestOf,
+    knockoutBestOf: Object.fromEntries(
+      Object.entries(kb as Record<string, unknown>).map(([k, v]) => [Number(k), int(v) as BestOf])),
+    qualification: (o.qualification as unknown[]).map((r) => {
+      const rr = (r ?? {}) as Record<string, unknown>;
+      return {
+        stage: int(rr.stage),
+        positions: Array.isArray(rr.positions) ? rr.positions.map(int) : [],
+      };
+    }),
+  };
+  if (format.groupCount > 64) return { errors: ["Troppi gironi (massimo 64)."] };
+  if (Object.keys(format.knockoutBestOf).some((k) => !Number.isInteger(Number(k)) || Number(k) < 0 || Number(k) > 6))
+    return bad;
+  const errors = validateFormat(format);
+  return errors.length ? { errors } : { format };
+}
+
+const ordinal = (n: number) => `${n}°`;
+const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} e ${xs.at(-1)}`);
+const sets = (b: number) => (b === 1 ? "a set unico" : `al meglio dei ${b} set`);
+
+/** Descrizione in italiano del formato, una riga per punto. */
+export function describeFormat(f: TournamentFormat): string[] {
+  const lines = [`${f.groupCount} ${f.groupCount === 1 ? "girone" : "gironi"} all'italiana, partite ${sets(f.groupBestOf)}.`];
+  for (const r of [...f.qualification].sort((a, b) => b.stage - a.stage)) {
+    const pos = list([...r.positions].sort((a, b) => a - b).map(ordinal));
+    lines.push(`${pos} di ogni girone → ${stageName(r.stage).toLowerCase()}.`);
+  }
+  for (const round of planBracket(f).rounds)
+    lines.push(`${stageName(round.stage)}: ${round.matches.length} ${round.matches.length === 1 ? "partita" : "partite"} ${sets(round.matches[0].bestOf)}.`);
+  return lines;
+}

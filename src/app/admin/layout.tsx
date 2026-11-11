@@ -20,6 +20,7 @@ async function Header() {
     <header className="mb-8 flex flex-wrap items-center gap-x-5 gap-y-2 border-b pb-3">
       <Link href="/admin" className="font-bold">Amministrazione</Link>
       <Link href="/admin/giocatori" className="hover:underline">Giocatori</Link>
+      <Link href="/admin/tornei" className="hover:underline">Tornei</Link>
       <span className="ml-auto text-sm text-neutral-600 dark:text-neutral-400">
         {admin.email} ({admin.role === "owner" ? "proprietario" : "admin"})
       </span>

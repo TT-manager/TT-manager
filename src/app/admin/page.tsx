@@ -8,8 +8,9 @@ export default function AdminHome() {
       <h1 className="text-2xl font-bold">Cosa vuoi fare?</h1>
       <ul className="mt-4 space-y-2">
         <li><Link href="/admin/giocatori" className="underline">Gestisci i giocatori</Link></li>
+        <li><Link href="/admin/tornei" className="underline">Tornei: crea, iscrivi i giocatori</Link></li>
       </ul>
-      <p className="mt-6 text-neutral-600 dark:text-neutral-400">Tornei e amministratori: in arrivo.</p>
+      <p className="mt-6 text-neutral-600 dark:text-neutral-400">Gestione amministratori: in arrivo.</p>
     </main>
   );
 }

@@ -59,3 +59,26 @@ describe("formato torneo", () => {
     expect(validateFormat(base, [6, 6, 6, 2]).join(" ")).toMatch(/meno di 3/);
   });
 });
+
+import { describeFormat, parseFormat } from "./format";
+
+describe("lettura e descrizione del formato", () => {
+  it("accetta un formato valido arrivato come JSON", () => {
+    const r = parseFormat(JSON.parse(JSON.stringify(base)));
+    expect("format" in r && r.format.knockoutBestOf[0]).toBe(5);
+  });
+  it("rifiuta dati malformati senza eccezioni", () => {
+    for (const raw of [null, 42, "x", {}, { ...base, qualification: "no" }, { ...base, groupCount: 1e9 },
+      { ...base, knockoutBestOf: { "-1": 3 } }, { ...base, qualification: [{ stage: 2, positions: ["a"] }] }]) {
+      expect("errors" in parseFormat(raw)).toBe(true);
+    }
+  });
+  it("descrive il caso a 24 giocatori in italiano", () => {
+    const d = describeFormat(base);
+    expect(d[0]).toBe("4 gironi all'italiana, partite a set unico.");
+    expect(d).toContain("2° e 3° di ogni girone → ottavi di finale.");
+    expect(d).toContain("1° di ogni girone → quarti di finale.");
+    expect(d).toContain("Ottavi di finale: 4 partite al meglio dei 3 set.");
+    expect(d).toContain("Finale: 1 partita al meglio dei 5 set.");
+  });
+});
