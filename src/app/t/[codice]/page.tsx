@@ -46,7 +46,8 @@ async function Tournament({ params }: { params: PageProps<"/t/[codice]">["params
         <div>
           <h1 className="text-3xl font-bold">{t.name}</h1>
           <p className={muted}>
-            {t.starts_on ? new Date(t.starts_on).toLocaleDateString("it-IT") : ""} {STATUS_LABEL[t.status]} · codice {t.public_code}
+            {[t.starts_on && new Date(t.starts_on).toLocaleDateString("it-IT"), STATUS_LABEL[t.status], `codice ${t.public_code}`]
+              .filter(Boolean).join(" · ")}
           </p>
         </div>
         {t.status !== "closed" && <AutoRefresh />}
