@@ -19,15 +19,20 @@ export function MatchForm({ action: submit, hidden, matchId, bestOf, a, b, initi
   // Valori controllati: restano nel modulo anche dopo un errore (React svuota solo i campi non controllati).
   const [values, setValues] = useState<[string, string][]>(() =>
     Array.from({ length: bestOf }, (_, i) => [String(initial?.[i]?.[0] ?? ""), String(initial?.[i]?.[1] ?? "")]));
-  const setValue = (i: number, side: 0 | 1, v: string) =>
+  // Righe da controllare: si attivano uscendo dal campo (TAB/clic altrove), si azzerano modificandole.
+  const [checked, setChecked] = useState<Set<number>>(() => new Set());
+  const check = (i: number) => setChecked((c) => new Set(c).add(i));
+  const setValue = (i: number, side: 0 | 1, v: string) => {
+    setChecked((c) => { const n = new Set(c); n.delete(i); return n; });
     setValues(values.map((row, j) => (j === i ? (side === 0 ? [v.replace(/\D/g, ""), row[1]] : [row[0], v.replace(/\D/g, "")]) : row)));
+  };
   const toWin = Math.ceil(bestOf / 2);
   const num = "w-14 rounded border bg-transparent px-2 py-1 text-center tabular-nums";
   const bad = "border-2 border-red-600 dark:border-red-400";
-  /** Errore del set mentre si scrive (solo se entrambi i punteggi sono compilati). */
+  /** Errore del set, mostrato solo dopo essere usciti dal campo e con entrambi i punteggi compilati. */
   const liveError = (i: number) => {
     const [x, y] = values[i];
-    return x !== "" && y !== "" ? setError([Number(x), Number(y)]) : null;
+    return checked.has(i) && x !== "" && y !== "" ? setError([Number(x), Number(y)]) : null;
   };
   // Dopo un errore del server la riga resta evidenziata finché non si salva di nuovo.
   const serverRow = state.error ? state.set : undefined;
@@ -49,8 +54,8 @@ export function MatchForm({ action: submit, hidden, matchId, bestOf, a, b, initi
             return (
             <tr key={i} className={wrong ? "text-red-700 dark:text-red-400" : ""}>
               <td className="pr-2">Set {i + 1}</td>
-              <td className="px-1"><input name={`a${i + 1}`} inputMode="numeric" pattern="[0-9]*" value={values[i][0]} onChange={(e) => setValue(i, 0, e.target.value)} className={`${num} ${wrong ? bad : ""}`} aria-invalid={wrong} aria-label={`Set ${i + 1} ${a}`} /></td>
-              <td className="px-1"><input name={`b${i + 1}`} inputMode="numeric" pattern="[0-9]*" value={values[i][1]} onChange={(e) => setValue(i, 1, e.target.value)} className={`${num} ${wrong ? bad : ""}`} aria-invalid={wrong} aria-label={`Set ${i + 1} ${b}`} /></td>
+              <td className="px-1"><input name={`a${i + 1}`} inputMode="numeric" pattern="[0-9]*" value={values[i][0]} onChange={(e) => setValue(i, 0, e.target.value)} onBlur={() => check(i)} autoComplete="off" className={`${num} ${wrong ? bad : ""}`} aria-invalid={wrong} aria-label={`Set ${i + 1} ${a}`} /></td>
+              <td className="px-1"><input name={`b${i + 1}`} inputMode="numeric" pattern="[0-9]*" value={values[i][1]} onChange={(e) => setValue(i, 1, e.target.value)} onBlur={() => check(i)} autoComplete="off" className={`${num} ${wrong ? bad : ""}`} aria-invalid={wrong} aria-label={`Set ${i + 1} ${b}`} /></td>
               <td className="pl-2 text-xs">{live}</td>
             </tr>
             );
