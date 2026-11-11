@@ -5,7 +5,10 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { formatOrganizerCode, hashCode, newOrganizerCode, newPublicCode } from "@/lib/codes";
 import { parseFormat } from "@/lib/domain/format";
 import { buildTournament } from "@/lib/domain/tournament";
-import { revokeOrganizerSessions } from "@/lib/organizer";
+import { hasServiceKey, revokeOrganizerSessions } from "@/lib/organizer";
+import { saveResult, setsFromForm } from "@/lib/results";
+import { closeTournament, reopenTournament } from "@/lib/closing";
+import type { ResultState } from "@/components/match-form";
 
 export type CreateState = {
   errors?: string[];
@@ -162,4 +165,37 @@ export async function resetGroups(_prev: GenState, formData: FormData): Promise<
   await supabase.from("tournaments").update({ status: "draft" }).eq("id", tournamentId);
   revalidatePath(`/admin/tornei/${tournamentId}`);
   return {};
+}
+
+/** Correzione di un risultato da parte di un admin (prima della chiusura del torneo). */
+export async function adminSubmitResult(_prev: ResultState, formData: FormData): Promise<ResultState> {
+  await requireAdmin();
+  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  const clear = formData.get("intent") === "clear";
+  const sets = clear ? null : setsFromForm(formData);
+  if (sets && "error" in sets) return { error: sets.error, set: sets.set };
+  const r = await saveResult(tournamentId, String(formData.get("match_id") ?? ""), sets);
+  if (r.ok) revalidatePath(`/admin/tornei/${tournamentId}/risultati`);
+  return r;
+}
+
+export type CloseState = { error?: string; ok?: string };
+
+export async function closeTournamentAction(_prev: CloseState, formData: FormData): Promise<CloseState> {
+  await requireAdmin();
+  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  const r = await closeTournament(tournamentId);
+  if (r.ok) { await revokeOrganizerSessions(tournamentId); revalidatePath(`/admin/tornei/${tournamentId}`); revalidatePath("/"); }
+  return r;
+}
+
+export async function reopenTournamentAction(_prev: CloseState, formData: FormData): Promise<CloseState> {
+  await requireAdmin();
+  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  const r = await reopenTournament(tournamentId);
+  if (r.ok) { revalidatePath(`/admin/tornei/${tournamentId}`); revalidatePath("/"); }
+  return r;
 }

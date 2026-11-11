@@ -4,7 +4,9 @@ import { requireAdmin } from "@/lib/auth";
 import { STATUS_LABEL } from "@/lib/labels";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { describeFormat, parseFormat } from "@/lib/domain/format";
-import { EnrollmentForm, GroupsControl, RegenerateCode } from "./tournament-forms";
+import { closingSummary } from "@/lib/closing";
+import { hasServiceKey } from "@/lib/organizer";
+import { ClosingControl, EnrollmentForm, GroupsControl, RegenerateCode } from "./tournament-forms";
 
 export const metadata = { title: "Torneo" };
 
@@ -22,6 +24,7 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
   ]);
   const enrolledIds = (enrolled ?? []).map((e) => e.player_id as string);
   const parsed = parseFormat(t.format);
+  const summary = t.status !== "draft" && hasServiceKey() ? await closingSummary(t.id) : null;
 
   return (
     <main className="space-y-8">
@@ -51,6 +54,18 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
         <h2 className="text-lg font-semibold">Gironi</h2>
         {t.status !== "draft" && <p className="mt-2">Gironi generati. <Link href={`/t/${t.public_code}`} className="underline">Apri la pagina pubblica</Link></p>}
         <GroupsControl tournamentId={t.id} status={t.status} />
+      </section>
+
+      {t.status !== "draft" && (
+        <section>
+          <h2 className="text-lg font-semibold">Risultati</h2>
+          <p className="mt-2"><Link href={`/admin/tornei/${t.id}/risultati`} className="underline">Vedi e correggi tutti i risultati</Link></p>
+        </section>
+      )}
+
+      <section>
+        <h2 className="text-lg font-semibold">Chiusura</h2>
+        <ClosingControl tournamentId={t.id} status={t.status} summary={summary} />
       </section>
 
       <section>

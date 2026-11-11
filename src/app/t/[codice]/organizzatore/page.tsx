@@ -6,8 +6,9 @@ import { getPublicTournament } from "@/lib/data";
 import { stageName } from "@/lib/domain/format";
 import { groupLabel, isPlayed } from "@/lib/domain/tournament";
 import { hasServiceKey, organizerTournamentId } from "@/lib/organizer";
-import { logout } from "./actions";
-import { MatchForm, OrganizerLogin } from "./forms";
+import { MatchForm } from "@/components/match-form";
+import { logout, submitResult } from "./actions";
+import { OrganizerLogin } from "./forms";
 
 export const metadata = { title: "Inserimento risultati", robots: { index: false } };
 
@@ -50,7 +51,7 @@ async function Content({ params }: { params: PageProps<"/t/[codice]/organizzator
           <strong>{name(m.player_a)}</strong> – <strong>{name(m.player_b)}</strong></span>
         {isPlayed(m) && <span className="tabular-nums">{m.sets_a}-{m.sets_b}{m.set_scores ? ` (${m.set_scores.map(([a, b]) => `${a}-${b}`).join(", ")})` : ""}</span>}
       </div>
-      <MatchForm publicCode={code} matchId={m.id} bestOf={m.best_of} a={name(m.player_a)} b={name(m.player_b)} initial={m.set_scores} />
+      <MatchForm action={submitResult} hidden={{ public_code: code }} matchId={m.id} bestOf={m.best_of} a={name(m.player_a)} b={name(m.player_b)} initial={m.set_scores} />
     </li>
   );
 

@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
-import { generateGroups, regenerateOrganizerCode, resetGroups, setEnrollment, type EnrollState, type GenState, type RegenState } from "../actions";
+import { closeTournamentAction, generateGroups, regenerateOrganizerCode, reopenTournamentAction, resetGroups, setEnrollment, type CloseState, type EnrollState, type GenState, type RegenState } from "../actions";
 
 type P = { id: string; full_name: string; club: string | null; rating: number };
 
@@ -82,6 +82,39 @@ export function GroupsControl({ tournamentId, status }: { tournamentId: string; 
       <input type="hidden" name="tournament_id" value={tournamentId} />
       <button disabled={resPending} className="rounded border px-4 py-2">Annulla gironi (solo se non ci sono risultati)</button>
       {res.error && <p role="alert" className="text-red-700 dark:text-red-400">{res.error}</p>}
+    </form>
+  );
+}
+
+export function ClosingControl({ tournamentId, status, summary }:
+  { tournamentId: string; status: string; summary: { toRate: number; unplayed: number; finished: boolean } | null }) {
+  const [closeState, closeAction, closing] = useActionState<CloseState, FormData>(closeTournamentAction, {});
+  const [reopenState, reopenAction, reopening] = useActionState<CloseState, FormData>(reopenTournamentAction, {});
+  const msg = (s: CloseState) => s.error ? <p role="alert" className="text-red-700 dark:text-red-400">{s.error}</p>
+    : s.ok ? <p className="text-green-700 dark:text-green-400">{s.ok}</p> : null;
+  if (status === "closed") return (
+    <form action={reopenAction} className="mt-2 space-y-2"
+      onSubmit={(e) => { if (!confirm("Riaprire il torneo? Le variazioni di rating di questo torneo saranno annullate finché non lo richiudi.")) e.preventDefault(); }}>
+      <input type="hidden" name="tournament_id" value={tournamentId} />
+      <p>Torneo chiuso: i risultati sono conteggiati nella classifica generale.</p>
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">Per correggere un risultato riapri il torneo, correggi e poi richiudilo.</p>
+      <button disabled={reopening} className="rounded border px-4 py-2">Riapri torneo</button>
+      {msg(reopenState)}{msg(closeState)}
+    </form>
+  );
+  if (status === "draft" || !summary) return <p className="mt-2 text-neutral-600 dark:text-neutral-400">Si potrà chiudere dopo aver generato i gironi e inserito i risultati.</p>;
+  return (
+    <form action={closeAction} className="mt-2 space-y-2"
+      onSubmit={(e) => {
+        const warn = summary.unplayed ? `\n\nAttenzione: ${summary.unplayed} partite non sono state giocate e verranno ignorate.` : "";
+        if (!confirm(`Chiudere il torneo e aggiornare la classifica generale con ${summary.toRate} partite?${warn}`)) e.preventDefault();
+      }}>
+      <input type="hidden" name="tournament_id" value={tournamentId} />
+      <p>{summary.toRate} partite giocate da conteggiare · {summary.unplayed} ancora da giocare.
+        {!summary.finished && <span className="text-amber-700 dark:text-amber-400"> La finale non è ancora stata giocata.</span>}</p>
+      <button disabled={closing || summary.toRate === 0} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
+        {closing ? "Chiusura…" : "Chiudi torneo e aggiorna la classifica"}</button>
+      {msg(closeState)}{msg(reopenState)}
     </form>
   );
 }

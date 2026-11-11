@@ -38,3 +38,29 @@ export function applyMatch(winner: EloPlayer, loser: EloPlayer): EloResult {
     delta: { winner: dW, loser: dL },
   };
 }
+
+export interface RateableMatch { id: string; winner: string; loser: string }
+export interface RatingChange { playerId: string; matchId: string; before: number; after: number }
+
+/**
+ * Applica l'Elo a una sequenza di partite (già in ordine cronologico).
+ * Restituisce lo storico partita per partita e lo stato finale di ogni giocatore coinvolto.
+ */
+export function rateMatches(matches: RateableMatch[], start: Map<string, EloPlayer>) {
+  const current = new Map([...start].map(([id, p]) => [id, { ...p }]));
+  const history: RatingChange[] = [];
+  for (const m of matches) {
+    const w = current.get(m.winner), l = current.get(m.loser);
+    if (!w || !l) throw new Error(`Giocatore mancante nella partita ${m.id}`);
+    const r = applyMatch(w, l);
+    history.push({ playerId: m.winner, matchId: m.id, before: w.rating, after: r.winner });
+    history.push({ playerId: m.loser, matchId: m.id, before: l.rating, after: r.loser });
+    w.rating = r.winner; w.gamesPlayed++;
+    l.rating = r.loser; l.gamesPlayed++;
+  }
+  const players = [...current].filter(([id]) => history.some((h) => h.playerId === id)).map(([id, p]) => ({
+    id, ratingBefore: start.get(id)!.rating, gamesBefore: start.get(id)!.gamesPlayed,
+    ratingAfter: p.rating, gamesAfter: p.gamesPlayed,
+  }));
+  return { history, players };
+}
