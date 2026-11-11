@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
-import { regenerateOrganizerCode, setEnrollment, type EnrollState, type RegenState } from "../actions";
+import { generateGroups, regenerateOrganizerCode, resetGroups, setEnrollment, type EnrollState, type GenState, type RegenState } from "../actions";
 
 type P = { id: string; full_name: string; club: string | null; rating: number };
 
@@ -58,6 +58,30 @@ export function RegenerateCode({ tournamentId }: { tournamentId: string }) {
       <p className="text-sm text-neutral-600 dark:text-neutral-400">Il codice non è salvato in chiaro, quindi non si può rivedere. Se è andato perso, generane uno nuovo.</p>
       <button disabled={pending} className="rounded border px-4 py-2">Genera un nuovo codice</button>
       {state.error && <p role="alert" className="text-red-700 dark:text-red-400">{state.error}</p>}
+    </form>
+  );
+}
+
+export function GroupsControl({ tournamentId, status }: { tournamentId: string; status: string }) {
+  const [gen, genAction, genPending] = useActionState<GenState, FormData>(generateGroups, {});
+  const [res, resAction, resPending] = useActionState<GenState, FormData>(resetGroups, {});
+  if (status === "draft") return (
+    <form action={genAction} className="mt-2 space-y-2"
+      onSubmit={(e) => { if (!confirm("Generare i gironi? Le iscrizioni verranno chiuse.")) e.preventDefault(); }}>
+      <input type="hidden" name="tournament_id" value={tournamentId} />
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">I giocatori sono distribuiti a serpentina in base al rating. Prima salva le iscrizioni.</p>
+      <button disabled={genPending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
+        {genPending ? "Generazione…" : "Genera gironi e calendario"}</button>
+      {gen.error && <p role="alert" className="text-red-700 dark:text-red-400">{gen.error}</p>}
+    </form>
+  );
+  if (status === "closed") return null;
+  return (
+    <form action={resAction} className="mt-2 space-y-2"
+      onSubmit={(e) => { if (!confirm("Annullare i gironi e tornare alle iscrizioni?")) e.preventDefault(); }}>
+      <input type="hidden" name="tournament_id" value={tournamentId} />
+      <button disabled={resPending} className="rounded border px-4 py-2">Annulla gironi (solo se non ci sono risultati)</button>
+      {res.error && <p role="alert" className="text-red-700 dark:text-red-400">{res.error}</p>}
     </form>
   );
 }

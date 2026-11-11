@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { formatOrganizerCode, hashCode, newOrganizerCode, newPublicCode } from "@/lib/codes";
 import { parseFormat } from "@/lib/domain/format";
+import { buildTournament } from "@/lib/domain/tournament";
 
 export type CreateState = {
   errors?: string[];
@@ -92,4 +93,71 @@ export async function regenerateOrganizerCode(_prev: RegenState, formData: FormD
     .update({ organizer_code_hash: await hashCode(code) }).eq("id", tournamentId).select("id");
   if (error || !data?.length) return { error: "Non sono riuscito a generare il nuovo codice." };
   return { organizerCode: formatOrganizerCode(code) };
+}
+
+export type GenState = { error?: string };
+
+/** Compone i gironi, crea il calendario e lo scheletro del tabellone. Il torneo passa a "gironi in corso". */
+export async function generateGroups(_prev: GenState, formData: FormData): Promise<GenState> {
+  await requireAdmin();
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  const supabase = await createServerSupabase();
+  const { data: t } = await supabase.from("tournaments").select("status, format").eq("id", tournamentId).maybeSingle();
+  if (!t) return { error: "Torneo non trovato." };
+  if (t.status !== "draft") return { error: "I gironi sono già stati generati." };
+  const parsed = parseFormat(t.format);
+  if ("errors" in parsed) return { error: parsed.errors.join(" ") };
+
+  const { data: tp } = await supabase.from("tournament_players")
+    .select("player_id, players(rating)").eq("tournament_id", tournamentId);
+  const players = (tp ?? []).map((r) => ({
+    id: r.player_id as string,
+    rating: (r.players as unknown as { rating: number } | null)?.rating ?? 1000,
+  }));
+  let plan;
+  try { plan = buildTournament(players, parsed.format); } catch (e) { return { error: (e as Error).message }; }
+
+  // "Prenota" il passaggio di stato: se due richieste arrivano insieme, solo una passa.
+  const { data: claimed } = await supabase.from("tournaments").update({ status: "groups" })
+    .eq("id", tournamentId).eq("status", "draft").select("id");
+  if (!claimed?.length) return { error: "I gironi sono già stati generati." };
+
+  const rollback = async () => {
+    await supabase.from("matches").delete().eq("tournament_id", tournamentId);
+    await supabase.from("tournaments").update({ status: "draft" }).eq("id", tournamentId);
+  };
+  const { error: e1 } = await supabase.from("tournament_players").upsert(
+    plan.assignments.map((a) => ({ tournament_id: tournamentId, player_id: a.playerId, seed: a.seed, group_no: a.group })),
+    { onConflict: "tournament_id,player_id" });
+  const { error: e2 } = e1 ? { error: e1 } : await supabase.from("matches").insert([
+    ...plan.matches.map((m) => ({
+      tournament_id: tournamentId, phase: "group", group_no: m.group, round: m.round, position: m.position,
+      player_a: m.a, player_b: m.b, best_of: m.bestOf,
+    })),
+    ...plan.knockout.map((k) => ({
+      tournament_id: tournamentId, phase: "knockout", stage: k.stage, round: 1, position: k.position,
+      source_a: k.a, source_b: k.b, best_of: k.bestOf,
+    })),
+  ]);
+  if (e2) { await rollback(); return { error: "Non sono riuscito a creare le partite. Nulla è stato modificato." }; }
+  revalidatePath(`/admin/tornei/${tournamentId}`);
+  return {};
+}
+
+/** Torna in preparazione cancellando gironi e partite, solo se nessun risultato è stato inserito. */
+export async function resetGroups(_prev: GenState, formData: FormData): Promise<GenState> {
+  await requireAdmin();
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  const supabase = await createServerSupabase();
+  const { data: t } = await supabase.from("tournaments").select("status").eq("id", tournamentId).maybeSingle();
+  if (!t || t.status === "draft" || t.status === "closed") return { error: "Operazione non disponibile." };
+  const { count } = await supabase.from("matches").select("id", { count: "exact", head: true })
+    .eq("tournament_id", tournamentId).not("sets_a", "is", null);
+  if (count) return { error: `Ci sono già ${count} risultati inseriti: non posso annullare i gironi.` };
+  const { error } = await supabase.from("matches").delete().eq("tournament_id", tournamentId);
+  if (error) return { error: "Non sono riuscito ad annullare." };
+  await supabase.from("tournament_players").update({ group_no: null, seed: null }).eq("tournament_id", tournamentId);
+  await supabase.from("tournaments").update({ status: "draft" }).eq("id", tournamentId);
+  revalidatePath(`/admin/tornei/${tournamentId}`);
+  return {};
 }

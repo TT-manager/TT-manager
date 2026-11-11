@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { STATUS_LABEL } from "@/lib/labels";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { describeFormat, parseFormat } from "@/lib/domain/format";
-import { EnrollmentForm, RegenerateCode } from "./tournament-forms";
+import { EnrollmentForm, GroupsControl, RegenerateCode } from "./tournament-forms";
 
 export const metadata = { title: "Torneo" };
 
@@ -45,6 +45,12 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
       <section>
         <h2 className="text-lg font-semibold">Iscritti ({enrolledIds.length})</h2>
         <EnrollmentForm tournamentId={t.id} players={players ?? []} enrolledIds={enrolledIds} locked={t.status !== "draft"} />
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold">Gironi</h2>
+        {t.status !== "draft" && <p className="mt-2">Gironi generati. <Link href={`/t/${t.public_code}`} className="underline">Apri la pagina pubblica</Link></p>}
+        <GroupsControl tournamentId={t.id} status={t.status} />
       </section>
 
       <section>
