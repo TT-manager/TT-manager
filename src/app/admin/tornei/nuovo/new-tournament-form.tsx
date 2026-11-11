@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { describeFormat, STAGE_NAMES, validateFormat, VALID_BEST_OF, type BestOf, type TournamentFormat } from "@/lib/domain/format";
+import { CROSS_CRITERIA, DEFAULT_CROSS_CRITERIA, describeFormat, STAGE_NAMES, validateFormat, VALID_BEST_OF, type BestOf, type CrossCriterion, type TournamentFormat } from "@/lib/domain/format";
 import { DEFAULT_SET_RULES, type SetRules } from "@/lib/domain/score";
 import { createTournament, type CreateState } from "../actions";
 
@@ -9,15 +9,17 @@ const input = "rounded border bg-transparent px-3 py-2";
 // Spazio a destra per la freccetta delle tendine.
 const select = "select-arrow rounded border bg-transparent py-2 pl-3";
 const STAGES = [4, 3, 2, 1, 0];
-type Rule = { positions: string; stage: number };
+/** best = null: tutti i classificati indicati; best = N: i migliori N tra i classificati (ripescaggio). */
+type Rule = { positions: string; stage: number; best: number | null };
 
 function toFormat(groupCount: number, groupBestOf: BestOf, rules: Rule[], ko: Record<number, BestOf>, def: BestOf,
-  groupLegs: 1 | 2, groupSet: SetRules, koSet: Record<number, SetRules>): TournamentFormat {
+  groupLegs: 1 | 2, groupSet: SetRules, koSet: Record<number, SetRules>, crossCriteria: CrossCriterion[]): TournamentFormat {
   return {
-    groupCount, groupBestOf, defaultKnockoutBestOf: def, knockoutBestOf: ko, groupLegs, groupSet, knockoutSet: koSet,
+    groupCount, groupBestOf, defaultKnockoutBestOf: def, knockoutBestOf: ko, groupLegs, groupSet, knockoutSet: koSet, crossCriteria,
     qualification: rules.map((r) => ({
       stage: r.stage,
       positions: r.positions.split(/[\s,;]+/).filter(Boolean).map(Number),
+      ...(r.best !== null ? { best: r.best } : {}),
     })),
   };
 }
@@ -57,14 +59,21 @@ export default function NewTournamentForm() {
   const [groupBestOf, setGroupBestOf] = useState<BestOf>(3);
   const def: BestOf = 3; // set dei turni non ancora impostati
   const [ko, setKo] = useState<Record<number, BestOf>>({ 0: 5, 1: 5 });
-  const [rules, setRules] = useState<Rule[]>([{ positions: "1, 2", stage: 2 }]);
+  const [rules, setRules] = useState<Rule[]>([{ positions: "1, 2", stage: 2, best: null }]);
+  const [criteria, setCriteria] = useState<CrossCriterion[]>(DEFAULT_CROSS_CRITERIA);
   const [groupLegs, setGroupLegs] = useState<1 | 2>(1);
   const [groupSet, setGroupSet] = useState<SetRules>(DEFAULT_SET_RULES);
   const [koSet, setKoSet] = useState<Record<number, SetRules>>({});
 
   if (state.created) return <Created c={state.created} />;
 
-  const format = toFormat(groupCount, groupBestOf, rules, ko, def, groupLegs, groupSet, koSet);
+  const format = toFormat(groupCount, groupBestOf, rules, ko, def, groupLegs, groupSet, koSet, criteria);
+  const hasBest = rules.some((r) => r.best !== null);
+  const moveCriterion = (i: number, d: -1 | 1) => {
+    const next = [...criteria];
+    [next[i], next[i + d]] = [next[i + d], next[i]];
+    setCriteria(next);
+  };
   const problems = validateFormat(format);
   const usedStages = problems.length ? [] : STAGES.filter((s) => s <= Math.max(...format.qualification.map((q) => q.stage)));
   const setRule = (i: number, patch: Partial<Rule>) => setRules(rules.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -95,16 +104,56 @@ export default function NewTournamentForm() {
         <p className="text-sm text-neutral-600 dark:text-neutral-400">Per ogni regola scrivi le posizioni di girone (es. «1» oppure «2, 3») e il turno in cui iniziano.</p>
         {rules.map((r, i) => (
           <div key={i} className="flex flex-wrap items-center gap-2">
-            <input aria-label="Posizioni" value={r.positions} onChange={(e) => setRule(i, { positions: e.target.value })} className={`${input} w-28`} />
-            <span>di ogni girone entrano a</span>
+            <select aria-label="Tipo di regola" value={r.best === null ? "all" : "best"} className={select}
+              onChange={(e) => setRule(i, e.target.value === "best"
+                ? { best: 1, positions: r.positions.split(/[\s,;]+/).filter(Boolean)[0] ?? "2" }
+                : { best: null })}>
+              <option value="all">Tutti i</option>
+              <option value="best">I migliori</option>
+            </select>
+            {r.best !== null && <>
+              <input type="number" min={1} max={64} aria-label="Quanti ripescati" value={r.best}
+                onChange={(e) => setRule(i, { best: Number(e.target.value) })} className={`${input} w-20`} />
+              <span>tra i</span>
+            </>}
+            <input aria-label="Posizioni" value={r.positions} onChange={(e) => setRule(i, { positions: e.target.value })} className={`${input} w-24`} />
+            <span>{r.best === null ? "classificati di ogni girone entrano a" : "classificati (ripescaggio) entrano a"}</span>
             <select aria-label="Turno di ingresso" value={r.stage} onChange={(e) => setRule(i, { stage: Number(e.target.value) })} className={select}>
               {STAGES.map((s) => <option key={s} value={s}>{STAGE_NAMES[s]}</option>)}
             </select>
             {rules.length > 1 && <button type="button" onClick={() => setRules(rules.filter((_, j) => j !== i))} className="text-sm underline">Togli</button>}
           </div>
         ))}
-        <button type="button" onClick={() => setRules([...rules, { positions: "", stage: 3 }])} className="rounded border px-3 py-1 text-sm">+ Aggiungi regola</button>
+        <button type="button" onClick={() => setRules([...rules, { positions: "", stage: 3, best: null }])} className="rounded border px-3 py-1 text-sm">+ Aggiungi regola</button>
       </section>
+
+      {hasBest && (
+        <section className="space-y-2">
+          <h2 className="text-lg font-semibold">Criteri per i ripescaggi</h2>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            Si confrontano giocatori di gironi diversi, quindi niente scontro diretto. Si usano medie per partita,
+            perché i gironi possono avere un numero diverso di giocatori. Ordine di applicazione; a parità, la testa di serie.</p>
+          <ol className="space-y-1">
+            {criteria.map((c, i) => (
+              <li key={c} className="flex items-center gap-2">
+                <span className="w-6 tabular-nums">{i + 1}.</span>
+                <span className="flex-1">{CROSS_CRITERIA[c]}</span>
+                <button type="button" aria-label="Su" disabled={i === 0} onClick={() => moveCriterion(i, -1)} className="rounded border px-2 disabled:opacity-30">↑</button>
+                <button type="button" aria-label="Giù" disabled={i === criteria.length - 1} onClick={() => moveCriterion(i, 1)} className="rounded border px-2 disabled:opacity-30">↓</button>
+                <button type="button" onClick={() => setCriteria(criteria.filter((x) => x !== c))} disabled={criteria.length === 1} className="text-sm underline disabled:opacity-30">Togli</button>
+              </li>
+            ))}
+          </ol>
+          {criteria.length < Object.keys(CROSS_CRITERIA).length && (
+            <select aria-label="Aggiungi criterio" value="" className={select}
+              onChange={(e) => e.target.value && setCriteria([...criteria, e.target.value as CrossCriterion])}>
+              <option value="">+ Aggiungi criterio…</option>
+              {(Object.keys(CROSS_CRITERIA) as CrossCriterion[]).filter((c) => !criteria.includes(c))
+                .map((c) => <option key={c} value={c}>{CROSS_CRITERIA[c]}</option>)}
+            </select>
+          )}
+        </section>
+      )}
 
       <section className="space-y-1">
         <h2 className="text-lg font-semibold">Partite del tabellone</h2>

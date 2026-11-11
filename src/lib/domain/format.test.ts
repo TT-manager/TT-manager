@@ -88,7 +88,7 @@ describe("niente rivincite tra compagni di girone", () => {
     const plan = planBracket(base);
     const ottavi = plan.rounds[0].matches;
     const groupsFrom = (s: import("./format").SlotSource): number[] =>
-      s.kind === "group" ? [s.group] : [ottavi[s.match].a, ottavi[s.match].b].flatMap(groupsFrom);
+      s.kind === "group" ? [s.group] : s.kind === "winner" ? [ottavi[s.match].a, ottavi[s.match].b].flatMap(groupsFrom) : [];
     for (const q of plan.rounds[1].matches) {
       const a = groupsFrom(q.a), b = groupsFrom(q.b);
       expect(a.filter((g) => b.includes(g))).toEqual([]);
@@ -119,5 +119,19 @@ describe("andata e ritorno, punti e golden point", () => {
     // Formati salvati prima di queste opzioni restano validi (sola andata, set a 11).
     const old = parseFormat(JSON.parse(JSON.stringify(base)));
     expect("format" in old && old.format.groupLegs).toBe(1);
+  });
+});
+
+describe("ripescaggio nel formato", () => {
+  it("descrive e accetta 5 gironi con 3 migliori seconde", () => {
+    const f = { ...base, groupCount: 5, qualification: [{ positions: [1], stage: 2 }, { positions: [2], stage: 2, best: 3 }] };
+    expect(validateFormat(f)).toEqual([]);
+    const d = describeFormat(f);
+    expect(d).toContain("I migliori 3 tra i 2° classificati → quarti di finale (ripescaggio).");
+    expect(d.join(" ")).toMatch(/percentuale di vittorie, differenza set media, differenza punti media; a parità, la testa di serie/);
+    const r = parseFormat(JSON.parse(JSON.stringify({ ...f, crossCriteria: ["pointDiffAvg", "winPct"] })));
+    expect("format" in r && r.format.qualification[1].best).toBe(3);
+    expect("format" in r && r.format.crossCriteria).toEqual(["pointDiffAvg", "winPct"]);
+    expect(validateFormat({ ...f, crossCriteria: ["boh" as never] }).join(" ")).toMatch(/Criterio/);
   });
 });

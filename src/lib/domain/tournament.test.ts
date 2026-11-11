@@ -122,3 +122,51 @@ describe("gironi con andata e ritorno", () => {
     expect(plan.matches.every((m) => m.set.golden === 15)).toBe(true);
   });
 });
+
+import type { TournamentFormat as TF } from "./format";
+import { bestRanking } from "./tournament";
+
+describe("ripescaggi", () => {
+  // 5 gironi: i primi + le 3 migliori seconde ai quarti.
+  const f5: TF = {
+    groupCount: 5, groupBestOf: 1, defaultKnockoutBestOf: 3, knockoutBestOf: {},
+    qualification: [{ positions: [1], stage: 2 }, { positions: [2], stage: 2, best: 3 }],
+  };
+  const p20 = Array.from({ length: 20 }, (_, i) => ({ id: `p${String(i + 1).padStart(2, "0")}`, rating: 2000 - i * 10 }));
+
+  it("il formato torna: 5 primi + 3 ripescati = 8 ai quarti", () => {
+    const plan = buildTournament(p20, f5);
+    expect(plan.knockout.filter((k) => k.stage === 2)).toHaveLength(4);
+    const best = plan.knockout.flatMap((k) => [k.a, k.b]).filter((s) => s.kind === "best");
+    expect(best).toHaveLength(3);
+  });
+
+  it("classifica le seconde per % vittorie, poi differenza set, poi testa di serie; solo a gironi conclusi", () => {
+    const plan = buildTournament(p20, f5);
+    const members = plan.assignments.map((a) => ({ playerId: a.playerId, group: a.group, seed: a.seed }));
+    let db = rows(plan);
+    expect(bestRanking(2, ["winPct"], groupViews(members, db))).toBeNull();
+    const num = (id: string | null) => Number(id!.slice(1));
+    db = db.map((m) => m.phase === "group"
+      ? { ...m, sets_a: num(m.player_a) < num(m.player_b) ? 1 : 0, sets_b: num(m.player_a) < num(m.player_b) ? 0 : 1 }
+      : m);
+    const ranking = bestRanking(2, ["winPct", "setDiffAvg"], groupViews(members, db))!;
+    expect(ranking).toHaveLength(5);
+    // Tutte le seconde hanno 3 vittorie su 4: decide la testa di serie.
+    expect(ranking.map((r) => r.seed)).toEqual([...ranking.map((r) => r.seed)].sort((a, b) => a - b));
+    // Nel tabellone i ripescati non incontrano il primo del proprio girone.
+    const groups = groupViews(members, db);
+    const groupOf = new Map(plan.assignments.map((a) => [a.playerId, a.group]));
+    const resolved = resolveKnockout(groups, db.filter((m) => m.phase === "knockout"));
+    const qf = resolved.slice(0, 4);
+    for (const q of qf) {
+      expect(q.player_a && q.player_b).toBeTruthy();
+      expect(groupOf.get(q.player_a!)).not.toBe(groupOf.get(q.player_b!));
+    }
+  });
+
+  it("valida i ripescaggi impossibili", () => {
+    expect(() => buildTournament(p20, { ...f5, qualification: [{ positions: [1], stage: 2 }, { positions: [2], stage: 2, best: 6 }] }))
+      .toThrow(/tra 1 e 5/);
+  });
+});

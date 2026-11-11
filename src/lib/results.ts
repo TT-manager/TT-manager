@@ -18,12 +18,12 @@ export async function saveResult(tournamentId: string, matchId: string, sets: Se
 
   const [{ data: matches }, { data: tp }] = await Promise.all([
     svc.from("matches").select(MATCH_COLUMNS).eq("tournament_id", tournamentId),
-    svc.from("tournament_players").select("player_id, group_no").eq("tournament_id", tournamentId),
+    svc.from("tournament_players").select("player_id, group_no, seed").eq("tournament_id", tournamentId),
   ]);
   const all = (matches ?? []) as unknown as (MatchRow & { best_of: number; set_points: number; golden_point: number | null; rated: boolean })[];
   const match = all.find((m) => m.id === matchId); // solo partite di QUESTO torneo
   if (!match) return { error: "Partita non trovata." };
-  const members = (tp ?? []).filter((r) => r.group_no !== null).map((r) => ({ playerId: r.player_id as string, group: r.group_no as number }));
+  const members = (tp ?? []).filter((r) => r.group_no !== null).map((r) => ({ playerId: r.player_id as string, group: r.group_no as number, seed: r.seed as number | null }));
 
   let change;
   if (sets === null) change = { sets_a: null, sets_b: null, set_scores: null };
@@ -55,12 +55,12 @@ export async function reconcileBracket(tournamentId: string) {
   const svc = createServiceClient();
   const [{ data: matches }, { data: tp }, { data: t }] = await Promise.all([
     svc.from("matches").select(MATCH_COLUMNS).eq("tournament_id", tournamentId),
-    svc.from("tournament_players").select("player_id, group_no").eq("tournament_id", tournamentId),
+    svc.from("tournament_players").select("player_id, group_no, seed").eq("tournament_id", tournamentId),
     svc.from("tournaments").select("status").eq("id", tournamentId).maybeSingle(),
   ]);
   if (!t || (t.status !== "groups" && t.status !== "knockout")) return;
   let all = (matches ?? []) as unknown as MatchRow[];
-  const members = (tp ?? []).filter((r) => r.group_no !== null).map((r) => ({ playerId: r.player_id as string, group: r.group_no as number }));
+  const members = (tp ?? []).filter((r) => r.group_no !== null).map((r) => ({ playerId: r.player_id as string, group: r.group_no as number, seed: r.seed as number | null }));
   const groups = groupViews(members, all);
   for (let i = 0; i < 10; i++) {
     const ko = all.filter((m) => m.phase === "knockout");

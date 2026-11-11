@@ -52,7 +52,7 @@ export async function getPublicTournament(publicCode: string) {
   for (const r of tp ?? []) names.set(r.player_id as string, (r.players as unknown as { full_name: string } | null)?.full_name ?? "?");
   return {
     tournament: t as PublicTournament,
-    members: (tp ?? []).filter((r) => r.group_no !== null).map((r) => ({ playerId: r.player_id as string, group: r.group_no as number })),
+    members: (tp ?? []).filter((r) => r.group_no !== null).map((r) => ({ playerId: r.player_id as string, group: r.group_no as number, seed: r.seed as number | null })),
     enrolledCount: (tp ?? []).length,
     names,
     matches: (matches ?? []) as unknown as (import("./domain/tournament").MatchRow & { best_of: number; round: number; set_points: number; golden_point: number | null; rated?: boolean })[],

@@ -20,7 +20,23 @@ export interface QualificationRule {
   positions: number[];
   /** Stadio in cui entrano nel tabellone (0 = finale, 1 = semifinali, 2 = quarti, ...). */
   stage: number;
+  /**
+   * Ripescaggio: se indicato, passano solo i migliori `best` tra i classificati
+   * nella posizione indicata (una sola) di tutti i gironi, es. «le 3 migliori seconde».
+   */
+  best?: number;
 }
+
+/** Criteri per confrontare giocatori di gironi diversi (medie per partita: gironi di dimensioni diverse). */
+export type CrossCriterion = "winPct" | "setDiffAvg" | "pointDiffAvg" | "setRatio" | "pointRatio";
+export const CROSS_CRITERIA: Record<CrossCriterion, string> = {
+  winPct: "Percentuale di vittorie",
+  setDiffAvg: "Differenza set media",
+  pointDiffAvg: "Differenza punti media",
+  setRatio: "Quoziente set (vinti/persi)",
+  pointRatio: "Quoziente punti (fatti/subiti)",
+};
+export const DEFAULT_CROSS_CRITERIA: CrossCriterion[] = ["winPct", "setDiffAvg", "pointDiffAvg"];
 
 export interface TournamentFormat {
   groupCount: number;
@@ -35,6 +51,8 @@ export interface TournamentFormat {
   defaultKnockoutBestOf: BestOf;
   /** Punti del set e golden point per stadio (default 11, senza golden point). */
   knockoutSet?: Record<number, SetRules>;
+  /** Ordine dei criteri per i ripescaggi (default: % vittorie, differenza set, differenza punti). */
+  crossCriteria?: CrossCriterion[];
 }
 
 export const groupSetRules = (f: TournamentFormat): SetRules => f.groupSet ?? DEFAULT_SET_RULES;
@@ -60,7 +78,9 @@ export function bestOfForStage(f: TournamentFormat, stage: number): BestOf {
 /** Sorgente di un posto nel tabellone. */
 export type SlotSource =
   | { kind: "group"; group: number; position: number } // gruppo 1-based, posizione 1-based
-  | { kind: "winner"; stage: number; match: number };
+  | { kind: "winner"; stage: number; match: number }
+  /** Ripescaggio: il `rank`-esimo migliore tra i classificati in `position`, con i criteri indicati. */
+  | { kind: "best"; position: number; rank: number; criteria: CrossCriterion[] };
 
 export interface PlannedMatch {
   stage: number;
@@ -95,14 +115,22 @@ export function validateFormat(f: TournamentFormat, playersPerGroup?: number[]):
   }
 
   const seen = new Set<number>();
+  for (const c of f.crossCriteria ?? []) if (!(c in CROSS_CRITERIA)) errors.push("Criterio di ripescaggio non valido.");
   for (const r of f.qualification) {
     if (!Number.isInteger(r.stage) || r.stage < 0 || r.stage > 6) errors.push("Turno di ingresso non valido.");
     if (r.positions.length === 0) errors.push("Una regola di qualificazione non ha posizioni.");
+    if (r.best !== undefined) {
+      if (r.positions.length !== 1) errors.push("Un ripescaggio riguarda una sola posizione (es. «2»).");
+      if (!Number.isInteger(r.best) || r.best < 1 || r.best > f.groupCount)
+        errors.push(`Ripescaggio: i migliori devono essere tra 1 e ${f.groupCount} (uno per girone al massimo).`);
+      if (playersPerGroup && r.positions[0] && playersPerGroup.filter((n) => n >= r.positions[0]).length < (r.best ?? 0))
+        errors.push(`Non ci sono abbastanza gironi con un ${r.positions[0]}° classificato per ripescarne ${r.best}.`);
+    }
     for (const p of r.positions) {
       if (!Number.isInteger(p) || p < 1) errors.push(`Posizione di girone non valida: ${p}.`);
       if (seen.has(p)) errors.push(`La posizione ${p} compare in più regole.`);
       seen.add(p);
-      if (playersPerGroup && playersPerGroup.some((n) => n < p))
+      if (r.best === undefined && playersPerGroup && playersPerGroup.some((n) => n < p))
         errors.push(`C'è un girone con meno di ${p} giocatori: la posizione ${p} non esiste.`);
     }
   }
@@ -117,8 +145,13 @@ function entrantsByStage(f: TournamentFormat): Map<number, SlotSource[]> {
   const byStage = new Map<number, SlotSource[]>();
   for (const rule of f.qualification) {
     const list = byStage.get(rule.stage) ?? [];
-    for (const position of rule.positions)
-      for (let g = 1; g <= f.groupCount; g++) list.push({ kind: "group", group: g, position });
+    if (rule.best !== undefined) {
+      const criteria = f.crossCriteria?.length ? f.crossCriteria : DEFAULT_CROSS_CRITERIA;
+      for (let rank = 1; rank <= rule.best; rank++) list.push({ kind: "best", position: rule.positions[0], rank, criteria });
+    } else {
+      for (const position of rule.positions)
+        for (let g = 1; g <= f.groupCount; g++) list.push({ kind: "group", group: g, position });
+    }
     byStage.set(rule.stage, list);
   }
   return byStage;
@@ -138,6 +171,8 @@ export function planBracket(f: TournamentFormat): BracketPlan {
   /** Gironi da cui può provenire chi occupa questo posto. */
   const groupsOf = (s: SlotSource): Set<number> => {
     if (s.kind === "group") return new Set([s.group]);
+    if (s.kind === "best") return new Set(); // girone noto solo a fine gironi
+
     const m = planned.get(`${s.stage}:${s.match}`);
     return m ? new Set([...groupsOf(m.a), ...groupsOf(m.b)]) : new Set();
   };
@@ -166,7 +201,9 @@ export function planBracket(f: TournamentFormat): BracketPlan {
 
 /** Forza di un posto: più basso = più forte. I vincitori di turni precedenti sono i più deboli. */
 function strength(s: SlotSource): number {
-  return s.kind === "group" ? s.position * 1000 + s.group : 1_000_000 + s.match;
+  if (s.kind === "group") return s.position * 1000 + s.group;
+  if (s.kind === "best") return s.position * 1000 + 500 + s.rank; // dopo i pari posizione «diretti»
+  return 1_000_000 + s.match;
 }
 
 /**
@@ -226,6 +263,7 @@ export function parseFormat(raw: unknown): { format: TournamentFormat } | { erro
     groupSet: rules(o.groupSet),
     knockoutSet: Object.fromEntries(Object.entries(ks as Record<string, unknown>).map(([k, v]) => [Number(k), rules(v)!])),
     defaultKnockoutBestOf: int(o.defaultKnockoutBestOf) as BestOf,
+    ...(Array.isArray(o.crossCriteria) ? { crossCriteria: o.crossCriteria.map(String) as CrossCriterion[] } : {}),
     knockoutBestOf: Object.fromEntries(
       Object.entries(kb as Record<string, unknown>).map(([k, v]) => [Number(k), int(v) as BestOf])),
     qualification: (o.qualification as unknown[]).map((r) => {
@@ -233,6 +271,7 @@ export function parseFormat(raw: unknown): { format: TournamentFormat } | { erro
       return {
         stage: int(rr.stage),
         positions: Array.isArray(rr.positions) ? rr.positions.map(int) : [],
+        ...(rr.best === undefined || rr.best === null ? {} : { best: int(rr.best) }),
       };
     }),
   };
@@ -256,8 +295,16 @@ export function describeFormat(f: TournamentFormat): string[] {
   const legs = f.groupLegs === 2 ? " con andata e ritorno" : "";
   const lines = [`${f.groupCount} ${f.groupCount === 1 ? "girone" : "gironi"} all'italiana${legs}, partite ${sets(f.groupBestOf)} (${describeSetRules(groupSetRules(f))}).`];
   for (const r of [...f.qualification].sort((a, b) => b.stage - a.stage)) {
+    if (r.best !== undefined) {
+      lines.push(`${r.best === 1 ? "Il miglior" : `I migliori ${r.best}`} tra i ${ordinal(r.positions[0])} classificati → ${stageName(r.stage).toLowerCase()} (ripescaggio).`);
+      continue;
+    }
     const pos = list([...r.positions].sort((a, b) => a - b).map(ordinal));
     lines.push(`${pos} di ogni girone → ${stageName(r.stage).toLowerCase()}.`);
+  }
+  if (f.qualification.some((r) => r.best !== undefined)) {
+    const c = (f.crossCriteria?.length ? f.crossCriteria : DEFAULT_CROSS_CRITERIA).map((k) => CROSS_CRITERIA[k].toLowerCase());
+    lines.push(`Ripescaggi decisi da: ${c.join(", ")}; a parità, la testa di serie.`);
   }
   for (const round of planBracket(f).rounds)
     lines.push(`${stageName(round.stage)}: ${round.matches.length} ${round.matches.length === 1 ? "partita" : "partite"} ${sets(round.matches[0].bestOf)} (${describeSetRules(round.matches[0].set)}).`);
