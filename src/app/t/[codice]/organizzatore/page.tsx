@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { normalizeCode } from "@/lib/codes";
 import { getPublicTournament } from "@/lib/data";
@@ -21,8 +21,11 @@ export default function OrganizerPage({ params }: PageProps<"/t/[codice]/organiz
 }
 
 async function Content({ params }: { params: PageProps<"/t/[codice]/organizzatore">["params"] }) {
-  const code = normalizeCode((await params).codice);
+  const raw = (await params).codice;
+  const code = normalizeCode(raw);
   if (!/^[A-Z0-9]{6}$/.test(code)) notFound();
+  // Indirizzo unico in maiuscolo (il cookie dell'organizzatore dipende dal percorso esatto).
+  if (raw !== code) redirect(`/t/${code}/organizzatore`);
   const data = await getPublicTournament(code);
   if (!data) notFound();
   const { tournament: t, names, matches } = data;

@@ -57,7 +57,11 @@ export async function closeTournament(tournamentId: string): Promise<{ error?: s
 
   const { error: rpcError } = await svc.rpc("apply_tournament_ratings", {
     p_tournament: tournamentId,
-    p_payload: { matches: played.map((m) => m.id), players: result.players, history: result.history },
+    // Con i punteggi usati per il calcolo: il database verifica che non siano cambiati nel frattempo.
+    p_payload: {
+      matches: played.map((m) => ({ id: m.id, sets_a: m.sets_a, sets_b: m.sets_b, player_a: m.player_a, player_b: m.player_b })),
+      players: result.players, history: result.history,
+    },
   });
   if (rpcError) return { error: dbError(rpcError.message) };
   return { ok: `Torneo chiuso: ${played.length} partite conteggiate nella classifica generale.` };

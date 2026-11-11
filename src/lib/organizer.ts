@@ -1,22 +1,21 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
-import { verifyCode } from "./codes";
+import { clientKey, verifyCode } from "./codes";
 import { createServiceClient } from "./supabase/admin";
 
 export const hasServiceKey = () => Boolean(process.env.SUPABASE_SECRET_KEY);
 
 const SESSION_HOURS = 24;
 const WINDOW_MIN = 15;
-const MAX_FAILS_PER_IP = 5;
-const MAX_FAILS_PER_TOURNAMENT = 50;
+const MAX_ATTEMPTS_PER_IP = 5;
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 const cookieName = (publicCode: string) => `tt_org_${publicCode}`;
 
 async function clientIpHash(tournamentId: string) {
   const h = await headers();
-  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "sconosciuto";
+  const ip = clientKey(h.get("x-vercel-forwarded-for") ?? h.get("x-real-ip"));
   return sha256(`${tournamentId}:${ip}`);
 }
 
@@ -30,22 +29,19 @@ export async function organizerLogin(publicCode: string, code: string): Promise<
   if (!t) return { ok: false, error: "Torneo non trovato." };
   if (t.status === "closed") return { ok: false, error: "Il torneo è chiuso: i risultati non si possono più inserire." };
 
+  // Il tentativo viene registrato PRIMA della verifica, in modo atomico nel database:
+  // richieste parallele non possono superare il limite. Se la registrazione fallisce, si nega.
   const ipHash = await clientIpHash(t.id);
-  const since = new Date(Date.now() - WINDOW_MIN * 60_000).toISOString();
-  const [{ count: mine }, { count: all }] = await Promise.all([
-    svc.from("organizer_attempts").select("id", { count: "exact", head: true })
-      .eq("tournament_id", t.id).eq("ip_hash", ipHash).gte("created_at", since),
-    svc.from("organizer_attempts").select("id", { count: "exact", head: true })
-      .eq("tournament_id", t.id).gte("created_at", since),
-  ]);
-  if ((mine ?? 0) >= MAX_FAILS_PER_IP || (all ?? 0) >= MAX_FAILS_PER_TOURNAMENT)
-    return { ok: false, error: `Troppi tentativi sbagliati. Riprova tra ${WINDOW_MIN} minuti.` };
+  const { data: attemptId, error: attemptError } = await svc.rpc("organizer_attempt_begin", {
+    p_tournament: t.id, p_ip: ipHash, p_max: MAX_ATTEMPTS_PER_IP, p_window_min: WINDOW_MIN,
+  });
+  if (attemptError) return { ok: false, error: "Verifica non disponibile, riprova tra poco." };
+  if (attemptId === null) return { ok: false, error: `Troppi tentativi sbagliati da questo dispositivo. Riprova tra ${WINDOW_MIN} minuti.` };
 
-  if (!(await verifyCode(code, t.organizer_code_hash))) {
-    await svc.from("organizer_attempts").insert({ tournament_id: t.id, ip_hash: ipHash });
-    const left = MAX_FAILS_PER_IP - (mine ?? 0) - 1;
-    return { ok: false, error: left > 0 ? `Codice non valido. Tentativi rimasti: ${left}.` : `Codice non valido. Riprova tra ${WINDOW_MIN} minuti.` };
-  }
+  if (!(await verifyCode(code, t.organizer_code_hash)))
+    return { ok: false, error: "Codice non valido." };
+  // Codice giusto: il tentativo non conta come errore.
+  await svc.from("organizer_attempts").delete().eq("id", attemptId);
 
   const token = randomBytes(32).toString("base64url");
   const expires = new Date(Date.now() + SESSION_HOURS * 3600_000);

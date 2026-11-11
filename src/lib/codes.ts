@@ -55,3 +55,15 @@ export async function verifyCode(code: string, stored: string): Promise<boolean>
   const actual = await scryptAsync(normalizeCode(code), salt, n, r, p);
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
+
+/**
+ * Indirizzo del client. Su Vercel `x-real-ip` / `x-vercel-forwarded-for` sono impostati
+ * dalla piattaforma (non dal client). Gli IPv6 sono raggruppati per rete /64, così
+ * cambiare indirizzo all'interno della stessa rete non aggira il limite.
+ */
+export function clientKey(raw: string | null): string {
+  const ip = (raw ?? "").split(",")[0].trim() || "sconosciuto";
+  if (!ip.includes(":")) return ip;
+  const parts = ip.split("::")[0].split(":");
+  return `${parts.slice(0, 4).join(":")}::/64`;
+}

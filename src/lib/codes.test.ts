@@ -25,3 +25,15 @@ describe("codici torneo", () => {
     expect(await verifyCode(code, "spazzatura")).toBe(false);
   });
 });
+
+import { clientKey } from "./codes";
+
+describe("chiave dell'indirizzo per il limite tentativi", () => {
+  it("IPv4 invariato, IPv6 raggruppato per /64, primo della lista", () => {
+    expect(clientKey("203.0.113.7")).toBe("203.0.113.7");
+    expect(clientKey("2001:db8:1:2:aaaa:bbbb:cccc:dddd")).toBe("2001:db8:1:2::/64");
+    expect(clientKey("2001:db8:1:2:ffff::1")).toBe("2001:db8:1:2::/64");
+    expect(clientKey("198.51.100.1, 10.0.0.1")).toBe("198.51.100.1");
+    expect(clientKey(null)).toBe("sconosciuto");
+  });
+});
