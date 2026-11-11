@@ -107,6 +107,13 @@ export function planBracket(f: TournamentFormat): BracketPlan {
   const first = Math.max(...stages);
   const rounds: BracketPlan["rounds"] = [];
   let carried: SlotSource[] = []; // vincitori del turno precedente
+  const planned = new Map<string, PlannedMatch>();
+  /** Gironi da cui può provenire chi occupa questo posto. */
+  const groupsOf = (s: SlotSource): Set<number> => {
+    if (s.kind === "group") return new Set([s.group]);
+    const m = planned.get(`${s.stage}:${s.match}`);
+    return m ? new Set([...groupsOf(m.a), ...groupsOf(m.b)]) : new Set();
+  };
 
   for (let stage = first; stage >= 0; stage--) {
     const entrants = byStage.get(stage) ?? [];
@@ -116,10 +123,11 @@ export function planBracket(f: TournamentFormat): BracketPlan {
       throw new Error(`Al turno "${stageName(stage)}" i giocatori sono ${slots.length} (dispari): modifica le regole di qualificazione.`);
     if (stage === 0 && slots.length !== 2)
       throw new Error(`La finale ha ${slots.length} giocatori invece di 2: le regole di qualificazione non tornano.`);
-    const pairs = pairSlots(slots);
+    const pairs = pairSlots(slots, groupsOf);
     const matches: PlannedMatch[] = pairs.map(([a, b], i) => ({
       stage, match: i, a, b, bestOf: bestOfForStage(f, stage),
     }));
+    for (const m of matches) planned.set(`${stage}:${m.match}`, m);
     rounds.push({ stage, matches });
     carried = matches.map((m) => ({ kind: "winner", stage, match: m.match }));
   }
@@ -134,22 +142,33 @@ function strength(s: SlotSource): number {
   return s.kind === "group" ? s.position * 1000 + s.group : 1_000_000 + s.match;
 }
 
-/** Abbina i posti: il più forte contro il più debole, evitando (se possibile) due dello stesso girone. */
-function pairSlots(slots: SlotSource[]): [SlotSource, SlotSource][] {
+/**
+ * Abbina i posti: il più forte contro il più debole, poi scambia gli avversari
+ * per ridurre al minimo i possibili incontri tra compagni dello stesso girone
+ * (considerando anche da quali gironi può arrivare il vincente di una partita).
+ */
+function pairSlots(slots: SlotSource[], groupsOf: (s: SlotSource) => Set<number>): [SlotSource, SlotSource][] {
   const sorted = [...slots].sort((x, y) => strength(x) - strength(y));
   const n = sorted.length;
   const top = sorted.slice(0, n / 2);
   const bottom = sorted.slice(n / 2).reverse(); // il più debole affronta il più forte
-  const clash = (a: SlotSource, b: SlotSource) =>
-    a.kind === "group" && b.kind === "group" && a.group === b.group;
-  // Risolve gli scontri tra stesso girone scambiando con un altro avversario.
-  for (let i = 0; i < top.length; i++) {
-    if (!clash(top[i], bottom[i])) continue;
-    for (let j = 0; j < bottom.length; j++) {
-      if (j === i) continue;
-      if (!clash(top[i], bottom[j]) && !clash(top[j], bottom[i])) {
-        [bottom[i], bottom[j]] = [bottom[j], bottom[i]];
-        break;
+  const cost = (a: SlotSource, b: SlotSource) => {
+    const ga = groupsOf(a);
+    let c = 0;
+    for (const g of groupsOf(b)) if (ga.has(g)) c++;
+    return c;
+  };
+  // Scambi a coppie finché migliorano (pochi posti: costo trascurabile).
+  for (let improved = true, guard = 0; improved && guard < 100; guard++) {
+    improved = false;
+    for (let i = 0; i < top.length; i++) {
+      for (let j = i + 1; j < top.length; j++) {
+        const before = cost(top[i], bottom[i]) + cost(top[j], bottom[j]);
+        const after = cost(top[i], bottom[j]) + cost(top[j], bottom[i]);
+        if (after < before) {
+          [bottom[i], bottom[j]] = [bottom[j], bottom[i]];
+          improved = true;
+        }
       }
     }
   }

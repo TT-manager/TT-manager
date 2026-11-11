@@ -82,3 +82,21 @@ describe("lettura e descrizione del formato", () => {
     expect(d).toContain("Finale: 1 partita al meglio dei 5 set.");
   });
 });
+
+describe("niente rivincite tra compagni di girone", () => {
+  it("24 giocatori: ai quarti il 1° di un girone non può ritrovare un compagno", () => {
+    const plan = planBracket(base);
+    const ottavi = plan.rounds[0].matches;
+    const groupsFrom = (s: import("./format").SlotSource): number[] =>
+      s.kind === "group" ? [s.group] : [ottavi[s.match].a, ottavi[s.match].b].flatMap(groupsFrom);
+    for (const q of plan.rounds[1].matches) {
+      const a = groupsFrom(q.a), b = groupsFrom(q.b);
+      expect(a.filter((g) => b.includes(g))).toEqual([]);
+    }
+  });
+  it("2 gironi, primi 2 in semifinale: incrocio 1°A-2°B e 1°B-2°A", () => {
+    const plan = planBracket({ ...base, groupCount: 2, qualification: [{ positions: [1, 2], stage: 1 }] });
+    for (const m of plan.rounds[0].matches)
+      if (m.a.kind === "group" && m.b.kind === "group") expect(m.a.group).not.toBe(m.b.group);
+  });
+});
