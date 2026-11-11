@@ -1,0 +1,224 @@
+/**
+ * Formato di un torneo, completamente configurabile.
+ *
+ * - Fase a gironi: numero di gironi e numero di set (best of) delle partite di girone.
+ * - Qualificazione: per ogni regola, QUALI posizioni di girone (es. 1° / 2° e 3°)
+ *   entrano e IN QUALE TURNO del tabellone iniziano.
+ * - Tabellone: numero di set per ogni turno (finale, semifinali, ...).
+ *
+ * I turni si indicano come "stadi" contando dalla finale:
+ *   0 = finale, 1 = semifinali, 2 = quarti, 3 = ottavi, 4 = sedicesimi ...
+ */
+
+export const VALID_BEST_OF = [1, 3, 5, 7] as const;
+export type BestOf = (typeof VALID_BEST_OF)[number];
+
+export interface QualificationRule {
+  /** Posizioni di girone che si qualificano con questa regola (1 = primo). */
+  positions: number[];
+  /** Stadio in cui entrano nel tabellone (0 = finale, 1 = semifinali, 2 = quarti, ...). */
+  stage: number;
+}
+
+export interface TournamentFormat {
+  groupCount: number;
+  groupBestOf: BestOf;
+  qualification: QualificationRule[];
+  /** Set per stadio. Gli stadi non indicati usano `defaultKnockoutBestOf`. */
+  knockoutBestOf: Record<number, BestOf>;
+  defaultKnockoutBestOf: BestOf;
+}
+
+export const STAGE_NAMES: Record<number, string> = {
+  0: "Finale", 1: "Semifinali", 2: "Quarti di finale", 3: "Ottavi di finale", 4: "Sedicesimi di finale",
+};
+export const stageName = (stage: number) => STAGE_NAMES[stage] ?? `Turno ${stage}`;
+
+export function bestOfForStage(f: TournamentFormat, stage: number): BestOf {
+  return f.knockoutBestOf[stage] ?? f.defaultKnockoutBestOf;
+}
+
+/** Sorgente di un posto nel tabellone. */
+export type SlotSource =
+  | { kind: "group"; group: number; position: number } // gruppo 1-based, posizione 1-based
+  | { kind: "winner"; stage: number; match: number };
+
+export interface PlannedMatch {
+  stage: number;
+  /** Indice nel turno, da 0. */
+  match: number;
+  a: SlotSource;
+  b: SlotSource;
+  bestOf: BestOf;
+}
+
+export interface BracketPlan {
+  /** Dal primo turno alla finale. */
+  rounds: { stage: number; matches: PlannedMatch[] }[];
+}
+
+/** Controlla il formato; restituisce l'elenco dei problemi in italiano (vuoto = valido). */
+export function validateFormat(f: TournamentFormat, playersPerGroup?: number[]): string[] {
+  const errors: string[] = [];
+  if (!Number.isInteger(f.groupCount) || f.groupCount < 1) errors.push("Serve almeno un girone.");
+  if (!VALID_BEST_OF.includes(f.groupBestOf)) errors.push("Set dei gironi non valido (1, 3, 5 o 7).");
+  if (!VALID_BEST_OF.includes(f.defaultKnockoutBestOf)) errors.push("Set del tabellone non valido (1, 3, 5 o 7).");
+  for (const [s, b] of Object.entries(f.knockoutBestOf))
+    if (!VALID_BEST_OF.includes(b)) errors.push(`Set non validi per il turno ${s}.`);
+  if (f.qualification.length === 0) errors.push("Indica almeno una regola di qualificazione.");
+
+  const seen = new Set<number>();
+  for (const r of f.qualification) {
+    if (!Number.isInteger(r.stage) || r.stage < 0 || r.stage > 6) errors.push("Turno di ingresso non valido.");
+    if (r.positions.length === 0) errors.push("Una regola di qualificazione non ha posizioni.");
+    for (const p of r.positions) {
+      if (!Number.isInteger(p) || p < 1) errors.push(`Posizione di girone non valida: ${p}.`);
+      if (seen.has(p)) errors.push(`La posizione ${p} compare in più regole.`);
+      seen.add(p);
+      if (playersPerGroup && playersPerGroup.some((n) => n < p))
+        errors.push(`C'è un girone con meno di ${p} giocatori: la posizione ${p} non esiste.`);
+    }
+  }
+  if (errors.length === 0) {
+    try { planBracket(f); } catch (e) { errors.push((e as Error).message); }
+  }
+  return errors;
+}
+
+/** Quanti qualificati entrano a ciascuno stadio. */
+function entrantsByStage(f: TournamentFormat): Map<number, SlotSource[]> {
+  const byStage = new Map<number, SlotSource[]>();
+  for (const rule of f.qualification) {
+    const list = byStage.get(rule.stage) ?? [];
+    for (const position of rule.positions)
+      for (let g = 1; g <= f.groupCount; g++) list.push({ kind: "group", group: g, position });
+    byStage.set(rule.stage, list);
+  }
+  return byStage;
+}
+
+/**
+ * Costruisce lo schema del tabellone (chi incontra chi, con riferimenti ai gironi
+ * e ai vincitori dei turni precedenti). Lancia un Error in italiano se il formato è incoerente.
+ */
+export function planBracket(f: TournamentFormat): BracketPlan {
+  const byStage = entrantsByStage(f);
+  const stages = [...byStage.keys()];
+  const first = Math.max(...stages);
+  const rounds: BracketPlan["rounds"] = [];
+  let carried: SlotSource[] = []; // vincitori del turno precedente
+  const planned = new Map<string, PlannedMatch>();
+  /** Gironi da cui può provenire chi occupa questo posto. */
+  const groupsOf = (s: SlotSource): Set<number> => {
+    if (s.kind === "group") return new Set([s.group]);
+    const m = planned.get(`${s.stage}:${s.match}`);
+    return m ? new Set([...groupsOf(m.a), ...groupsOf(m.b)]) : new Set();
+  };
+
+  for (let stage = first; stage >= 0; stage--) {
+    const entrants = byStage.get(stage) ?? [];
+    const slots = [...entrants, ...carried];
+    if (slots.length < 2) throw new Error(`Al turno "${stageName(stage)}" ci sono meno di 2 giocatori.`);
+    if (slots.length % 2 !== 0)
+      throw new Error(`Al turno "${stageName(stage)}" i giocatori sono ${slots.length} (dispari): modifica le regole di qualificazione.`);
+    if (stage === 0 && slots.length !== 2)
+      throw new Error(`La finale ha ${slots.length} giocatori invece di 2: le regole di qualificazione non tornano.`);
+    const pairs = pairSlots(slots, groupsOf);
+    const matches: PlannedMatch[] = pairs.map(([a, b], i) => ({
+      stage, match: i, a, b, bestOf: bestOfForStage(f, stage),
+    }));
+    for (const m of matches) planned.set(`${stage}:${m.match}`, m);
+    rounds.push({ stage, matches });
+    carried = matches.map((m) => ({ kind: "winner", stage, match: m.match }));
+  }
+  // Coerenza: dopo la finale resta 1 solo vincitore.
+  if (carried.length !== 1) throw new Error("Le regole di qualificazione non portano a una sola finale.");
+  // Gli stadi intermedi senza ingressi devono comunque avere esattamente metà dei giocatori del turno prima.
+  return { rounds };
+}
+
+/** Forza di un posto: più basso = più forte. I vincitori di turni precedenti sono i più deboli. */
+function strength(s: SlotSource): number {
+  return s.kind === "group" ? s.position * 1000 + s.group : 1_000_000 + s.match;
+}
+
+/**
+ * Abbina i posti: il più forte contro il più debole, poi scambia gli avversari
+ * per ridurre al minimo i possibili incontri tra compagni dello stesso girone
+ * (considerando anche da quali gironi può arrivare il vincente di una partita).
+ */
+function pairSlots(slots: SlotSource[], groupsOf: (s: SlotSource) => Set<number>): [SlotSource, SlotSource][] {
+  const sorted = [...slots].sort((x, y) => strength(x) - strength(y));
+  const n = sorted.length;
+  const top = sorted.slice(0, n / 2);
+  const bottom = sorted.slice(n / 2).reverse(); // il più debole affronta il più forte
+  const cost = (a: SlotSource, b: SlotSource) => {
+    const ga = groupsOf(a);
+    let c = 0;
+    for (const g of groupsOf(b)) if (ga.has(g)) c++;
+    return c;
+  };
+  // Scambi a coppie finché migliorano (pochi posti: costo trascurabile).
+  for (let improved = true, guard = 0; improved && guard < 100; guard++) {
+    improved = false;
+    for (let i = 0; i < top.length; i++) {
+      for (let j = i + 1; j < top.length; j++) {
+        const before = cost(top[i], bottom[i]) + cost(top[j], bottom[j]);
+        const after = cost(top[i], bottom[j]) + cost(top[j], bottom[i]);
+        if (after < before) {
+          [bottom[i], bottom[j]] = [bottom[j], bottom[i]];
+          improved = true;
+        }
+      }
+    }
+  }
+  return top.map((t, i) => [t, bottom[i]]);
+}
+
+/**
+ * Legge un formato da dati non fidati (modulo, JSON dal database).
+ * Restituisce il formato pulito oppure gli errori.
+ */
+export function parseFormat(raw: unknown): { format: TournamentFormat } | { errors: string[] } {
+  const bad = { errors: ["Formato del torneo non valido."] };
+  if (typeof raw !== "object" || raw === null) return bad;
+  const o = raw as Record<string, unknown>;
+  const int = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? v : NaN);
+  if (!Array.isArray(o.qualification)) return bad;
+  const kb = (typeof o.knockoutBestOf === "object" && o.knockoutBestOf) || {};
+  const format: TournamentFormat = {
+    groupCount: int(o.groupCount),
+    groupBestOf: int(o.groupBestOf) as BestOf,
+    defaultKnockoutBestOf: int(o.defaultKnockoutBestOf) as BestOf,
+    knockoutBestOf: Object.fromEntries(
+      Object.entries(kb as Record<string, unknown>).map(([k, v]) => [Number(k), int(v) as BestOf])),
+    qualification: (o.qualification as unknown[]).map((r) => {
+      const rr = (r ?? {}) as Record<string, unknown>;
+      return {
+        stage: int(rr.stage),
+        positions: Array.isArray(rr.positions) ? rr.positions.map(int) : [],
+      };
+    }),
+  };
+  if (format.groupCount > 64) return { errors: ["Troppi gironi (massimo 64)."] };
+  if (Object.keys(format.knockoutBestOf).some((k) => !Number.isInteger(Number(k)) || Number(k) < 0 || Number(k) > 6))
+    return bad;
+  const errors = validateFormat(format);
+  return errors.length ? { errors } : { format };
+}
+
+const ordinal = (n: number) => `${n}°`;
+const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} e ${xs.at(-1)}`);
+const sets = (b: number) => (b === 1 ? "a set unico" : `al meglio dei ${b} set`);
+
+/** Descrizione in italiano del formato, una riga per punto. */
+export function describeFormat(f: TournamentFormat): string[] {
+  const lines = [`${f.groupCount} ${f.groupCount === 1 ? "girone" : "gironi"} all'italiana, partite ${sets(f.groupBestOf)}.`];
+  for (const r of [...f.qualification].sort((a, b) => b.stage - a.stage)) {
+    const pos = list([...r.positions].sort((a, b) => a - b).map(ordinal));
+    lines.push(`${pos} di ogni girone → ${stageName(r.stage).toLowerCase()}.`);
+  }
+  for (const round of planBracket(f).rounds)
+    lines.push(`${stageName(round.stage)}: ${round.matches.length} ${round.matches.length === 1 ? "partita" : "partite"} ${sets(round.matches[0].bestOf)}.`);
+  return lines;
+}

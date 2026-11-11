@@ -65,3 +65,23 @@ describe("tabellone", () => {
     ]);
   });
 });
+
+import { rateMatches } from "./elo";
+
+describe("Elo di un torneo", () => {
+  const start = new Map([["a", { rating: 1000, gamesPlayed: 0 }], ["b", { rating: 1000, gamesPlayed: 0 }], ["c", { rating: 1200, gamesPlayed: 100 }]]);
+  it("applica le partite in sequenza e conta le partite giocate", () => {
+    const r = rateMatches([{ id: "m1", winner: "a", loser: "b" }, { id: "m2", winner: "a", loser: "c" }], start);
+    expect(r.history).toHaveLength(4);
+    const a = r.players.find((p) => p.id === "a")!;
+    expect(a.gamesAfter).toBe(2);
+    expect(a.ratingAfter).toBe(r.history.at(-2)!.after);
+    // La seconda partita parte dal rating aggiornato dalla prima.
+    expect(r.history[2].before).toBe(r.history[0].after);
+    expect(start.get("a")!.rating).toBe(1000); // l'ingresso non viene modificato
+  });
+  it("ignora chi non ha giocato e rifiuta giocatori sconosciuti", () => {
+    expect(rateMatches([{ id: "m1", winner: "a", loser: "b" }], start).players.map((p) => p.id).sort()).toEqual(["a", "b"]);
+    expect(() => rateMatches([{ id: "m1", winner: "a", loser: "x" }], start)).toThrow();
+  });
+});
