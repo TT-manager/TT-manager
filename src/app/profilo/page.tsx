@@ -68,7 +68,6 @@ async function Profile() {
           {account.isAdmin && <Link href="/admin" className="underline">Amministrazione</Link>}
           <Link href="/amici" className="underline">Amici{friendRequests ? ` (${friendRequests} richieste)` : ""}</Link>
           <Link href={`/giocatore/${account.player.id}`} className="underline">La mia scheda pubblica</Link>
-          <form action={logout}><button className="rounded border px-3 py-1">Esci</button></form>
         </div>
       </div>
 
@@ -155,7 +154,10 @@ async function Profile() {
           </div>)}
         {clubRequest?.status === "rejected" && !account.player.club_id && (
           <p className={`mt-2 ${muted}`}>La richiesta del circolo «{clubRequest.name}» non è stata approvata. Puoi sceglierne uno dall&apos;elenco.</p>)}
-        <p className={`mt-2 ${muted}`}>Email: {account.email} · <Link href="/nuova-password" className="underline">Cambia password</Link></p>
+        <div className={`mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 ${muted}`}>
+          <span>Email: {account.email} · <Link href="/nuova-password" className="underline">Cambia password</Link></span>
+          <form action={logout}><button className="btn-outline px-3 py-1 text-sm">Esci</button></form>
+        </div>
       </section>
     </div>
   );
