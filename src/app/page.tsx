@@ -8,11 +8,12 @@ import { createPublicClient } from "@/lib/supabase/public";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { loadDashboard } from "@/lib/dashboard";
 import { DashboardView } from "@/components/dashboard-view";
+import { HomeSkeleton } from "@/components/home-skeleton";
 
 export default function Home() {
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
-      <Suspense fallback={<p className="text-muted">Caricamento…</p>}>
+      <Suspense fallback={<HomeSkeleton />}>
         <HomeContent />
       </Suspense>
     </main>

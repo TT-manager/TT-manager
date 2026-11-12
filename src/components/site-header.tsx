@@ -2,14 +2,12 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { SITE_NAME } from "./logo";
-import { BackButton } from "./back-button";
 
 /** Barra in alto, uguale su tutte le pagine. */
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-30 border-b-4 border-brand bg-ink text-white">
-      <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2.5 sm:gap-4">
-        <Suspense fallback={null}><BackButton /></Suspense>
+      <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-2.5">
         <Link href="/" className="flex items-center" aria-label={`${SITE_NAME}: home`}>
           {/* eslint-disable-next-line @next/next/no-img-element -- logo vettoriale, nessuna ottimizzazione necessaria */}
           <img src="/logo-scuro.svg" alt={SITE_NAME} width={151} height={40} className="h-10 w-auto" />
