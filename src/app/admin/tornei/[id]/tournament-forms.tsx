@@ -9,20 +9,35 @@ export function EnrollmentForm({ tournamentId, players, enrolledIds, locked }:
   const [state, action, pending] = useActionState<EnrollState, FormData>(setEnrollment, {});
   const [filter, setFilter] = useState("");
   const [checked, setChecked] = useState(() => new Set(enrolledIds));
+  // Il messaggio dell'ultimo salvataggio vale solo finché la selezione non cambia.
+  const [changedSinceSave, setChangedSinceSave] = useState(false);
   const shown = players.filter((p) => p.full_name.toLowerCase().includes(filter.toLowerCase()));
+  const update = (next: Set<string>) => { setChecked(next); setChangedSinceSave(true); };
   const toggle = (id: string) => {
     const next = new Set(checked);
     if (next.has(id)) next.delete(id); else next.add(id);
-    setChecked(next);
+    update(next);
+  };
+  const selectShown = (on: boolean) => {
+    const next = new Set(checked);
+    for (const p of shown) { if (on) next.add(p.id); else next.delete(p.id); }
+    update(next);
   };
   if (players.length === 0) return <p className="mt-2">Nessun giocatore attivo: aggiungili prima nella pagina Giocatori.</p>;
   return (
-    <form action={action} className="mt-2 space-y-3">
+    <form action={action} onSubmit={() => setChangedSinceSave(false)} className="mt-2 space-y-3">
       <input type="hidden" name="tournament_id" value={tournamentId} />
       {/* Gli iscritti nascosti dal filtro restano nel modulo. */}
       {[...checked].filter((id) => !shown.some((p) => p.id === id)).map((id) => <input key={id} type="hidden" name="player_id" value={id} />)}
       {locked && <p className="text-amber-700 dark:text-amber-400">I gironi sono già stati generati: iscrizioni chiuse.</p>}
-      <input placeholder="Cerca…" value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full rounded border bg-transparent px-3 py-2 sm:w-64" aria-label="Cerca giocatore" />
+      <div className="flex flex-wrap items-center gap-3">
+        <input placeholder="Cerca…" value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full rounded border bg-transparent px-3 py-2 sm:w-64" aria-label="Cerca giocatore" />
+        {!locked && <>
+          <button type="button" onClick={() => selectShown(true)} className="rounded border px-3 py-1 text-sm">
+            Seleziona tutti{filter ? " i visibili" : ""}</button>
+          <button type="button" onClick={() => selectShown(false)} className="rounded border px-3 py-1 text-sm">Nessuno</button>
+        </>}
+      </div>
       <ul className="grid max-h-96 gap-1 overflow-y-auto sm:grid-cols-2">
         {shown.map((p) => (
           <li key={p.id}>
@@ -36,8 +51,9 @@ export function EnrollmentForm({ tournamentId, players, enrolledIds, locked }:
       <div className="flex items-center gap-4">
         <button disabled={pending || locked} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
           Salva iscrizioni ({checked.size})</button>
-        {state.error && <p role="alert" className="text-red-700 dark:text-red-400">{state.error}</p>}
-        {state.ok && <p className="text-green-700 dark:text-green-400">{state.ok}</p>}
+        {!changedSinceSave && state.error && <p role="alert" className="text-red-700 dark:text-red-400">{state.error}</p>}
+        {!changedSinceSave && state.ok && <p className="text-green-700 dark:text-green-400">{state.ok}</p>}
+        {changedSinceSave && <p className="text-sm text-amber-700 dark:text-amber-400">Modifiche non ancora salvate.</p>}
       </div>
     </form>
   );
