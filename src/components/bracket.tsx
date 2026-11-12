@@ -78,9 +78,9 @@ function Slot({ m, s, p, first, at, resolved, name }: {
   const played = isPlayed(m);
   const winA = played && (m.sets_a as number) > (m.sets_b as number);
   const row = (id: string | null, src: MatchRow["source_a"], sets: number | null, win: boolean) => (
-    <div className={`flex items-center justify-between gap-2 px-3 py-1.5 ${win ? "border-l-4 border-brand bg-brand/10 font-semibold" : played ? "border-l-4 border-transparent text-muted" : "border-l-4 border-transparent"}`}>
+    <div className={`flex items-center justify-between gap-2 px-3 py-1.5 ${win ? "border-l-4 border-gold bg-gold/20 font-semibold" : played ? "border-l-4 border-transparent text-muted" : "border-l-4 border-transparent"}`}>
       <span className="truncate">{name(id) ?? <span className="text-xs italic text-muted">{src ? sourceLabel(src) : "da definire"}</span>}</span>
-      {played && <span className={`font-display text-lg font-bold tabular-nums ${win ? "text-brand" : ""}`}>{sets}</span>}
+      {played && <span className={`font-display text-lg font-bold tabular-nums ${win ? "text-gold-dark dark:text-gold" : ""}`}>{sets}</span>}
     </div>
   );
   return (

@@ -16,7 +16,7 @@ export function RankingTable({ rows, label, limit, highlight }: { rows: RankingR
         </thead>
         <tbody>
           {shown.map((r) => (
-            <tr key={r.player_id} className={`border-t border-line ${r.player_id === highlight ? "bg-brand/10" : ""}`}>
+            <tr key={r.player_id} className={`border-t border-line ${r.player_id === highlight ? "bg-gold/15" : ""}`}>
               <td className="py-2.5 pl-4">
                 {r.position <= 3
                   ? <span className={`flex h-7 w-7 items-center justify-center rounded-full font-display font-bold text-white ${MEDAL[r.position - 1]}`}>{r.position}</span>

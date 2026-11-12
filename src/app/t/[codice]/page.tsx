@@ -60,7 +60,7 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
     <>
       <header className="overflow-hidden rounded-2xl bg-ink text-white shadow-lg">
         <div className="relative p-6">
-          <div aria-hidden="true" className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-brand/80" />
+          <div aria-hidden="true" className="absolute inset-y-0 left-0 w-2 bg-brand" />
           <div className="relative flex flex-wrap items-end justify-between gap-4">
             <div>
               <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -141,7 +141,7 @@ function Group({ g, name, single = false }: { g: GroupView; name: (id: string | 
         <tbody>
           {g.standings.map((s) => (
             <tr key={s.playerId} className="border-t border-line">
-              <td className="py-2 pl-4"><span className={`inline-flex h-6 w-6 items-center justify-center rounded-full font-display font-bold ${s.rank === 1 ? "bg-brand text-white" : "text-muted"}`}>{s.rank}</span></td>
+              <td className="py-2 pl-4"><span className={`inline-flex h-6 w-6 items-center justify-center rounded-full font-display font-bold ${s.rank === 1 ? "bg-gold text-ink" : "text-muted"}`}>{s.rank}</span></td>
               <td className="font-medium">{name(s.playerId)}</td>
               <td className="text-right tabular-nums">{s.wins}</td>
               <td className="text-right tabular-nums">{s.losses}</td>
@@ -157,7 +157,7 @@ function Group({ g, name, single = false }: { g: GroupView; name: (id: string | 
           const winA = sc && (m.sets_a as number) > (m.sets_b as number);
           return (
             <li key={m.id} className="flex items-center justify-between gap-3 px-4 py-2">
-              <span><span className={winA ? "font-semibold" : ""}>{name(m.player_a)}</span> <span className="text-muted">vs</span> <span className={sc && !winA ? "font-semibold" : ""}>{name(m.player_b)}</span></span>
+              <span><span className={winA ? "rounded bg-gold/20 px-1 font-semibold" : ""}>{name(m.player_a)}</span> <span className="text-muted">vs</span> <span className={sc && !winA ? "rounded bg-gold/20 px-1 font-semibold" : ""}>{name(m.player_b)}</span></span>
               {sc ? <span className="text-right"><span className="rounded bg-ink px-2 py-0.5 font-display font-bold tabular-nums text-white dark:bg-neutral-700">{sc.sets}</span>
                 {sc.detail && <span className="block text-[0.7rem] text-muted">{sc.detail}</span>}</span>
                 : <span className="text-xs text-muted">da giocare</span>}

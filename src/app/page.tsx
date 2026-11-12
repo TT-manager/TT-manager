@@ -123,7 +123,7 @@ function Podium({ rows, label, myPlayerId }: { rows: RankingRow[]; label: string
   return (
     <ol className="space-y-2">
       {rows.map((r, i) => (
-        <li key={r.player_id} className={`flex items-center gap-3 rounded-lg px-2 py-1.5 ${r.player_id === myPlayerId ? "bg-brand/10" : ""}`}>
+        <li key={r.player_id} className={`flex items-center gap-3 rounded-lg px-2 py-1.5 ${r.player_id === myPlayerId ? "bg-gold/15" : ""}`}>
           <span className={`flex h-6 w-6 items-center justify-center rounded-full font-display text-sm font-bold text-white ${MEDAL[i]}`}>{r.position}</span>
           <Avatar name={r.full_name} size="h-7 w-7 text-[0.65rem]" />
           <Link href={`/giocatore/${r.player_id}`} className="flex-1 truncate font-medium hover:text-brand">{r.full_name}</Link>
