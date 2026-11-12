@@ -12,7 +12,7 @@ export function SiteFooter() {
       <div className="mx-auto grid max-w-5xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div className="lg:col-span-2">
           <p className="font-display text-xl font-bold uppercase text-foreground">{SITE_NAME}</p>
-          <p className="mt-2 max-w-sm">Leghe di tennis tavolo: classifiche Elo, tornei e risultati in diretta.</p>
+          <p className="mt-2 max-w-sm">Leghe amatoriali di tennis tavolo tra amici: ranking, tornei e risultati in diretta.</p>
         </div>
 
         <nav aria-label="Il sito">

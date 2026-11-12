@@ -31,7 +31,7 @@ export default function TermsPage() {
         <h2>3. Comportamento corretto</h2>
         <p>Non devi:</p>
         <ul>
-          <li>inserire risultati falsi o alterare classifiche e punteggi Elo;</li>
+          <li>inserire risultati falsi o alterare classifiche e punteggi di ranking;</li>
           <li>usare l&apos;identità o i dati di un&apos;altra persona;</li>
           <li>caricare foto o testi offensivi, illeciti o che violano diritti di terzi (la foto profilo deve ritrarre te e non essere inappropriata);</li>
           <li>tentare di accedere ad aree riservate, aggirare i limiti di sicurezza o sovraccaricare il sito con accessi automatici;</li>
@@ -53,7 +53,7 @@ export default function TermsPage() {
       <section>
         <h2>5. Punteggi e classifiche</h2>
         <p>
-          Il punteggio Elo e le classifiche sono calcolati automaticamente dai risultati inseriti e hanno valore puramente amichevole e sportivo.
+          Il punteggio di ranking e le classifiche sono calcolati automaticamente dai risultati inseriti e hanno valore puramente amichevole e sportivo.
           Possono essere ricalcolati se un risultato viene corretto, e non danno diritto a premi o rimborsi salvo quanto stabilito dagli organizzatori di ciascun torneo.
         </p>
       </section>
