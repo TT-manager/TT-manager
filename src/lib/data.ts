@@ -40,7 +40,7 @@ export async function getRanking(championshipId: string): Promise<RankingRow[]> 
 export async function getChampionshipTournaments(championshipId: string) {
   const supabase = createPublicClient();
   const [{ data: tournaments }, { data: past }] = await Promise.all([
-    supabase.from("tournaments_public").select("id, name, starts_on, status, public_code, closed_at, ranked").eq("championship_id", championshipId)
+    supabase.from("tournaments_public").select("id, name, starts_on, status, public_code, closed_at, ranked, championship_id, registration_open, registration_deadline").eq("championship_id", championshipId)
       .order("starts_on", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }),
     supabase.from("past_tournaments").select("id, name, held_on, past_results(position, players(full_name))")
       .eq("championship_id", championshipId).order("held_on", { ascending: false, nullsFirst: false }),
@@ -86,14 +86,14 @@ export async function getPlayer(id: string) {
 
 export type PublicTournament = {
   id: string; name: string; starts_on: string | null; status: string; public_code: string; format: unknown; championship_id: string | null;
-  ranked: boolean; kind: "singles" | "doubles";
+  ranked: boolean; kind: "singles" | "doubles"; registration_open: boolean; registration_deadline: string | null;
 };
 
 /** Torneo pubblico con iscritti (giocatori o coppie) e partite (nessun dato riservato). */
 export async function getPublicTournament(publicCode: string) {
   const supabase = createPublicClient();
   const { data: t, error } = await supabase.from("tournaments_public")
-    .select("id, name, starts_on, status, public_code, format, championship_id, ranked, kind").eq("public_code", publicCode).maybeSingle();
+    .select("id, name, starts_on, status, public_code, format, championship_id, ranked, kind, registration_open, registration_deadline").eq("public_code", publicCode).maybeSingle();
   if (error) throw new Error("Impossibile leggere il torneo");
   if (!t) return null;
   const [entries, { data: matches, error: e2 }, { data: championship }] = await Promise.all([
@@ -112,6 +112,7 @@ export async function getPublicTournament(publicCode: string) {
     championship: championship as { name: string; slug: string } | null,
     members: entries.filter((e) => e.group !== null).map((e) => ({ playerId: e.id, group: e.group as number, seed: e.seed })),
     enrolledCount: entries.length,
+    enrolled: entries.map((e) => ({ name: entryName(e), solo: t.kind === "doubles" && e.players.length === 1 })).sort((a, b) => a.name.localeCompare(b.name, "it")),
     names,
     matches: (matches ?? []) as unknown as (MatchRow & { best_of: number; round: number; set_points: number; golden_point: number | null; rated?: boolean })[],
   };

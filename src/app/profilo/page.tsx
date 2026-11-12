@@ -4,6 +4,7 @@ import { ActionForm } from "@/components/action-form";
 import { requireAccount } from "@/lib/account";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { STATUS_LABEL } from "@/lib/labels";
+import { formatDeadline, registrationIsOpen } from "@/lib/registration";
 import { logout } from "../login/actions";
 import { cancelRequest, updateProfile } from "./actions";
 
@@ -36,6 +37,13 @@ async function Profile() {
   type C = { id: string; name: string; slug: string };
   const mine = (memberships ?? []).map((m) => ({ ...(m.championships as unknown as C), rating: m.rating as number, games: m.games_played as number }));
   const mineIds = new Set(mine.map((m) => m.id));
+  const { data: openRows } = mine.length ? await svc.from("tournaments")
+    .select("id, name, starts_on, status, public_code, championship_id, registration_open, registration_deadline")
+    .in("championship_id", [...mineIds]).eq("status", "draft").eq("registration_open", true) : { data: [] };
+  const open = (openRows ?? []).filter((t) => registrationIsOpen(t));
+  const { data: myEntries } = open.length ? await svc.from("entry_members").select("tournament_id")
+    .eq("player_id", account.player.id).in("tournament_id", open.map((t) => t.id)) : { data: [] };
+  const enrolledIn = new Set((myEntries ?? []).map((e) => e.tournament_id as string));
   const pending = (requests ?? []).filter((r) => r.status === "pending");
   const pendingSlugs = new Set(pending.map((r) => (r.championships as unknown as C).slug));
   const others = (all ?? []).filter((c) => !mineIds.has(c.id) && !pendingSlugs.has(c.slug));
@@ -50,6 +58,19 @@ async function Profile() {
           <form action={logout}><button className="rounded border px-3 py-1">Esci</button></form>
         </div>
       </div>
+
+      {open.length > 0 && (
+        <section className="rounded-lg border-2 border-emerald-600 p-4">
+          <h2 className="text-xl font-semibold">Tornei con iscrizioni aperte</h2>
+          <ul className="mt-2 divide-y">
+            {open.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
+                <Link href={`/t/${t.public_code}`} className="font-medium hover:underline">{t.name}</Link>
+                <span className={muted}>{enrolledIn.has(t.id) ? "sei iscritto" : "non ancora iscritto"}
+                  {t.registration_deadline ? ` · chiude ${formatDeadline(t.registration_deadline)}` : ""}</span>
+              </li>))}
+          </ul>
+        </section>)}
 
       <section>
         <h2 className="text-xl font-semibold">I miei campionati</h2>

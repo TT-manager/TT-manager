@@ -8,6 +8,9 @@ import { describeFormat, parseFormat } from "@/lib/domain/format";
 import { closingSummary } from "@/lib/closing";
 import { hasServiceKey } from "@/lib/organizer";
 import { friendlyCandidates } from "@/lib/friends";
+import { ActionForm } from "@/components/action-form";
+import { formatDeadline, isoToRomeLocal, registrationIsOpen } from "@/lib/registration";
+import { setRegistration } from "@/app/gestione/actions";
 import { ClosingControl, EnrollmentForm, GroupsControl, GuestForm, PairsForm, RegenerateCode } from "./tournament-forms";
 
 export const metadata = { title: "Torneo" };
@@ -19,7 +22,7 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
   const { championshipId } = access;
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments")
-    .select("id, name, starts_on, status, public_code, format").eq("id", id).maybeSingle();
+    .select("id, name, starts_on, status, public_code, format, registration_open, registration_deadline").eq("id", id).maybeSingle();
   if (!t) notFound();
   // Torneo di campionato: si iscrivono i giocatori del campionato, con i loro punti.
   // Amichevole di un utente: lui, i suoi amici e i suoi ospiti.
@@ -69,6 +72,24 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
             {t.format === null ? "Imposta il formato" : "Modifica il formato"}</Link>
         )}
       </section>
+
+      {championshipId && t.status === "draft" && (
+        <section className="rounded-lg border p-4">
+          <h2 className="text-lg font-semibold">Iscrizioni dei giocatori</h2>
+          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+            {registrationIsOpen({ ...t, championship_id: championshipId })
+              ? <>Aperte{t.registration_deadline ? ` fino a ${formatDeadline(t.registration_deadline)}` : ""}: i giocatori del campionato si iscrivono dalla <a href={`/t/${t.public_code}`} className="underline">pagina pubblica del torneo</a>{doubles ? " (scegliendo il compagno, oppure da soli)" : ""}.</>
+              : t.registration_open ? "Scadenza superata: nessuno può più iscriversi da solo." : "Chiuse: solo tu puoi iscrivere i giocatori."}
+            {" "}Si chiudono comunque quando generi {knockoutOnly ? "il tabellone" : mode === "league" ? "il calendario" : "i gironi"}.</p>
+          <ActionForm action={setRegistration} submitLabel="Salva" primary={false} className="mt-3 flex flex-wrap items-end gap-4">
+            <input type="hidden" name="tournament_id" value={t.id} />
+            <label className="flex items-center gap-2"><input type="checkbox" name="open" defaultChecked={t.registration_open} /> Iscrizioni aperte</label>
+            <label className="grid gap-1 text-sm">Chiusura (facoltativa)
+              <input type="datetime-local" name="deadline" defaultValue={t.registration_deadline ? isoToRomeLocal(t.registration_deadline) : ""}
+                className="rounded border bg-transparent px-3 py-1.5" /></label>
+          </ActionForm>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">Ricarica la pagina per vedere chi si è iscritto nel frattempo.</p>
+        </section>)}
 
       <section>
         <h2 className="text-lg font-semibold">{doubles ? `Coppie iscritte (${entries.length})` : `Iscritti (${entries.length})`}</h2>

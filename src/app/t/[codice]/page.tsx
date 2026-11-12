@@ -7,6 +7,7 @@ import { getPublicTournament } from "@/lib/data";
 import { parseFormat, stageName, describeFormat } from "@/lib/domain/format";
 import { groupLabel, groupViews, isPlayed, resolveKnockout, sourceLabel, type GroupView, type MatchRow } from "@/lib/domain/tournament";
 import { STATUS_LABEL } from "@/lib/labels";
+import { SelfEnroll } from "./self-enroll";
 
 export default function TournamentPage({ params }: PageProps<"/t/[codice]">) {
   return (
@@ -35,7 +36,7 @@ async function Tournament({ params }: { params: PageProps<"/t/[codice]">["params
   if (raw !== code) redirect(`/t/${code}`);
   const data = await getPublicTournament(code);
   if (!data) notFound();
-  const { tournament: t, championship, members, names, matches, enrolledCount } = data;
+  const { tournament: t, championship, members, names, matches, enrolledCount, enrolled } = data;
   const name = (id: string | null) => (id ? names.get(id) ?? "?" : null);
   const parsed = parseFormat(t.format);
   const groups = groupViews(members, matches);
@@ -71,7 +72,14 @@ async function Tournament({ params }: { params: PageProps<"/t/[codice]">["params
       )}
 
       {t.status === "draft" ? (
-        <p className="mt-8">Il torneo è in preparazione: {enrolledCount} iscritti. Gironi e tabellone non sono ancora stati sorteggiati.</p>
+        <>
+          <Suspense fallback={null}><SelfEnroll t={t} slug={championship?.slug ?? null} /></Suspense>
+          <p className="mt-8">Il torneo è in preparazione: {enrolledCount} {t.kind === "doubles" ? "iscrizioni" : "iscritti"}. Gironi e tabellone non sono ancora stati sorteggiati.</p>
+          {enrolled.length > 0 && (
+            <ul className="mt-3 grid gap-1 sm:grid-cols-2">
+              {enrolled.map((e, i) => <li key={i}>{e.name}{e.solo && <span className={muted}> (cerca un compagno)</span>}</li>)}
+            </ul>)}
+        </>
       ) : (
         <>
           {groups.length > 0 && <>

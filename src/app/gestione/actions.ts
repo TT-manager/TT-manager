@@ -4,6 +4,7 @@ import { requireChampionshipManager, requireTournamentManager } from "@/lib/auth
 import { requireAccount } from "@/lib/account";
 import { bestRatings, friendlyCandidates } from "@/lib/friends";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { romeToIso } from "@/lib/registration";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { formatOrganizerCode, hashCode, newOrganizerCode, newPublicCode } from "@/lib/codes";
 import { parseFormat } from "@/lib/domain/format";
@@ -113,12 +114,22 @@ export async function setEnrollment(_prev: EnrollState, formData: FormData): Pro
   const ch = { kind: access.kind };
   const allowed = new Set(await enrollablePlayerIds(access));
 
-  const groups: string[][] = ch.kind === "doubles"
+  let groups: string[][] = ch.kind === "doubles"
     ? formData.getAll("pair").map((v) => String(v).split(",").map((x) => x.trim()).filter(Boolean))
     : formData.getAll("player_id").map((v) => [String(v)]);
+  if (ch.kind !== "doubles" && formData.get("diff") === "1") {
+    // Applica solo le modifiche fatte dall'admin: chi si è iscritto da solo nel frattempo resta.
+    const wanted = new Set(groups.map((g) => g[0]));
+    const before = new Set(formData.getAll("before").map(String));
+    const { data: now } = await supabase.from("entry_members").select("player_id").eq("tournament_id", tournamentId);
+    const result = new Set((now ?? []).map((m) => m.player_id as string));
+    for (const id of before) if (!wanted.has(id)) result.delete(id);
+    for (const id of wanted) if (!before.has(id)) result.add(id);
+    groups = [...result].map((id) => [id]);
+  }
   const seen = new Set<string>();
   for (const g of groups) {
-    if (ch.kind === "doubles" && g.length !== 2) return { error: "Ogni coppia deve avere due giocatori." };
+    if (ch.kind === "doubles" && (g.length < 1 || g.length > 2)) return { error: "Ogni coppia deve avere due giocatori." };
     for (const id of g) {
       if (!allowed.has(id)) return { error: access.championshipId ? "Si possono iscrivere solo giocatori del campionato." : "Si possono iscrivere solo te stesso, i tuoi amici e i tuoi ospiti." };
       if (seen.has(id)) return { error: "Un giocatore compare in più di una coppia." };
@@ -173,6 +184,13 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
   if (t.format === null) return { error: "Imposta prima il formato del torneo." };
   if ("errors" in parsed) return { error: parsed.errors.join(" ") };
   const knockoutOnly = parsed.format.mode === "knockout";
+  const { data: entryRows } = await supabase.from("entry_members").select("entry_id").eq("tournament_id", tournamentId);
+  const sizes = new Map<string, number>();
+  for (const r of entryRows ?? []) sizes.set(r.entry_id as string, (sizes.get(r.entry_id as string) ?? 0) + 1);
+  const { data: allEntries } = await supabase.from("tournament_entries").select("id").eq("tournament_id", tournamentId);
+  const expected = (await supabase.from("tournaments").select("kind").eq("id", tournamentId).maybeSingle()).data?.kind === "doubles" ? 2 : 1;
+  if ((allEntries ?? []).some((e) => (sizes.get(e.id as string) ?? 0) !== expected))
+    return { error: expected === 2 ? "Ci sono giocatori senza compagno: abbinali o toglili prima di generare." : "Ci sono iscrizioni non valide: salva di nuovo gli iscritti." };
 
   // Teste di serie dai punti del campionato (coppia = media dei due giocatori);
   // negli amichevoli senza campionato, dal miglior punteggio di ognuno nei campionati.
@@ -317,4 +335,25 @@ export async function addGuest(_prev: EnrollState, formData: FormData): Promise<
   revalidatePath(`/gestione/${tournamentId}`);
   refresh();
   return { ok: `Aggiunto ${name}: ora puoi iscriverlo.` };
+}
+
+// ── Iscrizioni dei giocatori ──────────────────────────────────────────────
+
+/** Apre o chiude le iscrizioni autonome (solo tornei di campionato, in preparazione). */
+export async function setRegistration(_prev: EnrollState, formData: FormData): Promise<EnrollState> {
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  const access = await requireTournamentManager(tournamentId);
+  if (!access.championshipId) return { error: "Le iscrizioni autonome valgono per i tornei di campionato." };
+  const open = formData.get("open") === "on";
+  const raw = String(formData.get("deadline") ?? "").trim();
+  const deadline = raw ? romeToIso(raw) : null;
+  if (raw && !deadline) return { error: "Data di chiusura non valida." };
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase.from("tournaments").update({ registration_open: open, registration_deadline: deadline })
+    .eq("id", tournamentId).eq("status", "draft").select("id");
+  if (error) return { error: "Non sono riuscito a salvare." };
+  if (!data?.length) return { error: "Il torneo non è più in preparazione." };
+  revalidatePath(`/gestione/${tournamentId}`);
+  refresh();
+  return { ok: open ? "Iscrizioni aperte." : "Iscrizioni chiuse." };
 }

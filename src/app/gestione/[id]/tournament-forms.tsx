@@ -10,6 +10,9 @@ export function EnrollmentForm({ tournamentId, players, enrolledIds, locked, clo
   const [state, action, pending] = useActionState<EnrollState, FormData>(saveAction, {});
   const [filter, setFilter] = useState("");
   const [checked, setChecked] = useState(() => new Set(enrolledIds));
+  // Iscritti al momento dell'ultimo salvataggio: il server applica solo le differenze,
+  // così chi si è iscritto da solo nel frattempo non viene cancellato.
+  const [baseline, setBaseline] = useState(() => [...enrolledIds]);
   // Il messaggio dell'ultimo salvataggio vale solo finché la selezione non cambia.
   const [changedSinceSave, setChangedSinceSave] = useState(false);
   const shown = players.filter((p) => p.full_name.toLowerCase().includes(filter.toLowerCase()));
@@ -35,6 +38,9 @@ export function EnrollmentForm({ tournamentId, players, enrolledIds, locked, clo
       const data = new FormData();
       data.set("tournament_id", tournamentId);
       for (const id of checked) data.append("player_id", id);
+      for (const id of baseline) data.append("before", id);
+      data.set("diff", "1");
+      setBaseline([...checked]);
       startTransition(() => action(data));
     }}>
       <input type="hidden" name="tournament_id" value={tournamentId} />
@@ -170,6 +176,8 @@ export function PairsForm({ tournamentId, players, initialPairs, locked, closed 
   const setSlot = (i: number, side: 0 | 1, id: string) =>
     update(pairs.map((p, j) => (j === i ? (side === 0 ? [id, p[1]] : [p[0], id]) : p)));
   const complete = pairs.filter(([a, b]) => a && b);
+  const filled = pairs.filter(([a, b]) => a || b);
+  const solos = filled.length - complete.length;
   const sel = "select-arrow rounded border bg-transparent py-2 pl-3";
 
   if (players.length < 2) return <p className="mt-2">Servono almeno due giocatori da iscrivere.</p>;
@@ -179,7 +187,7 @@ export function PairsForm({ tournamentId, players, initialPairs, locked, closed 
       setChanged(false);
       const data = new FormData();
       data.set("tournament_id", tournamentId);
-      for (const [a, b] of complete) data.append("pair", `${a},${b}`);
+      for (const [a, b] of filled) data.append("pair", [a, b].filter(Boolean).join(","));
       startTransition(() => action(data));
     }}>
       {locked && <p className="text-amber-700 dark:text-amber-400">
@@ -200,6 +208,7 @@ export function PairsForm({ tournamentId, players, initialPairs, locked, closed 
                 </select>
               ))}
               {avg !== null && <span className="text-sm text-neutral-600 dark:text-neutral-400">media {avg}</span>}
+              {(a ? 1 : 0) + (b ? 1 : 0) === 1 && <span className="text-sm text-amber-700 dark:text-amber-400">cerca un compagno</span>}
               {!locked && <button type="button" onClick={() => update(pairs.filter((_, j) => j !== i))} className="text-sm underline">Togli</button>}
             </li>
           );
@@ -209,10 +218,10 @@ export function PairsForm({ tournamentId, players, initialPairs, locked, closed 
         <div className="flex flex-wrap items-center gap-4">
           <button type="button" onClick={() => update([...pairs, ["", ""]])} className="rounded border px-3 py-1 text-sm">+ Aggiungi coppia</button>
           <button disabled={pending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
-            Salva coppie ({complete.length})</button>
+            Salva coppie ({complete.length}{solos ? ` + ${solos} senza compagno` : ""})</button>
           {!changed && state.error && <p role="alert" className="text-red-700 dark:text-red-400">{state.error}</p>}
           {!changed && state.ok && <p className="text-green-700 dark:text-green-400">{state.ok}</p>}
-          {changed && <p className="text-sm text-amber-700 dark:text-amber-400">Modifiche non ancora salvate{pairs.length !== complete.length ? " (le coppie incomplete non vengono salvate)" : ""}.</p>}
+          {changed && <p className="text-sm text-amber-700 dark:text-amber-400">Modifiche non ancora salvate.</p>}
         </div>
       )}
     </form>
