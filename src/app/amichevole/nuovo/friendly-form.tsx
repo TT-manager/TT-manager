@@ -21,7 +21,7 @@ export default function FriendlyForm() {
       </fieldset>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">Potrai iscrivere te stesso, i tuoi amici e degli ospiti senza account. Il formato lo scegli dopo.</p>
       {state.errors && <ul role="alert" className="list-disc pl-5 text-red-700 dark:text-red-400">{state.errors.map((e) => <li key={e}>{e}</li>)}</ul>}
-      <button disabled={pending} className="rounded bg-black px-5 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
+      <button disabled={pending} className="btn-primary">
         {pending ? "Creazione…" : "Crea amichevole"}</button>
     </form>
   );

@@ -5,7 +5,7 @@ import type { MatchRow } from "./domain/tournament";
 
 // Lettura a ogni richiesta (nessuna cache): i risultati devono comparire subito.
 
-export type Championship = { id: string; name: string; slug: string; kind: "singles" | "doubles"; settings: RankingSettings };
+export type Championship = { id: string; name: string; slug: string; kind: "singles" | "doubles"; settings: RankingSettings; isPublic: boolean };
 export type RankingRow = {
   player_id: string; full_name: string; club: string | null;
   rating: number; games_played: number; position: number;
@@ -13,18 +13,18 @@ export type RankingRow = {
 
 const toChampionship = (c: Record<string, unknown>): Championship => {
   const p = parseRankingSettings(c.settings);
-  return { id: c.id as string, name: c.name as string, slug: c.slug as string, kind: c.kind as "singles" | "doubles",
+  return { id: c.id as string, name: c.name as string, slug: c.slug as string, kind: c.kind as "singles" | "doubles", isPublic: Boolean(c.is_public),
     settings: "settings" in p ? p.settings : DEFAULT_RANKING };
 };
 
 export async function getChampionships(): Promise<Championship[]> {
-  const { data, error } = await createPublicClient().from("championships").select("id, name, slug, kind, settings").order("name");
+  const { data, error } = await createPublicClient().from("championships").select("id, name, slug, kind, settings, is_public").order("name");
   if (error) throw new Error("Impossibile leggere i campionati");
   return (data ?? []).map(toChampionship);
 }
 
 export async function getChampionshipBySlug(slug: string): Promise<Championship | null> {
-  const { data } = await createPublicClient().from("championships").select("id, name, slug, kind, settings").eq("slug", slug).maybeSingle();
+  const { data } = await createPublicClient().from("championships").select("id, name, slug, kind, settings, is_public").eq("slug", slug).maybeSingle();
   return data ? toChampionship(data) : null;
 }
 

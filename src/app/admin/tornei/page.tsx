@@ -16,7 +16,7 @@ export default async function TournamentsPage() {
     <main>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Tornei</h1>
-        <Link href="/admin/tornei/nuovo" className="rounded bg-black px-4 py-2 text-white dark:bg-white dark:text-black">Nuovo torneo</Link>
+        <Link href="/admin/tornei/nuovo" className="btn-primary">Nuovo torneo</Link>
       </div>
       {data.length === 0 ? <p className="mt-6 text-neutral-600 dark:text-neutral-400">Nessun torneo.</p> : (
         <ul className="mt-6 divide-y">

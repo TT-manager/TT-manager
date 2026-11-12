@@ -1,26 +1,38 @@
 import Link from "next/link";
 import type { RankingRow } from "@/lib/data";
+import { Avatar } from "./avatar";
 
-export function RankingTable({ rows, label, limit }: { rows: RankingRow[]; label: string; limit?: number }) {
-  if (rows.length === 0) return <p className="mt-3 text-neutral-600 dark:text-neutral-400">Nessun giocatore in classifica.</p>;
+const MEDAL = ["bg-gold", "bg-silver", "bg-bronze"];
+
+export function RankingTable({ rows, label, limit, highlight }: { rows: RankingRow[]; label: string; limit?: number; highlight?: string }) {
+  if (rows.length === 0) return <p className="mt-3 text-muted">Nessun giocatore in classifica.</p>;
   const shown = limit ? rows.slice(0, limit) : rows;
   return (
-    <table className="mt-3 w-full text-left">
-      <thead className="text-sm text-neutral-500 dark:text-neutral-400">
-        <tr><th className="py-2">#</th><th>Giocatore</th><th className="hidden sm:table-cell">Circolo</th>
-          <th className="text-right">Partite</th><th className="text-right">{label}</th></tr>
-      </thead>
-      <tbody>
-        {shown.map((r) => (
-          <tr key={r.player_id} className="border-t">
-            <td className="py-2 tabular-nums">{r.position}</td>
-            <td><Link href={`/giocatore/${r.player_id}`} className="font-medium underline-offset-2 hover:underline">{r.full_name}</Link></td>
-            <td className="hidden text-neutral-600 dark:text-neutral-400 sm:table-cell">{r.club}</td>
-            <td className="text-right tabular-nums">{r.games_played}</td>
-            <td className="text-right font-semibold tabular-nums">{r.rating}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="card mt-3 overflow-x-auto !p-0">
+      <table className="w-full text-left">
+        <thead className="bg-ink text-xs uppercase tracking-wide text-white">
+          <tr><th className="py-2.5 pl-4">#</th><th>Giocatore</th><th className="hidden sm:table-cell">Circolo</th>
+            <th className="text-right">Partite</th><th className="pr-4 text-right">{label}</th></tr>
+        </thead>
+        <tbody>
+          {shown.map((r) => (
+            <tr key={r.player_id} className={`border-t border-line ${r.player_id === highlight ? "bg-brand/10" : ""}`}>
+              <td className="py-2.5 pl-4">
+                {r.position <= 3
+                  ? <span className={`flex h-7 w-7 items-center justify-center rounded-full font-display font-bold text-white ${MEDAL[r.position - 1]}`}>{r.position}</span>
+                  : <span className="inline-block w-7 text-center font-display text-lg font-semibold tabular-nums text-muted">{r.position}</span>}
+              </td>
+              <td>
+                <Link href={`/giocatore/${r.player_id}`} className="flex items-center gap-2 font-medium hover:text-brand">
+                  <Avatar name={r.full_name} size="h-7 w-7 text-[0.65rem]" />{r.full_name}</Link>
+              </td>
+              <td className="hidden text-muted sm:table-cell">{r.club}</td>
+              <td className="text-right tabular-nums text-muted">{r.games_played}</td>
+              <td className="pr-4 text-right font-display text-xl font-bold tabular-nums">{r.rating}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

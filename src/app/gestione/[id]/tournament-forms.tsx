@@ -69,7 +69,7 @@ export function EnrollmentForm({ tournamentId, players, enrolledIds, locked, clo
       </ul>
       {!locked && (
         <div className="flex items-center gap-4">
-          <button disabled={pending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
+          <button disabled={pending} className="btn-primary">
             Salva iscrizioni ({checked.size})</button>
           {!changedSinceSave && state.error && <p role="alert" className="text-red-700 dark:text-red-400">{state.error}</p>}
           {!changedSinceSave && state.ok && <p className="text-green-700 dark:text-green-400">{state.ok}</p>}
@@ -115,7 +115,7 @@ export function GroupsControl({ tournamentId, status, mode, hasFormat }:
           ? "Le teste di serie sono posizionate in base alla classifica generale (la 1 e la 2 in metà opposte). Prima salva le iscrizioni."
           : mode === "league" ? "Tutti contro tutti. Prima salva le iscrizioni."
           : "Le teste di serie (classifica generale) sono distribuite a serpentina nei gironi. Prima salva le iscrizioni."}</p>
-      <button disabled={genPending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
+      <button disabled={genPending} className="btn-primary">
         {genPending ? "Generazione…" : knockoutOnly ? "Genera tabellone" : mode === "league" ? "Genera calendario" : "Genera gironi e calendario"}</button>
       {gen.error && <p role="alert" className="text-red-700 dark:text-red-400">{gen.error}</p>}
     </form>
@@ -157,7 +157,7 @@ export function ClosingControl({ tournamentId, status, summary, ranked = true }:
       <input type="hidden" name="tournament_id" value={tournamentId} />
       <p>{summary.toRate} partite giocate{ranked ? " da conteggiare" : ""} · {summary.unplayed} ancora da giocare.
         {!summary.finished && <span className="text-amber-700 dark:text-amber-400"> La finale non è ancora stata giocata.</span>}</p>
-      <button disabled={closing || summary.toRate === 0} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
+      <button disabled={closing || summary.toRate === 0} className="btn-primary">
         {closing ? "Chiusura…" : ranked ? "Chiudi torneo e aggiorna la classifica" : "Chiudi torneo"}</button>
       {msg(closeState)}{msg(reopenState)}
     </form>
@@ -217,7 +217,7 @@ export function PairsForm({ tournamentId, players, initialPairs, locked, closed 
       {!locked && (
         <div className="flex flex-wrap items-center gap-4">
           <button type="button" onClick={() => update([...pairs, ["", ""]])} className="rounded border px-3 py-1 text-sm">+ Aggiungi coppia</button>
-          <button disabled={pending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
+          <button disabled={pending} className="btn-primary">
             Salva coppie ({complete.length}{solos ? ` + ${solos} senza compagno` : ""})</button>
           {!changed && state.error && <p role="alert" className="text-red-700 dark:text-red-400">{state.error}</p>}
           {!changed && state.ok && <p className="text-green-700 dark:text-green-400">{state.ok}</p>}

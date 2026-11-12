@@ -27,7 +27,7 @@ export default function NewTournamentForm({ championships, preselected }:
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
         Il formato (gironi, set, chi passa) lo imposti dopo, dalla pagina del torneo: anche quando conosci il numero di iscritti.</p>
       {state.errors && <ul role="alert" className="list-disc pl-5 text-red-700 dark:text-red-400">{state.errors.map((e) => <li key={e}>{e}</li>)}</ul>}
-      <button disabled={pending} className="rounded bg-black px-5 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
+      <button disabled={pending} className="btn-primary">
         {pending ? "Creazione…" : "Crea torneo"}</button>
     </form>
   );
@@ -44,7 +44,7 @@ export function Created({ c }: { c: NonNullable<CreateState["created"]> }) {
           Se lo perdi, potrai generarne uno nuovo dalla pagina del torneo.</p>
       </div>
       <p>Codice pubblico per seguire il torneo: <span className="font-mono text-xl">{c.publicCode}</span></p>
-      <Link href={`/gestione/${c.id}`} className="inline-block rounded bg-black px-4 py-2 text-white dark:bg-white dark:text-black">Vai al torneo e iscrivi i giocatori</Link>
+      <Link href={`/gestione/${c.id}`} className="btn-primary">Vai al torneo e iscrivi i giocatori</Link>
     </div>
   );
 }

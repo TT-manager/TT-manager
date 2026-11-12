@@ -2,7 +2,7 @@
 import { useActionState, useRef, useState } from "react";
 import { setError, type SetRules } from "@/lib/domain/score";
 
-const btn = "rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black";
+const btn = "btn-primary";
 const Msg = ({ s }: { s: ResultState }) =>
   s.error ? <p role="alert" className="text-red-700 dark:text-red-400">{s.error}</p>
   : s.ok ? <p className="text-green-700 dark:text-green-400">{s.ok}</p> : null;

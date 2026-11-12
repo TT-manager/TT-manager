@@ -11,7 +11,7 @@ export default function PasswordForm() {
         <input name="password" type="password" required minLength={12} autoComplete="new-password" className={input} /></label>
       <label className="block">Ripeti la nuova password
         <input name="confirm" type="password" required minLength={12} autoComplete="new-password" className={input} /></label>
-      <button disabled={pending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">Salva</button>
+      <button disabled={pending} className="btn-primary">Salva</button>
       {state.error && <p role="alert" className="text-red-700 dark:text-red-400">{state.error}</p>}
       {state.ok && <p className="text-green-700 dark:text-green-400">{state.ok}</p>}
     </form>

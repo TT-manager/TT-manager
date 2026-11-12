@@ -9,12 +9,12 @@ export async function loadManagedChampionship(id: string) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const admin = await requireChampionshipManager(id);
   const supabase = await createServerSupabase();
-  const { data: c } = await supabase.from("championships").select("id, name, slug, kind, settings").eq("id", id).maybeSingle();
+  const { data: c } = await supabase.from("championships").select("id, name, slug, kind, settings, is_public").eq("id", id).maybeSingle();
   if (!c) notFound();
   const p = parseRankingSettings(c.settings);
   return {
     admin, supabase,
-    championship: { id: c.id as string, name: c.name as string, slug: c.slug as string, kind: c.kind as "singles" | "doubles",
+    championship: { id: c.id as string, name: c.name as string, slug: c.slug as string, kind: c.kind as "singles" | "doubles", isPublic: c.is_public as boolean,
       settings: "settings" in p ? p.settings : DEFAULT_RANKING },
   };
 }
@@ -33,7 +33,7 @@ export function ChampionshipHeader({ c, current }: { c: { id: string; name: stri
       <nav className="mt-4 flex flex-wrap gap-2 border-b pb-2 text-sm">
         {TABS.map(([path, label]) => (
           <Link key={path} href={`/admin/campionati/${c.id}${path}`}
-            className={`rounded px-3 py-1 ${current === path ? "bg-black text-white dark:bg-white dark:text-black" : "hover:underline"}`}>{label}</Link>
+            className={`rounded px-3 py-1 ${current === path ? "bg-brand text-white" : "hover:text-brand"}`}>{label}</Link>
         ))}
       </nav>
     </div>

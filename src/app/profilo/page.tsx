@@ -101,7 +101,7 @@ async function Profile() {
       <section>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold">I miei tornei amichevoli</h2>
-          <Link href="/amichevole/nuovo" className="rounded bg-black px-4 py-2 text-sm text-white dark:bg-white dark:text-black">Crea un amichevole</Link>
+          <Link href="/amichevole/nuovo" className="btn-primary text-sm">Crea un amichevole</Link>
         </div>
         {(friendlies ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>Organizza una sfida con i tuoi amici: non conta per nessuna classifica.</p> : (
           <ul className="mt-2 divide-y">

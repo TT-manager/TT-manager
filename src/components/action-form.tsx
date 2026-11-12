@@ -13,8 +13,8 @@ export function ActionForm({ action: submit, children, submitLabel, confirmText,
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(submit, {});
   const btn = primary
-    ? "rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black"
-    : inline ? "text-sm underline disabled:opacity-50" : "rounded border px-3 py-1.5 text-sm disabled:opacity-50";
+    ? "btn-primary"
+    : inline ? "text-sm underline decoration-brand/40 hover:text-brand disabled:opacity-50" : "btn-outline px-3 py-1.5 text-sm";
   return (
     <form className={className} onSubmit={(e) => {
       e.preventDefault();

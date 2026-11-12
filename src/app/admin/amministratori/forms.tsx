@@ -13,7 +13,7 @@ export function AddAdminForm() {
       <form action={action} className="flex flex-wrap gap-2">
         <input name="email" type="email" required placeholder="email@esempio.it" aria-label="Email del nuovo amministratore"
           className="min-w-0 flex-1 rounded border bg-transparent px-3 py-2" />
-        <button disabled={pending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">Aggiungi</button>
+        <button disabled={pending} className="btn-primary">Aggiungi</button>
       </form>
       <Msg s={state} />
       {state.tempPassword && (

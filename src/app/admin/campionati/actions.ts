@@ -48,6 +48,17 @@ export async function createChampionship(_prev: ActionState, formData: FormData)
   return { error: "Nome già usato da troppi campionati: scegline un altro." };
 }
 
+export async function setVisibility(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const cid = str(formData, "championship_id");
+  await requireChampionshipManager(cid);
+  const isPublic = formData.get("is_public") === "on";
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.from("championships").update({ is_public: isPublic }).eq("id", cid);
+  if (error) return { error: "Non sono riuscito a salvare." };
+  revalidatePath(`/admin/campionati/${cid}`); revalidatePath("/"); refresh();
+  return { ok: isPublic ? "Ora il campionato è visibile a tutti nella home." : "Ora il campionato compare nella home solo a chi ne fa parte." };
+}
+
 export async function renameChampionship(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);

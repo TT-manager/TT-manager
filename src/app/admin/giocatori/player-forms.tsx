@@ -13,7 +13,7 @@ export function AddPlayerForm() {
     <form action={action} className="mt-4 grid gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_auto]">
       <input name="full_name" placeholder="Nome e cognome" required className={input} aria-label="Nome e cognome" />
       <input name="club" placeholder="Circolo (facoltativo)" className={input} aria-label="Circolo" />
-      <button disabled={pending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-60 dark:bg-white dark:text-black">Aggiungi</button>
+      <button disabled={pending} className="btn-primary">Aggiungi</button>
       <div className="sm:col-span-3">{msg(state)}</div>
     </form>
   );

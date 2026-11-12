@@ -238,7 +238,7 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
 
       {state.errors && <ul role="alert" className="list-disc pl-5 text-red-700 dark:text-red-400">{state.errors.map((e) => <li key={e}>{e}</li>)}</ul>}
       {state.ok && <p className="text-green-700 dark:text-green-400">{state.ok}</p>}
-      <button disabled={pending || problems.length > 0} className="rounded bg-black px-5 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
+      <button disabled={pending || problems.length > 0} className="btn-primary">
         {pending ? "Salvataggio…" : "Salva formato"}</button>
     </form>
   );

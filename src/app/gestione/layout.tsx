@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Suspense } from "react";
 
 // Gestione di un torneo: per admin dei campionati e per chi ha creato un amichevole.
@@ -6,11 +5,7 @@ import { Suspense } from "react";
 export default function ManageLayout({ children }: LayoutProps<"/gestione">) {
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
-      <header className="mb-8 flex flex-wrap items-center gap-x-5 gap-y-2 border-b pb-3 text-sm">
-        <Link href="/" className="font-bold">Tennis tavolo</Link>
-        <Link href="/profilo" className="hover:underline">Il mio profilo</Link>
-        <Link href="/admin" className="hover:underline">Amministrazione</Link>
-      </header>
+      <p className="mb-4 inline-block rounded-full bg-ink px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white">Gestione torneo</p>
       <Suspense fallback={<p>Caricamento…</p>}>{children}</Suspense>
     </div>
   );

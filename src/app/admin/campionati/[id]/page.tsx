@@ -6,7 +6,7 @@ import { hasServiceKey } from "@/lib/organizer";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { listAdminUsers } from "@/lib/admins";
 import { STATUS_LABEL } from "@/lib/labels";
-import { addChampionshipAdmin, addMembers, decideRequest, disableInvite, regenerateInvite, recomputeAction, removeChampionshipAdmin, removeMember, renameChampionship } from "../actions";
+import { addChampionshipAdmin, addMembers, decideRequest, disableInvite, regenerateInvite, recomputeAction, removeChampionshipAdmin, removeMember, renameChampionship, setVisibility } from "../actions";
 import { ChampionshipHeader, input, loadManagedChampionship, muted } from "./shared";
 
 export const metadata = { title: "Campionato" };
@@ -35,7 +35,7 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
       <section>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Tornei</h2>
-          <Link href={`/admin/tornei/nuovo?campionato=${id}`} className="rounded bg-black px-4 py-2 text-white dark:bg-white dark:text-black">Nuovo torneo</Link>
+          <Link href={`/admin/tornei/nuovo?campionato=${id}`} className="btn-primary">Nuovo torneo</Link>
         </div>
         {(tournaments ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>Nessun torneo ancora.</p> : (
           <ul className="mt-2 divide-y">
@@ -131,6 +131,15 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
             <input name="new_club" placeholder="Circolo (facoltativo)" maxLength={80} className={input} aria-label="Circolo" />
           </div>
         </ActionForm>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold">Visibilità</h2>
+        <ActionForm action={setVisibility} submitLabel="Salva" primary={false} className="mt-2 flex flex-wrap items-center gap-3">
+          {hidden}
+          <label className="flex items-center gap-2"><input type="checkbox" name="is_public" defaultChecked={c.isPublic} /> Campionato pubblico: compare nella home di tutti</label>
+        </ActionForm>
+        <p className={`mt-1 ${muted}`}>Se non è pubblico, nella home lo vede solo chi ne fa parte. La pagina resta comunque aperta a chi ha il link, per esempio da un invito.</p>
       </section>
 
       <section>
