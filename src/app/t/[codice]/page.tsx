@@ -63,18 +63,20 @@ async function Tournament({ params }: { params: PageProps<"/t/[codice]">["params
 
       {"format" in parsed && (
         <details className="mt-4"><summary className="cursor-pointer">Formato del torneo</summary>
-          <ul className="mt-2 list-disc pl-5">{describeFormat(parsed.format).map((l) => <li key={l}>{l}</li>)}</ul>
+          <ul className="mt-2 list-disc pl-5">{describeFormat(parsed.format, enrolledCount || undefined).map((l) => <li key={l}>{l}</li>)}</ul>
         </details>
       )}
 
       {t.status === "draft" ? (
-        <p className="mt-8">Il torneo è in preparazione: {enrolledCount} iscritti. I gironi non sono ancora stati sorteggiati.</p>
+        <p className="mt-8">Il torneo è in preparazione: {enrolledCount} iscritti. Gironi e tabellone non sono ancora stati sorteggiati.</p>
       ) : (
         <>
-          <h2 className="mt-8 text-2xl font-semibold">Gironi</h2>
-          <div className="mt-3 grid gap-6 lg:grid-cols-2">
-            {groups.map((g) => <Group key={g.group} g={g} name={name} />)}
-          </div>
+          {groups.length > 0 && <>
+            <h2 className="mt-8 text-2xl font-semibold">Gironi</h2>
+            <div className="mt-3 grid gap-6 lg:grid-cols-2">
+              {groups.map((g) => <Group key={g.group} g={g} name={name} />)}
+            </div>
+          </>}
 
           {stages.length > 0 && (
             <>

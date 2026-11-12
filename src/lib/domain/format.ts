@@ -39,6 +39,8 @@ export const CROSS_CRITERIA: Record<CrossCriterion, string> = {
 export const DEFAULT_CROSS_CRITERIA: CrossCriterion[] = ["winPct", "setDiffAvg", "pointDiffAvg"];
 
 export interface TournamentFormat {
+  /** "groups" = gironi + tabellone (default); "knockout" = solo eliminazione diretta. */
+  mode?: "groups" | "knockout";
   groupCount: number;
   groupBestOf: BestOf;
   /** 1 = sola andata, 2 = andata e ritorno (default 1). */
@@ -98,8 +100,44 @@ export interface BracketPlan {
 }
 
 /** Controlla il formato; restituisce l'elenco dei problemi in italiano (vuoto = valido). */
+export const isKnockoutOnly = (f: TournamentFormat) => f.mode === "knockout";
+
+/** Numero di stadi del tabellone a eliminazione diretta con n giocatori (es. 8 → quarti = stadio 2). */
+export function knockoutFirstStage(n: number): number {
+  let size = 2, stage = 0;
+  while (size < n) { size *= 2; stage++; }
+  return stage;
+}
+
+/** Dimensioni dei gironi a serpentina con n iscritti e g gironi (i primi gironi hanno un giocatore in più). */
+export function groupSizes(n: number, g: number): number[] {
+  return Array.from({ length: g }, (_, i) => Math.floor(n / g) + (i < n % g ? 1 : 0));
+}
+
+/** Numeri di gironi sensati per n iscritti (da 3 a 6 giocatori per girone). */
+export function suggestGroupCounts(n: number): { groups: number; sizes: string }[] {
+  const out: { groups: number; sizes: string }[] = [];
+  for (let g = 1; g <= Math.floor(n / 3); g++) {
+    const sz = groupSizes(n, g);
+    const min = Math.min(...sz), max = Math.max(...sz);
+    if (min >= 3 && max <= 6) out.push({ groups: g, sizes: min === max ? `${min}` : `${min}-${max}` });
+  }
+  return out;
+}
+
 export function validateFormat(f: TournamentFormat, playersPerGroup?: number[]): string[] {
   const errors: string[] = [];
+  if (f.mode !== undefined && f.mode !== "groups" && f.mode !== "knockout") errors.push("Modalità del torneo non valida.");
+  if (isKnockoutOnly(f)) {
+    if (!VALID_BEST_OF.includes(f.defaultKnockoutBestOf)) errors.push("Set del tabellone non valido (1, 3, 5 o 7).");
+    for (const [s, b] of Object.entries(f.knockoutBestOf))
+      if (!VALID_BEST_OF.includes(b)) errors.push(`Set non validi per il turno ${s}.`);
+    for (const [st, r] of Object.entries(f.knockoutSet ?? {})) {
+      const e = setRulesError(r);
+      if (e) errors.push(`${stageName(Number(st))}: ${e}`);
+    }
+    return errors;
+  }
   if (!Number.isInteger(f.groupCount) || f.groupCount < 1) errors.push("Serve almeno un girone.");
   if (!VALID_BEST_OF.includes(f.groupBestOf)) errors.push("Set dei gironi non valido (1, 3, 5 o 7).");
   if (!VALID_BEST_OF.includes(f.defaultKnockoutBestOf)) errors.push("Set del tabellone non valido (1, 3, 5 o 7).");
@@ -257,7 +295,8 @@ export function parseFormat(raw: unknown): { format: TournamentFormat } | { erro
   };
   const ks = (typeof o.knockoutSet === "object" && o.knockoutSet) || {};
   const format: TournamentFormat = {
-    groupCount: int(o.groupCount),
+    ...(o.mode === "knockout" || o.mode === "groups" ? { mode: o.mode } : {}),
+    groupCount: o.mode === "knockout" && o.groupCount === undefined ? 0 : int(o.groupCount),
     groupBestOf: int(o.groupBestOf) as BestOf,
     groupLegs: o.groupLegs === undefined ? 1 : (int(o.groupLegs) as 1 | 2),
     groupSet: rules(o.groupSet),
@@ -291,7 +330,14 @@ export const describeSetRules = (r: SetRules) =>
   `set a ${r.points}${r.golden !== null ? `, golden point sul ${r.golden} pari` : ""}`;
 
 /** Descrizione in italiano del formato, una riga per punto. */
-export function describeFormat(f: TournamentFormat): string[] {
+export function describeFormat(f: TournamentFormat, players?: number): string[] {
+  if (isKnockoutOnly(f)) {
+    const lines = ["Solo eliminazione diretta: teste di serie in base alla classifica generale; se i giocatori non sono 4, 8, 16…, i migliori saltano il primo turno."];
+    const first = players && players >= 2 ? knockoutFirstStage(players) : Math.max(0, ...Object.keys(f.knockoutBestOf).map(Number));
+    for (let st = first; st >= 0; st--)
+      lines.push(`${stageName(st)}: ${sets(bestOfForStage(f, st))} (${describeSetRules(stageSetRules(f, st))}).`);
+    return lines;
+  }
   const legs = f.groupLegs === 2 ? " con andata e ritorno" : "";
   const lines = [`${f.groupCount} ${f.groupCount === 1 ? "girone" : "gironi"} all'italiana${legs}, partite ${sets(f.groupBestOf)} (${describeSetRules(groupSetRules(f))}).`];
   for (const r of [...f.qualification].sort((a, b) => b.stage - a.stage)) {

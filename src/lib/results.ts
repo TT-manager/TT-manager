@@ -81,6 +81,7 @@ export async function reconcileBracket(tournamentId: string) {
       await svc.from("matches").update({ player_a: m.player_a, player_b: m.player_b })
         .eq("id", m.id).eq("tournament_id", tournamentId).is("sets_a", null);
   }
-  const status = groups.length > 0 && groups.every((g) => g.complete) ? "knockout" : "groups";
+  // Senza gironi (sola eliminazione diretta) il torneo è sempre nella fase a tabellone.
+  const status = groups.every((g) => g.complete) ? "knockout" : "groups";
   if (status !== t.status) await svc.from("tournaments").update({ status }).eq("id", tournamentId).in("status", ["groups", "knockout"]);
 }

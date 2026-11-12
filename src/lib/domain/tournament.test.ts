@@ -40,7 +40,7 @@ describe("torneo completo", () => {
   it("il tabellone si riempie solo a gironi conclusi, poi con i vincenti", () => {
     const plan = buildTournament(players, fmt);
     let db = rows(plan);
-    const members = plan.assignments.map((a) => ({ playerId: a.playerId, group: a.group }));
+    const members = plan.assignments.map((a) => ({ playerId: a.playerId, group: a.group! }));
     // Nessun risultato: tabellone vuoto, etichette leggibili.
     expect(resolveKnockout(groupViews(members, db), db.filter((m) => m.phase === "knockout"))
       .every((k) => k.player_a === null && k.player_b === null)).toBe(true);
@@ -68,7 +68,7 @@ import { applyResult } from "./tournament";
 
 describe("inserimento e correzione dei risultati", () => {
   const plan = buildTournament(players, fmt);
-  const members = plan.assignments.map((a) => ({ playerId: a.playerId, group: a.group }));
+  const members = plan.assignments.map((a) => ({ playerId: a.playerId, group: a.group! }));
   const num = (id: string | null) => Number(id!.slice(1));
   // Tutti i gironi giocati tranne l'ultima partita del girone 2.
   const base = rows(plan).map((m, i, all) => {
@@ -137,13 +137,13 @@ describe("ripescaggi", () => {
   it("il formato torna: 5 primi + 3 ripescati = 8 ai quarti", () => {
     const plan = buildTournament(p20, f5);
     expect(plan.knockout.filter((k) => k.stage === 2)).toHaveLength(4);
-    const best = plan.knockout.flatMap((k) => [k.a, k.b]).filter((s) => s.kind === "best");
+    const best = plan.knockout.flatMap((k) => [k.a, k.b]).filter((s) => s?.kind === "best");
     expect(best).toHaveLength(3);
   });
 
   it("classifica le seconde per % vittorie, poi differenza set, poi testa di serie; solo a gironi conclusi", () => {
     const plan = buildTournament(p20, f5);
-    const members = plan.assignments.map((a) => ({ playerId: a.playerId, group: a.group, seed: a.seed }));
+    const members = plan.assignments.map((a) => ({ playerId: a.playerId, group: a.group!, seed: a.seed }));
     let db = rows(plan);
     expect(bestRanking(2, ["winPct"], groupViews(members, db))).toBeNull();
     const num = (id: string | null) => Number(id!.slice(1));
@@ -170,3 +170,50 @@ describe("ripescaggi", () => {
       .toThrow(/tra 1 e 5/);
   });
 });
+
+describe("solo eliminazione diretta", () => {
+  const ko: TF = { mode: "knockout", groupCount: 0, groupBestOf: 3, defaultKnockoutBestOf: 3, knockoutBestOf: { 0: 5 }, qualification: [] };
+  const ps = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `s${i + 1}`, rating: 3000 - i }));
+
+  it("8 giocatori: quarti completi, 1 contro 8, 1 e 2 in metà opposte", () => {
+    const plan = buildTournament(ps(8), ko);
+    expect(plan.matches).toEqual([]);
+    expect(plan.assignments.every((a) => a.group === null)).toBe(true);
+    const qf = plan.knockout.filter((k) => k.stage === 2);
+    expect(qf).toHaveLength(4);
+    expect([qf[0].playerA, qf[0].playerB]).toEqual(["s1", "s8"]);
+    // s1 nei quarti 0-1 (prima metà), s2 nei quarti 2-3 (seconda metà)
+    const pos = (id: string) => qf.findIndex((k) => k.playerA === id || k.playerB === id);
+    expect(pos("s1") < 2).toBe(true);
+    expect(pos("s2") >= 2).toBe(true);
+    expect(plan.knockout.find((k) => k.stage === 0)!.bestOf).toBe(5);
+  });
+
+  it("6 giocatori: le teste di serie 1 e 2 saltano i quarti (bye)", () => {
+    const plan = buildTournament(ps(6), ko);
+    const qf = plan.knockout.filter((k) => k.stage === 2);
+    expect(qf).toHaveLength(2); // 3-6 e 4-5
+    const semis = plan.knockout.filter((k) => k.stage === 1);
+    const fixed = semis.flatMap((k) => [k.playerA, k.playerB]).filter(Boolean).sort();
+    expect(fixed).toEqual(["s1", "s2"]);
+    expect(semis.every((k) => (k.a === null) !== (k.b === null))).toBe(true); // un posto fisso, uno dai quarti
+  });
+
+  it("si risolve come gli altri tornei: i vincitori avanzano", () => {
+    const plan = buildTournament(ps(5), ko);
+    const db: MatchRow[] = plan.knockout.map((k) => ({
+      id: `k${k.stage}-${k.position}`, phase: "knockout", group_no: null, stage: k.stage, position: k.position,
+      player_a: k.playerA ?? null, player_b: k.playerB ?? null, sets_a: null, sets_b: null, set_scores: null,
+      source_a: k.a, source_b: k.b,
+    }));
+    const first = db.find((m) => m.player_a && m.player_b && m.stage === 2)!; // 4 contro 5
+    const played = db.map((m) => (m.id === first.id ? { ...m, sets_a: 2, sets_b: 0 } : m));
+    const r = resolveKnockout([], played);
+    expect(r.some((x) => x.player_a === first.player_a || x.player_b === first.player_a)).toBe(true);
+    expect(describeFormatKo(5)).toContain("Quarti di finale: al meglio dei 3 set (set a 11).");
+  });
+});
+
+import { describeFormat as describeFormatAll } from "./format";
+const describeFormatKo = (n: number) =>
+  describeFormatAll({ mode: "knockout", groupCount: 0, groupBestOf: 3, defaultKnockoutBestOf: 3, knockoutBestOf: { 0: 5 }, qualification: [] }, n);

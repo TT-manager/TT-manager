@@ -3,17 +3,61 @@
  * Funzioni pure: nessun accesso al database.
  */
 import { computeStandings, roundRobinSchedule, snakeGroups, type Standing } from "./groups";
-import { groupSetRules, planBracket, stageName, validateFormat, type CrossCriterion, type SlotSource, type TournamentFormat } from "./format";
+import { bestOfForStage, groupSetRules, isKnockoutOnly, knockoutFirstStage, planBracket, stageName, stageSetRules, validateFormat, type CrossCriterion, type SlotSource, type TournamentFormat } from "./format";
+import { seedOrder } from "./bracket";
 import type { SetRules } from "./score";
 
 export const groupLabel = (g: number) => (g >= 1 && g <= 26 ? String.fromCharCode(64 + g) : String(g));
 
 export interface SeededPlayer { id: string; rating: number }
 
+export interface KnockoutPlanMatch {
+  stage: number; position: number;
+  /** Provenienza dei giocatori (null se il giocatore è già noto e indicato in playerA/playerB). */
+  a: SlotSource | null; b: SlotSource | null;
+  playerA?: string | null; playerB?: string | null;
+  bestOf: number; set: SetRules;
+}
+
 export interface GroupStagePlan {
-  assignments: { playerId: string; seed: number; group: number }[];
+  /** group = null nei tornei a sola eliminazione diretta. */
+  assignments: { playerId: string; seed: number; group: number | null }[];
   matches: { group: number; round: number; position: number; a: string; b: string; bestOf: number; set: SetRules }[];
-  knockout: { stage: number; position: number; a: SlotSource; b: SlotSource; bestOf: number; set: SetRules }[];
+  knockout: KnockoutPlanMatch[];
+}
+
+/**
+ * Tabellone a sola eliminazione diretta: teste di serie per rating nelle posizioni standard
+ * (1 e 2 in metà opposte), bye ai migliori se i giocatori non sono una potenza di 2.
+ */
+function buildKnockoutOnly(seeded: SeededPlayer[], f: TournamentFormat): GroupStagePlan {
+  const n = seeded.length;
+  const first = knockoutFirstStage(n);
+  const size = 2 ** (first + 1);
+  const order = seedOrder(size);
+  const at = (seed: number) => seeded[seed - 1]?.id ?? null;
+  const knockout: KnockoutPlanMatch[] = [];
+  const rules = (stage: number) => ({ bestOf: bestOfForStage(f, stage), set: stageSetRules(f, stage) });
+  // Primo turno: le coppie con un bye non diventano partite, il giocatore passa direttamente.
+  type Slot = { src: SlotSource | null; player: string | null };
+  let slots: Slot[] = [];
+  for (let i = 0; i < size / 2; i++) {
+    const pa = at(order[2 * i]), pb = at(order[2 * i + 1]);
+    if (pa && pb) {
+      knockout.push({ stage: first, position: i, a: null, b: null, playerA: pa, playerB: pb, ...rules(first) });
+      slots.push({ src: { kind: "winner", stage: first, match: i }, player: null });
+    } else slots.push({ src: null, player: pa ?? pb });
+  }
+  for (let stage = first - 1; stage >= 0; stage--) {
+    const next: Slot[] = [];
+    for (let j = 0; j < slots.length / 2; j++) {
+      const x = slots[2 * j], y = slots[2 * j + 1];
+      knockout.push({ stage, position: j, a: x.src, b: y.src, playerA: x.player, playerB: y.player, ...rules(stage) });
+      next.push({ src: { kind: "winner", stage, match: j }, player: null });
+    }
+    slots = next;
+  }
+  return { assignments: seeded.map((p, i) => ({ playerId: p.id, seed: i + 1, group: null })), matches: [], knockout };
 }
 
 /**
@@ -22,6 +66,11 @@ export interface GroupStagePlan {
  */
 export function buildTournament(players: SeededPlayer[], f: TournamentFormat): GroupStagePlan {
   if (players.length < 2) throw new Error("Servono almeno 2 iscritti.");
+  if (isKnockoutOnly(f)) {
+    const errors = validateFormat(f);
+    if (errors.length) throw new Error(errors.join(" "));
+    return buildKnockoutOnly([...players].sort((x, y) => y.rating - x.rating || x.id.localeCompare(y.id)), f);
+  }
   if (players.length < f.groupCount * 2)
     throw new Error(`Con ${f.groupCount} gironi servono almeno ${f.groupCount * 2} iscritti (ora sono ${players.length}).`);
   const seeded = [...players].sort((x, y) => y.rating - x.rating || x.id.localeCompare(y.id));

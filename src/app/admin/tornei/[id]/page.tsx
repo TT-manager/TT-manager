@@ -24,6 +24,7 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
   ]);
   const enrolledIds = (enrolled ?? []).map((e) => e.player_id as string);
   const parsed = parseFormat(t.format);
+  const knockoutOnly = "format" in parsed && parsed.format.mode === "knockout";
   const summary = t.status !== "draft" && hasServiceKey() ? await closingSummary(t.id) : null;
 
   return (
@@ -40,9 +41,15 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
 
       <section>
         <h2 className="text-lg font-semibold">Formato</h2>
-        {"format" in parsed
-          ? <ul className="mt-2 list-disc pl-5">{describeFormat(parsed.format).map((l) => <li key={l}>{l}</li>)}</ul>
-          : <p className="mt-2 text-red-700 dark:text-red-400">Formato mancante o non valido.</p>}
+        {t.format === null
+          ? <p className="mt-2">Formato non ancora impostato. Puoi farlo anche dopo le iscrizioni, quando sai quanti siete.</p>
+          : "format" in parsed
+            ? <ul className="mt-2 list-disc pl-5">{describeFormat(parsed.format, enrolledIds.length || undefined).map((l) => <li key={l}>{l}</li>)}</ul>
+            : <p className="mt-2 text-red-700 dark:text-red-400">Formato non valido: correggilo.</p>}
+        {t.status === "draft" && (
+          <Link href={`/admin/tornei/${t.id}/formato`} className="mt-3 inline-block rounded border px-4 py-2">
+            {t.format === null ? "Imposta il formato" : "Modifica il formato"}</Link>
+        )}
       </section>
 
       <section>
@@ -51,9 +58,9 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">Gironi</h2>
-        {t.status !== "draft" && <p className="mt-2">Gironi generati. <Link href={`/t/${t.public_code}`} className="underline">Apri la pagina pubblica</Link></p>}
-        <GroupsControl tournamentId={t.id} status={t.status} />
+        <h2 className="text-lg font-semibold">{knockoutOnly ? "Tabellone" : "Gironi"}</h2>
+        {t.status !== "draft" && <p className="mt-2">{knockoutOnly ? "Tabellone generato." : "Gironi generati."} <Link href={`/t/${t.public_code}`} className="underline">Apri la pagina pubblica</Link></p>}
+        <GroupsControl tournamentId={t.id} status={t.status} knockoutOnly={knockoutOnly} hasFormat={t.format !== null} />
       </section>
 
       {t.status !== "draft" && (
