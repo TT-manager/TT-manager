@@ -10,11 +10,11 @@ export function DashboardView({ d, me, children }: { d: DashboardData; me: { ful
   const pct = d.kpi.games ? Math.round((d.kpi.wins / d.kpi.games) * 100) : null;
   const kpis = [
     { label: "Leghe", value: String(d.kpi.championships).padStart(2, "0"), sub: d.kpi.championships ? "a cui partecipi" : "inizia a partecipare", icon: "🏆" },
-    { label: "Partite giocate", value: String(d.kpi.games).padStart(2, "0"), sub: d.kpi.games ? "amichevoli comprese" : "la prima ti aspetta", icon: "🏓" },
-    { label: "Vittorie", value: pct === null ? "—" : `${pct}%`, sub: d.kpi.games ? `${d.kpi.wins} vinte · ${d.kpi.games - d.kpi.wins} perse` : "inizia a giocare", icon: "📈" },
     { label: "Tornei in corso", value: String(d.live.length).padStart(2, "0"), icon: "🔴",
       href: d.live.length === 1 ? `/t/${d.live[0].code}` : d.live.length ? "#in-corso" : undefined,
       sub: d.live.length === 1 ? d.live[0].name : d.live.length ? "nelle tue leghe e amichevoli" : "nessuno adesso" },
+    { label: "Partite giocate", value: String(d.kpi.games).padStart(2, "0"), sub: d.kpi.games ? "amichevoli comprese" : "la prima ti aspetta", icon: "🏓" },
+    { label: "Vittorie", value: pct === null ? "—" : `${pct}%`, sub: d.kpi.games ? `${d.kpi.wins} vinte · ${d.kpi.games - d.kpi.wins} perse` : "inizia a giocare", icon: "📈" },
   ];
   return (
     <>
