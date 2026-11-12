@@ -55,7 +55,7 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
 
       <section>
         <h2 className="text-lg font-semibold">Iscritti ({enrolledIds.length})</h2>
-        <EnrollmentForm tournamentId={t.id} players={players ?? []} enrolledIds={enrolledIds} locked={t.status !== "draft"} />
+        <EnrollmentForm tournamentId={t.id} players={players ?? []} enrolledIds={enrolledIds} locked={t.status !== "draft"} closed={t.status === "closed"} />
       </section>
 
       <section>

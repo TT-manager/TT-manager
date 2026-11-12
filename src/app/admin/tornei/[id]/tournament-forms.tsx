@@ -4,8 +4,8 @@ import { closeTournamentAction, generateGroups, regenerateOrganizerCode, reopenT
 
 type P = { id: string; full_name: string; club: string | null; rating: number };
 
-export function EnrollmentForm({ tournamentId, players, enrolledIds, locked, saveAction = setEnrollment }:
-  { tournamentId: string; players: P[]; enrolledIds: string[]; locked: boolean;
+export function EnrollmentForm({ tournamentId, players, enrolledIds, locked, closed = false, saveAction = setEnrollment }:
+  { tournamentId: string; players: P[]; enrolledIds: string[]; locked: boolean; closed?: boolean;
     saveAction?: (prev: EnrollState, formData: FormData) => Promise<EnrollState> }) {
   const [state, action, pending] = useActionState<EnrollState, FormData>(saveAction, {});
   const [filter, setFilter] = useState("");
@@ -41,7 +41,8 @@ export function EnrollmentForm({ tournamentId, players, enrolledIds, locked, sav
       {/* Gli iscritti nascosti dal filtro restano nel modulo. */}
       {[...checked].filter((id) => !shown.some((p) => p.id === id)).map((id) => <input key={id} type="hidden" name="player_id" value={id} />)}
       {locked && <p className="text-amber-700 dark:text-amber-400">
-        Iscrizioni chiuse: gironi, tabellone o calendario sono già stati generati. Per modificarle usa «Annulla» qui sotto (solo se non ci sono risultati).</p>}
+        {closed ? "Torneo chiuso: le iscrizioni non si possono più modificare."
+          : "Iscrizioni chiuse: gironi, tabellone o calendario sono già stati generati. Per modificarle usa «Annulla» qui sotto (solo se non ci sono risultati)."}</p>}
       <div className="flex flex-wrap items-center gap-3">
         <input placeholder="Cerca…" value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full rounded border bg-transparent px-3 py-2 sm:w-64" aria-label="Cerca giocatore" />
         {!locked && <>
