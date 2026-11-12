@@ -151,7 +151,11 @@ function Group({ g, name, single = false }: { g: GroupView; name: (id: string | 
           ))}
         </tbody>
       </table>
-      <ul className="divide-y divide-line border-t border-line text-sm">
+      <h4 className="mt-3 flex items-center justify-between border-y border-line bg-ink/5 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted dark:bg-white/5">
+        Incontri
+        <span className="font-normal normal-case tracking-normal">{g.matches.filter((m) => score(m)).length} su {g.matches.length} giocati</span>
+      </h4>
+      <ul className="divide-y divide-line text-sm">
         {g.matches.map((m) => {
           const sc = score(m);
           const winA = sc && (m.sets_a as number) > (m.sets_b as number);
