@@ -1,6 +1,6 @@
 "use server";
 import { randomBytes } from "node:crypto";
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth";
 import { hasServiceKey } from "@/lib/organizer";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -36,6 +36,7 @@ export async function addAdmin(_prev: AdminState, formData: FormData): Promise<A
   if (error?.code === "23505") return { error: "Questa persona è già amministratore." };
   if (error) return { error: "Non sono riuscito ad aggiungere l'amministratore." };
   revalidatePath("/admin/amministratori");
+  refresh(); // aggiorna subito la pagina aperta
   return { ok: `${email} è ora amministratore.`, tempPassword, email };
 }
 
@@ -49,5 +50,6 @@ export async function removeAdmin(_prev: AdminState, formData: FormData): Promis
     .eq("user_id", userId).eq("role", "admin").select("user_id");
   if (error || !data?.length) return { error: "Non sono riuscito a togliere l'amministratore." };
   revalidatePath("/admin/amministratori");
+  refresh(); // aggiorna subito la pagina aperta
   return { ok: "Amministratore tolto. L'account resta, ma non ha più accesso all'area admin." };
 }

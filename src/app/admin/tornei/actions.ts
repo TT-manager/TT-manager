@@ -1,5 +1,5 @@
 "use server";
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { formatOrganizerCode, hashCode, newOrganizerCode, newPublicCode } from "@/lib/codes";
@@ -39,6 +39,7 @@ export async function createTournament(_prev: CreateState, formData: FormData): 
     }).select("id").single();
     if (!error) {
       revalidatePath("/admin/tornei");
+      refresh(); // aggiorna subito la pagina aperta
       // Il codice in chiaro esce SOLO in questa risposta: non è salvato da nessuna parte.
       return { created: { id: data.id, name, publicCode, organizerCode: formatOrganizerCode(organizerCode) } };
     }
@@ -65,6 +66,7 @@ export async function updateFormat(_prev: FormatState, formData: FormData): Prom
   if (error) return { errors: ["Non sono riuscito a salvare il formato."] };
   if (!data?.length) return { errors: ["Il formato si può cambiare solo prima di generare gironi o tabellone."] };
   revalidatePath(`/admin/tornei/${tournamentId}`);
+  refresh(); // aggiorna subito la pagina aperta
   return { ok: "Formato salvato." };
 }
 
@@ -95,6 +97,7 @@ export async function setEnrollment(_prev: EnrollState, formData: FormData): Pro
     if (error) return { error: "Non sono riuscito ad aggiornare le iscrizioni." };
   }
   revalidatePath(`/admin/tornei/${tournamentId}`);
+  refresh(); // aggiorna subito la pagina aperta
   return { ok: `Iscritti: ${wanted.size}.` };
 }
 
@@ -162,6 +165,7 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
   ]);
   if (e2) { await rollback(); return { error: "Non sono riuscito a creare le partite. Nulla è stato modificato." }; }
   revalidatePath(`/admin/tornei/${tournamentId}`);
+  refresh(); // aggiorna subito la pagina aperta
   return {};
 }
 
@@ -180,6 +184,7 @@ export async function resetGroups(_prev: GenState, formData: FormData): Promise<
   await supabase.from("tournament_players").update({ group_no: null, seed: null }).eq("tournament_id", tournamentId);
   await supabase.from("tournaments").update({ status: "draft" }).eq("id", tournamentId);
   revalidatePath(`/admin/tornei/${tournamentId}`);
+  refresh(); // aggiorna subito la pagina aperta
   return {};
 }
 
@@ -192,7 +197,7 @@ export async function adminSubmitResult(_prev: ResultState, formData: FormData):
   const sets = clear ? null : setsFromForm(formData);
   if (sets && "error" in sets) return { error: sets.error, set: sets.set };
   const r = await saveResult(tournamentId, String(formData.get("match_id") ?? ""), sets);
-  if (r.ok) revalidatePath(`/admin/tornei/${tournamentId}/risultati`);
+  if (r.ok) { revalidatePath(`/admin/tornei/${tournamentId}/risultati`); refresh(); }
   return r;
 }
 
@@ -203,7 +208,7 @@ export async function closeTournamentAction(_prev: CloseState, formData: FormDat
   if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
   const tournamentId = String(formData.get("tournament_id") ?? "");
   const r = await closeTournament(tournamentId);
-  if (r.ok) { await revokeOrganizerSessions(tournamentId); revalidatePath(`/admin/tornei/${tournamentId}`); revalidatePath("/"); }
+  if (r.ok) { await revokeOrganizerSessions(tournamentId); revalidatePath(`/admin/tornei/${tournamentId}`); revalidatePath("/"); refresh(); }
   return r;
 }
 
@@ -212,6 +217,6 @@ export async function reopenTournamentAction(_prev: CloseState, formData: FormDa
   if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
   const tournamentId = String(formData.get("tournament_id") ?? "");
   const r = await reopenTournament(tournamentId);
-  if (r.ok) { revalidatePath(`/admin/tornei/${tournamentId}`); revalidatePath("/"); }
+  if (r.ok) { revalidatePath(`/admin/tornei/${tournamentId}`); revalidatePath("/"); refresh(); }
   return r;
 }

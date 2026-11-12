@@ -1,5 +1,5 @@
 "use server";
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { normalizeCode } from "@/lib/codes";
 import { hasServiceKey, organizerLogin, organizerLogout, organizerTournamentId } from "@/lib/organizer";
 import { saveResult, setsFromForm } from "@/lib/results";
@@ -15,6 +15,7 @@ export async function login(_prev: OrgState, formData: FormData): Promise<OrgSta
   const r = await organizerLogin(code, String(formData.get("code") ?? ""));
   if (!r.ok) return { error: r.error };
   revalidatePath(`/t/${code}/organizzatore`);
+  refresh(); // aggiorna subito la pagina aperta
   return { ok: "Accesso eseguito." };
 }
 
@@ -22,6 +23,7 @@ export async function logout(formData: FormData) {
   const code = pc(formData);
   await organizerLogout(code);
   revalidatePath(`/t/${code}/organizzatore`);
+  refresh(); // aggiorna subito la pagina aperta
 }
 
 export async function submitResult(_prev: OrgState, formData: FormData): Promise<OrgState> {
@@ -32,6 +34,6 @@ export async function submitResult(_prev: OrgState, formData: FormData): Promise
   const sets = clear ? null : setsFromForm(formData);
   if (sets && "error" in sets) return { error: sets.error, set: sets.set };
   const r = await saveResult(tournamentId, String(formData.get("match_id") ?? ""), sets);
-  if (r.ok) { revalidatePath(`/t/${code}`); revalidatePath(`/t/${code}/organizzatore`); }
+  if (r.ok) { revalidatePath(`/t/${code}`); revalidatePath(`/t/${code}/organizzatore`); refresh(); }
   return r;
 }
