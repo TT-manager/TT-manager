@@ -18,7 +18,7 @@ export default function NewTournamentForm({ championships, preselected }:
       <fieldset className="space-y-1">
         <legend>Tipo di torneo</legend>
         <label className="flex items-center gap-2"><input type="radio" name="ranked" value="ranked" defaultChecked /> Valido per la classifica del campionato</label>
-        <label className="flex items-center gap-2"><input type="radio" name="ranked" value="friendly" /> Amichevole (non cambia la classifica e non conta come torneo saltato)</label>
+        <label className="flex items-center gap-2"><input type="radio" name="ranked" value="friendly" /> Torneo amichevole (non cambia la classifica e non conta come torneo saltato)</label>
       </fieldset>
       <section className="grid gap-3 sm:grid-cols-[1fr_12rem]">
         <label className="grid gap-1">Nome<input name="name" required maxLength={100} className={input} /></label>

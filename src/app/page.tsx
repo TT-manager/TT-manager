@@ -50,7 +50,7 @@ async function HomeContent() {
               {account ? "I tuoi campionati, i tornei in corso e le iscrizioni aperte." : "Classifiche dei campionati, tornei in diretta, iscrizioni e amichevoli con gli amici."}</p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
               {account
-                ? <><Link href="/amichevole/nuovo" className="btn-primary">Crea un amichevole</Link><Link href="/amici" className="btn border border-white/30 hover:bg-white/10">Amici</Link></>
+                ? <><Link href="/amichevole/nuovo" className="btn-primary">Crea un torneo amichevole</Link><Link href="/amici" className="btn border border-white/30 hover:bg-white/10">Amici</Link></>
                 : <><Link href="/registrati" className="btn-primary">Registrati</Link><Link href="/login" className="btn border border-white/30 hover:bg-white/10">Accedi</Link></>}
             </div>
             <div className="mt-6"><p className="mb-1 text-sm text-white/70">Hai il codice di un torneo?</p><CodeBox /></div>

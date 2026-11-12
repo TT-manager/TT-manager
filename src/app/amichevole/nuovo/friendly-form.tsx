@@ -19,10 +19,10 @@ export default function FriendlyForm() {
         <label className="flex items-center gap-2"><input type="radio" name="kind" value="singles" defaultChecked /> Singolare</label>
         <label className="flex items-center gap-2"><input type="radio" name="kind" value="doubles" /> Doppio</label>
       </fieldset>
-      <p className="text-sm text-neutral-600 dark:text-neutral-400">Potrai iscrivere te stesso, i tuoi amici e degli ospiti senza account. Il formato lo scegli dopo.</p>
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">Potrai iscrivere te stesso, i tuoi amici e degli ospiti senza account. Il formato lo scegli dopo: bastano anche due giocatori per una sfida secca (girone unico).</p>
       {state.errors && <ul role="alert" className="list-disc pl-5 text-red-700 dark:text-red-400">{state.errors.map((e) => <li key={e}>{e}</li>)}</ul>}
       <button disabled={pending} className="btn-primary">
-        {pending ? "Creazione…" : "Crea amichevole"}</button>
+        {pending ? "Creazione…" : "Crea il torneo amichevole"}</button>
     </form>
   );
 }
