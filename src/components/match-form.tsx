@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { setError, type SetRules } from "@/lib/domain/score";
 
 const btn = "rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black";
@@ -22,9 +22,15 @@ export function MatchForm({ action: submit, hidden, matchId, bestOf, rules, a, b
   // Righe da controllare: si attivano uscendo dal campo (TAB/clic altrove), si azzerano modificandole.
   const [checked, setChecked] = useState<Set<number>>(() => new Set());
   const check = (i: number) => setChecked((c) => new Set(c).add(i));
-  const setValue = (i: number, side: 0 | 1, v: string) => {
+  // Caselle in ordine di compilazione: set 1 A, set 1 B, set 2 A, ...
+  const boxes = useRef<(HTMLInputElement | null)[]>([]);
+  const setValue = (i: number, side: 0 | 1, raw: string) => {
+    const v = raw.replace(/\D/g, "").slice(0, 2);
     setChecked((c) => { const n = new Set(c); n.delete(i); return n; });
-    setValues(values.map((row, j) => (j === i ? (side === 0 ? [v.replace(/\D/g, ""), row[1]] : [row[0], v.replace(/\D/g, "")]) : row)));
+    setValues(values.map((row, j) => (j === i ? (side === 0 ? [v, row[1]] : [row[0], v]) : row)));
+    // Con due cifre si passa da soli alla casella successiva (con una cifra si usa TAB).
+    // Dopo l'aggiornamento: l'uscita dal campo deve poter segnalare il set appena completato.
+    if (v.length === 2) setTimeout(() => boxes.current[i * 2 + side + 1]?.focus(), 0);
   };
   const toWin = Math.ceil(bestOf / 2);
   const num = "w-14 rounded border bg-transparent px-2 py-1 text-center tabular-nums";
@@ -55,8 +61,8 @@ export function MatchForm({ action: submit, hidden, matchId, bestOf, rules, a, b
             return (
             <tr key={i} className={wrong ? "text-red-700 dark:text-red-400" : ""}>
               <td className="pr-2">Set {i + 1}</td>
-              <td className="px-1"><input name={`a${i + 1}`} inputMode="numeric" pattern="[0-9]*" value={values[i][0]} onChange={(e) => setValue(i, 0, e.target.value)} onBlur={() => check(i)} autoComplete="off" className={`${num} ${wrong ? bad : ""}`} aria-invalid={wrong} aria-label={`Set ${i + 1} ${a}`} /></td>
-              <td className="px-1"><input name={`b${i + 1}`} inputMode="numeric" pattern="[0-9]*" value={values[i][1]} onChange={(e) => setValue(i, 1, e.target.value)} onBlur={() => check(i)} autoComplete="off" className={`${num} ${wrong ? bad : ""}`} aria-invalid={wrong} aria-label={`Set ${i + 1} ${b}`} /></td>
+              <td className="px-1"><input name={`a${i + 1}`} inputMode="numeric" pattern="[0-9]*" ref={(el) => { boxes.current[i * 2] = el; }} value={values[i][0]} onChange={(e) => setValue(i, 0, e.target.value)} onBlur={() => check(i)} autoComplete="off" className={`${num} ${wrong ? bad : ""}`} aria-invalid={wrong} aria-label={`Set ${i + 1} ${a}`} /></td>
+              <td className="px-1"><input name={`b${i + 1}`} inputMode="numeric" pattern="[0-9]*" ref={(el) => { boxes.current[i * 2 + 1] = el; }} value={values[i][1]} onChange={(e) => setValue(i, 1, e.target.value)} onBlur={() => check(i)} autoComplete="off" className={`${num} ${wrong ? bad : ""}`} aria-invalid={wrong} aria-label={`Set ${i + 1} ${b}`} /></td>
               <td className="pl-2 text-xs">{live}</td>
             </tr>
             );
