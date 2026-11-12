@@ -54,7 +54,7 @@ export default async function ClubsPage() {
                     <input type="hidden" name="request_id" value={r.id} />
                     <input type="hidden" name="decision" value="assign" />
                     <label className={`block ${muted}`}>Oppure è uno già in elenco (scritto diversamente):
-                      <select name="club_id" required defaultValue="" className={`${input} mt-1 block w-full`}>
+                      <select name="club_id" required defaultValue="" className={`select-arrow ${input} mt-1 block w-full`}>
                         <option value="" disabled>Scegli il circolo…</option>
                         {clubs.map((c) => <option key={c.id} value={c.id}>{clubLabel(c)}</option>)}
                       </select>

@@ -19,7 +19,7 @@ const toChampionship = (c: Record<string, unknown>): Championship => {
 
 export async function getChampionships(): Promise<Championship[]> {
   const { data, error } = await createPublicClient().from("championships").select("id, name, slug, kind, settings, is_public").order("name");
-  if (error) throw new Error("Impossibile leggere i campionati");
+  if (error) throw new Error("Impossibile leggere le leghe");
   return (data ?? []).map(toChampionship);
 }
 
@@ -36,7 +36,7 @@ export async function getRanking(championshipId: string): Promise<RankingRow[]> 
   return data as RankingRow[];
 }
 
-/** Tornei del campionato (pubblici) e albo d'oro dei tornei passati. */
+/** Tornei della lega (pubblici) e albo d'oro dei tornei passati. */
 export async function getChampionshipTournaments(championshipId: string) {
   const supabase = createPublicClient();
   const [{ data: tournaments }, { data: past }] = await Promise.all([
@@ -62,7 +62,7 @@ export type HistoryRow = {
   tournament: { name: string } | null;
 };
 
-/** Giocatore con punti e storico in ogni campionato. */
+/** Giocatore con punti e storico in ogni lega. */
 export async function getPlayer(id: string) {
   const supabase = createPublicClient();
   const { data: player } = await supabase.from("players").select("id, full_name, club, active, avatar_path").eq("id", id).maybeSingle();

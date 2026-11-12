@@ -21,7 +21,7 @@ export type CreateState = {
 
 export async function createTournament(_prev: CreateState, formData: FormData): Promise<CreateState> {
   const championshipId = String(formData.get("championship_id") ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(championshipId)) return { errors: ["Scegli il campionato."] };
+  if (!/^[0-9a-f-]{36}$/i.test(championshipId)) return { errors: ["Scegli la lega."] };
   const admin = await requireChampionshipManager(championshipId);
   const ranked = formData.get("ranked") !== "friendly";
   const name = String(formData.get("name") ?? "").trim();
@@ -33,7 +33,7 @@ export async function createTournament(_prev: CreateState, formData: FormData): 
 
   const supabase = await createServerSupabase();
   const { data: ch } = await supabase.from("championships").select("kind").eq("id", championshipId).maybeSingle();
-  if (!ch) return { errors: ["Campionato non trovato."] };
+  if (!ch) return { errors: ["Lega non trovata."] };
   return insertTournament(supabase, { name, starts_on: startsOn || null, championship_id: championshipId, ranked, kind: ch.kind, created_by: admin.userId });
 }
 
@@ -102,7 +102,7 @@ export type EnrollState = { error?: string; ok?: string };
 /**
  * Imposta gli iscritti (solo finché il torneo è in preparazione).
  * Singolare: campi `player_id`. Doppio: campi `pair` con «id1,id2».
- * Si possono iscrivere solo giocatori del campionato; un giocatore una sola volta.
+ * Si possono iscrivere solo giocatori della lega; un giocatore una sola volta.
  */
 export async function setEnrollment(_prev: EnrollState, formData: FormData): Promise<EnrollState> {
   const tournamentId = String(formData.get("tournament_id") ?? "");
@@ -131,7 +131,7 @@ export async function setEnrollment(_prev: EnrollState, formData: FormData): Pro
   for (const g of groups) {
     if (ch.kind === "doubles" && (g.length < 1 || g.length > 2)) return { error: "Ogni coppia deve avere due giocatori." };
     for (const id of g) {
-      if (!allowed.has(id)) return { error: access.championshipId ? "Si possono iscrivere solo giocatori del campionato." : "Si possono iscrivere solo te stesso, i tuoi amici e i tuoi ospiti." };
+      if (!allowed.has(id)) return { error: access.championshipId ? "Si possono iscrivere solo giocatori della lega." : "Si possono iscrivere solo te stesso, i tuoi amici e i tuoi ospiti." };
       if (seen.has(id)) return { error: "Un giocatore compare in più di una coppia." };
       seen.add(id);
     }
@@ -192,8 +192,8 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
   if ((allEntries ?? []).some((e) => (sizes.get(e.id as string) ?? 0) !== expected))
     return { error: expected === 2 ? "Ci sono giocatori senza compagno: abbinali o toglili prima di generare." : "Ci sono iscrizioni non valide: salva di nuovo gli iscritti." };
 
-  // Teste di serie dai punti del campionato (coppia = media dei due giocatori);
-  // negli amichevoli senza campionato, dal miglior punteggio di ognuno nei campionati.
+  // Teste di serie dai punti della lega (coppia = media dei due giocatori);
+  // negli amichevoli senza lega, dal miglior punteggio di ognuno nelle leghe.
   const { data: members } = await supabase.from("entry_members").select("entry_id, player_id").eq("tournament_id", tournamentId);
   let ratingOf: Map<string, number>;
   if (championshipId) {
@@ -291,7 +291,7 @@ export async function reopenTournamentAction(_prev: CloseState, formData: FormDa
 
 // ── Amichevoli ────────────────────────────────────────────────────────────
 
-/** Chi si può iscrivere: giocatori del campionato, oppure (amichevole di un utente) lui, amici e ospiti. */
+/** Chi si può iscrivere: giocatori della lega, oppure (amichevole di un utente) lui, amici e ospiti. */
 async function enrollablePlayerIds(access: Awaited<ReturnType<typeof requireTournamentManager>>): Promise<string[]> {
   if (access.championshipId) {
     const supabase = await createServerSupabase();
@@ -339,11 +339,11 @@ export async function addGuest(_prev: EnrollState, formData: FormData): Promise<
 
 // ── Iscrizioni dei giocatori ──────────────────────────────────────────────
 
-/** Apre o chiude le iscrizioni autonome (solo tornei di campionato, in preparazione). */
+/** Apre o chiude le iscrizioni autonome (solo tornei di lega, in preparazione). */
 export async function setRegistration(_prev: EnrollState, formData: FormData): Promise<EnrollState> {
   const tournamentId = String(formData.get("tournament_id") ?? "");
   const access = await requireTournamentManager(tournamentId);
-  if (!access.championshipId) return { error: "Le iscrizioni autonome valgono per i tornei di campionato." };
+  if (!access.championshipId) return { error: "Le iscrizioni autonome valgono per i tornei di lega." };
   const open = formData.get("open") === "on";
   const raw = String(formData.get("deadline") ?? "").trim();
   const deadline = raw ? romeToIso(raw) : null;

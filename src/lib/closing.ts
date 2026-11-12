@@ -7,7 +7,7 @@ const DB_ERRORS: Record<string, string> = {
   TORNEO_NON_CHIUDIBILE: "Il torneo è già chiuso oppure non è ancora iniziato.",
   PARTITE_CAMBIATE: "Nel frattempo un risultato è cambiato: ricarica la pagina e riprova.",
   TORNEO_NON_CHIUSO: "Il torneo non è chiuso.",
-  CAMPIONATO_NON_TROVATO: "Campionato non trovato.",
+  CAMPIONATO_NON_TROVATO: "Lega non trovata.",
 };
 const dbError = (msg: string | undefined) =>
   Object.entries(DB_ERRORS).find(([k]) => msg?.includes(k))?.[1] ?? "Operazione non riuscita, riprova.";
@@ -27,15 +27,15 @@ export async function closingSummary(tournamentId: string) {
 }
 
 /**
- * Ricalcola da zero la classifica del campionato e la scrive in un'unica transazione.
+ * Ricalcola da zero la classifica della lega e la scrive in un'unica transazione.
  * Opzionalmente chiude (`close`) o riapre (`reopen`) un torneo nella stessa operazione.
- * Da chiamare SOLO dopo aver verificato che chi chiama gestisce il campionato.
+ * Da chiamare SOLO dopo aver verificato che chi chiama gestisce la lega.
  */
 export async function recomputeChampionship(championshipId: string, opts: { close?: string; reopen?: string } = {}):
   Promise<{ error?: string; ok?: string; rated?: number }> {
   const svc = createServiceClient();
   const { data: ch } = await svc.from("championships").select("id, settings").eq("id", championshipId).maybeSingle();
-  if (!ch) return { error: "Campionato non trovato." };
+  if (!ch) return { error: "Lega non trovata." };
   const parsed = parseRankingSettings(ch.settings);
   const settings = "settings" in parsed ? parsed.settings : DEFAULT_RANKING;
 
@@ -101,7 +101,7 @@ export async function recomputeChampionship(championshipId: string, opts: { clos
 export async function closeTournament(championshipId: string, tournamentId: string) {
   const r = await recomputeChampionship(championshipId, { close: tournamentId });
   if (r.error) return r;
-  return { ok: "Torneo chiuso: la classifica del campionato è aggiornata." };
+  return { ok: "Torneo chiuso: la classifica della lega è aggiornata." };
 }
 
 export async function reopenTournament(championshipId: string, tournamentId: string) {

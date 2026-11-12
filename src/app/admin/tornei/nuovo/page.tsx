@@ -12,7 +12,7 @@ export default async function NewTournamentPage({ searchParams }: PageProps<"/ad
     <main>
       <h1 className="text-2xl font-bold">Nuovo torneo</h1>
       {championships.length === 0
-        ? <p className="mt-4">Non gestisci ancora nessun campionato. <Link href="/admin/campionati" className="underline">Vai ai campionati</Link></p>
+        ? <p className="mt-4">Non gestisci ancora nessuna lega. <Link href="/admin/campionati" className="underline">Vai alle leghe</Link></p>
         : <NewTournamentForm championships={championships.map((c) => ({ id: c.id as string, name: c.name as string }))} preselected={preselected} />}
     </main>
   );

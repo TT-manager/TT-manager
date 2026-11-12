@@ -18,7 +18,7 @@ export default async function PlayersPage() {
       <h1 className="text-2xl font-bold">Giocatori</h1>
       <AddPlayerForm clubs={clubs} />
       <p className="mt-8 text-sm text-neutral-600 dark:text-neutral-400">
-        {players.length} giocatori. Per inserirli in un campionato vai nella pagina del campionato. Un giocatore disattivato non compare nelle classifiche ma conserva lo storico.
+        {players.length} giocatori. Per inserirli in una lega vai nella pagina della lega. Un giocatore disattivato non compare nelle classifiche ma conserva lo storico.
       </p>
       <ul className="mt-2 divide-y">
         {players.map((p) => <PlayerRow key={p.id} clubs={clubs} player={{ id: p.id, full_name: p.full_name, club_id: p.club_id as string | null, active: p.active, avatar_path: p.avatar_path as string | null,

@@ -11,7 +11,7 @@ import { listClubs } from "@/lib/clubs-server";
 import { addChampionshipAdmin, addMembers, decideRequest, disableInvite, regenerateInvite, recomputeAction, removeChampionshipAdmin, removeMember, renameChampionship, setVisibility } from "../actions";
 import { ChampionshipHeader, input, loadManagedChampionship, muted } from "./shared";
 
-export const metadata = { title: "Campionato" };
+export const metadata = { title: "Lega" };
 
 export default async function ChampionshipPage({ params }: PageProps<"/admin/campionati/[id]">) {
   const { id } = await params;
@@ -54,7 +54,7 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
 
       <section>
         <h2 className="text-lg font-semibold">Classifica ({c.settings.label.toLowerCase()})</h2>
-        {(ranking ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>Aggiungi i giocatori del campionato qui sotto.</p> : (
+        {(ranking ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>Aggiungi i giocatori della lega qui sotto.</p> : (
           <table className="mt-2 w-full text-left text-sm">
             <thead><tr className="border-b"><th className="py-1">#</th><th>Giocatore</th><th className="text-right">{c.settings.label}</th><th className="text-right">Partite</th><th /></tr></thead>
             <tbody>
@@ -66,7 +66,7 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
                   <td className="text-right">{r.games_played}</td>
                   <td className="text-right">
                     {r.games_played === 0 && (
-                      <ActionForm action={removeMember} submitLabel="Togli" primary={false} inline confirmText={`Togliere ${r.full_name} dal campionato?`}>
+                      <ActionForm action={removeMember} submitLabel="Togli" primary={false} inline confirmText={`Togliere ${r.full_name} dalla lega?`}>
                         {hidden}<input type="hidden" name="player_id" value={r.player_id} />
                       </ActionForm>)}
                   </td>
@@ -103,7 +103,7 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
 
       <section>
         <h2 className="text-lg font-semibold">Link d&apos;invito</h2>
-        <p className={`mt-1 ${muted}`}>Mandalo a chi vuoi far entrare (per esempio su WhatsApp): chi si registra da qui entra subito nel campionato.
+        <p className={`mt-1 ${muted}`}>Mandalo a chi vuoi far entrare (per esempio su WhatsApp): chi si registra da qui entra subito nella lega.
           Chi dice di essere già in classifica (es. dai tornei passati) finisce comunque tra le richieste, per un tuo controllo.</p>
         {inviteUrl ? <div className="mt-2"><CopyField value={inviteUrl} label="Link d'invito" /></div> : <p className="mt-2">Nessun link attivo.</p>}
         <div className="mt-2 flex flex-wrap gap-4">
@@ -131,7 +131,7 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
           <p className={`mt-4 ${muted}`}>{others.length > 0 ? "Oppure crea un giocatore nuovo:" : "Crea un giocatore nuovo:"}</p>
           <div className="mt-1 grid gap-2 sm:grid-cols-2">
             <input name="new_name" placeholder="Nome e cognome" maxLength={80} className={input} aria-label="Nome e cognome" />
-            <select name="club_id" defaultValue="" className={input} aria-label="Circolo">
+            <select name="club_id" defaultValue="" className={`select-arrow ${input}`} aria-label="Circolo">
               <option value="">Nessun circolo</option>
               {clubs.map((cl) => <option key={cl.id} value={cl.id}>{clubLabel(cl)}</option>)}
             </select>
@@ -143,13 +143,13 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
         <h2 className="text-lg font-semibold">Visibilità</h2>
         <ActionForm action={setVisibility} submitLabel="Salva" primary={false} className="mt-2 flex flex-wrap items-center gap-3">
           {hidden}
-          <label className="flex items-center gap-2"><input type="checkbox" name="is_public" defaultChecked={c.isPublic} /> Campionato pubblico: compare nella home di tutti</label>
+          <label className="flex items-center gap-2"><input type="checkbox" name="is_public" defaultChecked={c.isPublic} /> Lega pubblica: compare nella home di tutti</label>
         </ActionForm>
         <p className={`mt-1 ${muted}`}>Se non è pubblico, nella home lo vede solo chi ne fa parte. La pagina resta comunque aperta a chi ha il link, per esempio da un invito.</p>
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">Nome del campionato</h2>
+        <h2 className="text-lg font-semibold">Nome della lega</h2>
         <ActionForm action={renameChampionship} submitLabel="Salva nome" primary={false} className="mt-2 flex flex-wrap items-center gap-3">
           {hidden}<input name="name" defaultValue={c.name} required maxLength={100} className={`${input} sm:w-96`} aria-label="Nome" />
         </ActionForm>
@@ -157,12 +157,12 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
 
       {admin.role === "owner" && (
         <section>
-          <h2 className="text-lg font-semibold">Chi gestisce il campionato</h2>
-          <p className={`mt-1 ${muted}`}>Tu (proprietario) puoi gestire tutto. Qui scegli gli amministratori che possono gestire questo campionato.</p>
+          <h2 className="text-lg font-semibold">Chi gestisce la lega</h2>
+          <p className={`mt-1 ${muted}`}>Tu (proprietario) puoi gestire tutto. Qui scegli gli amministratori che possono gestire questa lega.</p>
           <ul className="mt-2 space-y-1">
             {adminUsers.filter((u) => assigned.has(u.userId)).map((u) => (
               <li key={u.userId} className="flex items-center gap-3">{u.email}
-                <ActionForm action={removeChampionshipAdmin} submitLabel="Togli" primary={false} inline confirmText={`Togliere ${u.email} da questo campionato?`}>
+                <ActionForm action={removeChampionshipAdmin} submitLabel="Togli" primary={false} inline confirmText={`Togliere ${u.email} da questa lega?`}>
                   {hidden}<input type="hidden" name="user_id" value={u.userId} />
                 </ActionForm>
               </li>))}

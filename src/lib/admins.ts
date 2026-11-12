@@ -3,7 +3,7 @@ import { requireOwner } from "./auth";
 import { hasServiceKey } from "./organizer";
 import { createServiceClient } from "./supabase/admin";
 
-/** Elenco degli admin (non proprietari) con email, per la scelta degli admin di campionato. */
+/** Elenco degli admin (non proprietari) con email, per la scelta degli admin di lega. */
 export async function listAdminUsers() {
   await requireOwner();
   if (!hasServiceKey()) return [];

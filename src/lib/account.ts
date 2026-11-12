@@ -74,7 +74,7 @@ export function safeNext(raw: unknown, fallback = "/profilo") {
 }
 
 /**
- * Inserisce l'utente nel campionato. Con `linkPlayerId` l'account viene collegato a un giocatore
+ * Inserisce l'utente nella lega. Con `linkPlayerId` l'account viene collegato a un giocatore
  * già presente (es. dai podi passati) invece di usare la sua scheda nuova.
  * Da chiamare solo dopo i controlli (invito valido o approvazione di un gestore).
  */
@@ -101,5 +101,5 @@ export async function attachToChampionship(cid: string, userId: string, linkPlay
   if (!playerId) return { error: "Scheda giocatore mancante: riprova." };
   const { error } = await svc.from("championship_players")
     .upsert({ championship_id: cid, player_id: playerId }, { onConflict: "championship_id,player_id", ignoreDuplicates: true });
-  return error ? { error: "Non sono riuscito a inserirti nel campionato." } : {};
+  return error ? { error: "Non sono riuscito a inserirti nella lega." } : {};
 }

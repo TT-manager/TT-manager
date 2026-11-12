@@ -9,7 +9,7 @@ export default function SignupPage({ searchParams }: PageProps<"/registrati">) {
   return (
     <main className="mx-auto max-w-sm px-4 py-16">
       <h1 className="text-2xl font-bold">Registrati</h1>
-      <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">Con un account puoi chiedere di partecipare ai campionati e vedere la tua scheda.</p>
+      <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">Con un account puoi chiedere di partecipare alle leghe e vedere la tua scheda.</p>
       <Suspense fallback={<SignupForm />}><WithParams searchParams={searchParams} /></Suspense>
     </main>
   );

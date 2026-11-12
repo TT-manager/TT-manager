@@ -12,7 +12,7 @@ export function ClubPicker({ clubs, defaultValue = "", allowRequest = false, cla
   const [value, setValue] = useState(defaultValue);
   return (
     <div className="space-y-2">
-      <select name="club_id" value={value} onChange={(e) => setValue(e.target.value)} className={className} aria-label={label}>
+      <select name="club_id" value={value} onChange={(e) => setValue(e.target.value)} className={`select-arrow ${className}`} aria-label={label}>
         <option value="">Nessun circolo</option>
         {clubs.map((c) => <option key={c.id} value={c.id}>{clubLabel(c)}</option>)}
         {allowRequest && <option value={NEW_CLUB}>Il mio circolo non è in elenco…</option>}

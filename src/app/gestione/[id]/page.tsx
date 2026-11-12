@@ -24,7 +24,7 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
   const { data: t } = await supabase.from("tournaments")
     .select("id, name, starts_on, status, public_code, format, registration_open, registration_deadline").eq("id", id).maybeSingle();
   if (!t) notFound();
-  // Torneo di campionato: si iscrivono i giocatori del campionato, con i loro punti.
+  // Torneo di lega: si iscrivono i giocatori della lega, con i loro punti.
   // Amichevole di un utente: lui, i suoi amici e i suoi ospiti.
   const [players, entries, championship] = await Promise.all([
     championshipId
@@ -48,7 +48,7 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
     <main className="space-y-8">
       <div>
         {championshipId
-          ? <Link href={`/admin/campionati/${championshipId}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {championship?.name ?? "Campionato"}</Link>
+          ? <Link href={`/admin/campionati/${championshipId}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {championship?.name ?? "Lega"}</Link>
           : <Link href="/profilo" className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← Il mio profilo</Link>}
         <h1 className="mt-2 text-2xl font-bold">{t.name}
           {friendly && <span className="ml-3 rounded bg-sky-100 px-2 py-0.5 align-middle text-sm font-normal text-sky-900 dark:bg-sky-900 dark:text-sky-100">Amichevole</span>}</h1>
@@ -78,7 +78,7 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
           <h2 className="text-lg font-semibold">Iscrizioni dei giocatori</h2>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
             {registrationIsOpen({ ...t, championship_id: championshipId })
-              ? <>Aperte{t.registration_deadline ? ` fino a ${formatDeadline(t.registration_deadline)}` : ""}: i giocatori del campionato si iscrivono dalla <a href={`/t/${t.public_code}`} className="underline">pagina pubblica del torneo</a>{doubles ? " (scegliendo il compagno, oppure da soli)" : ""}.</>
+              ? <>Aperte{t.registration_deadline ? ` fino a ${formatDeadline(t.registration_deadline)}` : ""}: i giocatori della lega si iscrivono dalla <a href={`/t/${t.public_code}`} className="underline">pagina pubblica del torneo</a>{doubles ? " (scegliendo il compagno, oppure da soli)" : ""}.</>
               : t.registration_open ? "Scadenza superata: nessuno può più iscriversi da solo." : "Chiuse: solo tu puoi iscrivere i giocatori."}
             {" "}Si chiudono comunque quando generi {knockoutOnly ? "il tabellone" : mode === "league" ? "il calendario" : "i gironi"}.</p>
           <ActionForm action={setRegistration} submitLabel="Salva" primary={false} className="mt-3 flex flex-wrap items-end gap-4">

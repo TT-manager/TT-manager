@@ -23,7 +23,7 @@ async function Header() {
   return (
     <header className="mb-8 flex flex-wrap items-center gap-x-1 gap-y-2 rounded-xl bg-ink px-3 py-2 text-sm text-white">
       <Link href="/admin" className="mr-2 rounded-md px-2 py-1 font-display text-base font-bold uppercase tracking-wide">Amministrazione</Link>
-      <Link href="/admin/campionati" className="rounded-md px-2 py-1 hover:bg-white/10">Campionati</Link>
+      <Link href="/admin/campionati" className="rounded-md px-2 py-1 hover:bg-white/10">Leghe</Link>
       <Link href="/admin/tornei" className="rounded-md px-2 py-1 hover:bg-white/10">Tornei</Link>
       <Link href="/admin/giocatori" className="rounded-md px-2 py-1 hover:bg-white/10">Giocatori</Link>
       {admin.role === "owner" && <Link href="/admin/circoli" className="rounded-md px-2 py-1 hover:bg-white/10">Circoli{pendingClubs ? <span className="ml-1 rounded-full bg-brand px-1.5 text-xs">{pendingClubs}</span> : null}</Link>}

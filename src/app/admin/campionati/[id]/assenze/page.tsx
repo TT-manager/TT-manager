@@ -19,7 +19,7 @@ export default async function AbsencesPage({ params }: PageProps<"/admin/campion
     <main className="space-y-8">
       <ChampionshipHeader c={c} current="/assenze" />
       <p>{c.settings.decay.enabled
-        ? <>Chi salta un torneo del campionato perde il {c.settings.decay.pct}% dei {c.settings.label.toLowerCase()} sopra quota {c.settings.decay.floor}. Nei periodi indicati qui (infortunio, lavoro…) il calo non si applica.</>
+        ? <>Chi salta un torneo della lega perde il {c.settings.decay.pct}% dei {c.settings.label.toLowerCase()} sopra quota {c.settings.decay.floor}. Nei periodi indicati qui (infortunio, lavoro…) il calo non si applica.</>
         : <>Il calo per i tornei saltati è disattivato in «Regole della classifica»: le assenze qui non cambiano nulla finché non lo riattivi.</>}</p>
       <section>
         <h2 className="text-lg font-semibold">Assenze registrate</h2>

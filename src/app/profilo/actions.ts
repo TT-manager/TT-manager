@@ -52,7 +52,7 @@ export async function requestJoin(_prev: ActionState, formData: FormData): Promi
   const account = await requireAccount(`/partecipa/${slug}`);
   const svc = createServiceClient();
   const { data: c } = await svc.from("championships").select("id, name").eq("slug", slug).maybeSingle();
-  if (!c) return { error: "Campionato non trovato." };
+  if (!c) return { error: "Lega non trovata." };
   const claim = str(formData, "claim_player_id");
   let claimId: string | null = null;
   if (claim) {
@@ -64,7 +64,7 @@ export async function requestJoin(_prev: ActionState, formData: FormData): Promi
   }
   const { data: already } = await svc.from("championship_players").select("player_id")
     .eq("championship_id", c.id).eq("player_id", account.player.id).maybeSingle();
-  if (already) return { ok: "Fai già parte del campionato." };
+  if (already) return { ok: "Fai già parte della lega." };
 
   const token = str(formData, "invito");
   let viaInvite = false;
@@ -81,10 +81,10 @@ export async function requestJoin(_prev: ActionState, formData: FormData): Promi
     return { ok: `Benvenuto in ${c.name}!` };
   }
   const { error } = await svc.from("championship_requests").insert({ championship_id: c.id, user_id: account.userId, claim_player_id: claimId, via_invite: viaInvite });
-  if (error?.code === "23505") return { ok: "Hai già una richiesta in attesa per questo campionato." };
+  if (error?.code === "23505") return { ok: "Hai già una richiesta in attesa per questa lega." };
   if (error) return { error: "Non sono riuscito a inviare la richiesta." };
   refresh();
-  return { ok: "Richiesta inviata: un amministratore del campionato la approverà a breve." };
+  return { ok: "Richiesta inviata: un amministratore della lega la approverà a breve." };
 }
 
 export async function cancelRequest(_prev: ActionState, formData: FormData): Promise<ActionState> {

@@ -16,7 +16,7 @@ const UUID = /^[0-9a-f-]{36}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
-/** Aggiorna le pagine del campionato e ricalcola la classifica. */
+/** Aggiorna le pagine della lega e ricalcola la classifica. */
 async function done(cid: string, ok: string): Promise<ActionState> {
   revalidatePath(`/admin/campionati/${cid}`);
   if (hasServiceKey()) {
@@ -29,7 +29,7 @@ async function done(cid: string, ok: string): Promise<ActionState> {
 
 function slugify(name: string) {
   return name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50) || "campionato";
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50) || "lega";
 }
 
 export async function createChampionship(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -44,9 +44,9 @@ export async function createChampionship(_prev: ActionState, formData: FormData)
     const { data, error } = await supabase.from("championships")
       .insert({ name, slug, kind, settings: DEFAULT_RANKING, created_by: owner.userId }).select("id").single();
     if (!error) redirect(`/admin/campionati/${data.id}`);
-    if (error.code !== "23505") return { error: "Non sono riuscito a creare il campionato." };
+    if (error.code !== "23505") return { error: "Non sono riuscito a creare la lega." };
   }
-  return { error: "Nome già usato da troppi campionati: scegline un altro." };
+  return { error: "Nome già usato da troppe leghe: scegline un altro." };
 }
 
 export async function setVisibility(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -57,7 +57,7 @@ export async function setVisibility(_prev: ActionState, formData: FormData): Pro
   const { error } = await supabase.from("championships").update({ is_public: isPublic }).eq("id", cid);
   if (error) return { error: "Non sono riuscito a salvare." };
   revalidatePath(`/admin/campionati/${cid}`); revalidatePath("/"); refresh();
-  return { ok: isPublic ? "Ora il campionato è visibile a tutti nella home." : "Ora il campionato compare nella home solo a chi ne fa parte." };
+  return { ok: isPublic ? "Ora la lega è visibile a tutti nella home." : "Ora la lega compare nella home solo a chi ne fa parte." };
 }
 
 export async function renameChampionship(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -72,7 +72,7 @@ export async function renameChampionship(_prev: ActionState, formData: FormData)
   return { ok: "Nome salvato." };
 }
 
-// ── Giocatori del campionato ──────────────────────────────────────────────
+// ── Giocatori della lega ──────────────────────────────────────────────
 export async function addMembers(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
@@ -100,13 +100,13 @@ export async function removeMember(_prev: ActionState, formData: FormData): Prom
   await requireChampionshipManager(cid);
   const pid = str(formData, "player_id");
   const supabase = await createServerSupabase();
-  // Chi ha già giocato tornei del campionato resta: toglierlo cambierebbe la storia della classifica.
+  // Chi ha già giocato tornei della lega resta: toglierlo cambierebbe la storia della classifica.
   const { count } = await supabase.from("entry_members").select("player_id, tournaments!inner(championship_id)", { count: "exact", head: true })
     .eq("player_id", pid).eq("tournaments.championship_id", cid);
   if (count) return { error: "Ha già giocato tornei di questo campionato: non si può togliere (puoi disattivarlo dalla pagina Giocatori)." };
   const { error } = await supabase.from("championship_players").delete().eq("championship_id", cid).eq("player_id", pid);
   if (error) return { error: "Non sono riuscito a togliere il giocatore." };
-  return done(cid, "Giocatore tolto dal campionato.");
+  return done(cid, "Giocatore tolto dalla lega.");
 }
 
 // ── Classifica di partenza ────────────────────────────────────────────────
@@ -220,17 +220,17 @@ export async function recomputeAction(_prev: ActionState, formData: FormData): P
   return done(cid, "Classifica ricalcolata.");
 }
 
-// ── Admin del campionato (solo proprietario) ──────────────────────────────
+// ── Admin della lega (solo proprietario) ──────────────────────────────
 export async function addChampionshipAdmin(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireOwner();
   const cid = str(formData, "championship_id"), uid = str(formData, "user_id");
   if (!UUID.test(cid) || !UUID.test(uid)) return { error: "Scegli un amministratore." };
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("championship_admins").insert({ championship_id: cid, user_id: uid });
-  if (error?.code === "23505") return { error: "Gestisce già questo campionato." };
+  if (error?.code === "23505") return { error: "Gestisce già questa lega." };
   if (error) return { error: "Non sono riuscito ad aggiungerlo." };
   revalidatePath(`/admin/campionati/${cid}`); refresh();
-  return { ok: "Amministratore aggiunto al campionato." };
+  return { ok: "Amministratore aggiunto alla lega." };
 }
 
 export async function removeChampionshipAdmin(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -240,7 +240,7 @@ export async function removeChampionshipAdmin(_prev: ActionState, formData: Form
   const { error } = await supabase.from("championship_admins").delete().eq("championship_id", cid).eq("user_id", str(formData, "user_id"));
   if (error) return { error: "Non sono riuscito a toglierlo." };
   revalidatePath(`/admin/campionati/${cid}`); refresh();
-  return { ok: "Tolto dal campionato." };
+  return { ok: "Tolto dalla lega." };
 }
 
 
@@ -263,7 +263,7 @@ export async function decideRequest(_prev: ActionState, formData: FormData): Pro
   if (link && !UUID.test(link)) return { error: "Scelta non valida." };
   if (link) {
     const { data: m } = await svc.from("championship_players").select("player_id").eq("championship_id", cid).eq("player_id", link).maybeSingle();
-    if (!m) return { error: "Quel giocatore non è nel campionato." };
+    if (!m) return { error: "Quel giocatore non è nella lega." };
   }
   const r = await attachToChampionship(cid, req.user_id as string, link || null);
   if (r.error) return { error: r.error };

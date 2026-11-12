@@ -39,7 +39,7 @@ export function PlayerRow({ player, clubs }: {
         <button disabled={pending} className="rounded border px-3 py-2 text-sm">Salva</button>
       </form>
       <div className="mt-1 flex items-center gap-4 text-sm text-neutral-600 dark:text-neutral-400">
-        <span>{player.championships.length ? `Campionati: ${player.championships.join(", ")}` : "In nessun campionato"}</span>
+        <span>{player.championships.length ? `Leghe: ${player.championships.join(", ")}` : "In nessuna lega"}</span>
         <form action={delAction}>
           <input type="hidden" name="id" value={player.id} />
           <button disabled={delPending} className="underline">Elimina</button>

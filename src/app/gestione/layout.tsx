@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-// Gestione di un torneo: per admin dei campionati e per chi ha creato un amichevole.
+// Gestione di un torneo: per admin delle leghe e per chi ha creato un amichevole.
 // I permessi sono verificati in ogni pagina e azione (requireTournamentManager).
 export default function ManageLayout({ children }: LayoutProps<"/gestione">) {
   return (

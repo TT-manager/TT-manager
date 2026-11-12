@@ -32,7 +32,7 @@ export async function requireOwner(): Promise<AdminInfo> {
 }
 
 /**
- * Verifica che l'admin loggato possa gestire il campionato (proprietario o admin del campionato).
+ * Verifica che l'admin loggato possa gestire la lega (proprietario o admin della lega).
  * Usa la sessione dell'utente: la riga è visibile solo se le regole del database lo consentono.
  * Da chiamare SEMPRE prima di scritture con la chiave segreta.
  */
@@ -52,7 +52,7 @@ export type TournamentAccess = {
 };
 
 /**
- * Verifica che chi è collegato possa gestire il torneo: proprietario, admin del campionato
+ * Verifica che chi è collegato possa gestire il torneo: proprietario, admin della lega
  * o, per gli amichevoli degli utenti, chi lo ha creato. La riga del torneo è leggibile
  * solo se le regole del database lo consentono, quindi la lettura stessa è il controllo.
  * Da chiamare SEMPRE prima di scritture con la chiave segreta.
@@ -74,7 +74,7 @@ export async function requireTournamentManager(tournamentId: string): Promise<To
   };
 }
 
-/** Campionati che l'admin loggato può gestire. */
+/** Leghe che l'admin loggato può gestire. */
 export async function managedChampionships() {
   const admin = await requireAdmin();
   const supabase = await createServerSupabase();

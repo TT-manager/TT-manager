@@ -37,11 +37,11 @@ export default async function StartPage({ params }: PageProps<"/admin/campionati
   return (
     <main className="space-y-10">
       <ChampionshipHeader c={c} current="/partenza" />
-      <p>Prima del primo torneo del campionato, ogni giocatore parte da <strong>{c.settings.initial}</strong> {c.settings.label.toLowerCase()}, più un bonus per ogni podio
+      <p>Prima del primo torneo della lega, ogni giocatore parte da <strong>{c.settings.initial}</strong> {c.settings.label.toLowerCase()}, più un bonus per ogni podio
         nei tornei passati (1° +{c.settings.podium[1]}, 2° +{c.settings.podium[2]}, 3° +{c.settings.podium[3]}, 4° +{c.settings.podium[4]}: li cambi in «Regole della classifica»).
         Se serve, puoi correggere a mano il punteggio di qualcuno.</p>
 
-      {players.length === 0 && <p className="text-amber-700 dark:text-amber-400">Prima aggiungi i giocatori al campionato (Panoramica).</p>}
+      {players.length === 0 && <p className="text-amber-700 dark:text-amber-400">Prima aggiungi i giocatori alla lega (Panoramica).</p>}
 
       <section>
         <h2 className="text-lg font-semibold">Tornei passati (albo d&apos;oro)</h2>

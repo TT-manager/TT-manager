@@ -86,8 +86,8 @@ async function Profile() {
         </section>)}
 
       <section>
-        <h2 className="text-xl font-semibold">I miei campionati</h2>
-        {mine.length === 0 ? <p className={`mt-2 ${muted}`}>Non partecipi ancora a nessun campionato.</p> : (
+        <h2 className="text-xl font-semibold">Le mie leghe</h2>
+        {mine.length === 0 ? <p className={`mt-2 ${muted}`}>Non partecipi ancora a nessuna lega.</p> : (
           <ul className="mt-2 divide-y">
             {mine.map((m) => (
               <li key={m.id} className="flex justify-between py-2">
@@ -129,7 +129,7 @@ async function Profile() {
 
       {others.length > 0 && (
         <section>
-          <h2 className="text-xl font-semibold">Altri campionati</h2>
+          <h2 className="text-xl font-semibold">Altre leghe</h2>
           <ul className="mt-2 divide-y">
             {others.map((c) => (
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">

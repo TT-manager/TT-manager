@@ -31,7 +31,7 @@ async function Player({ params }: { params: PageProps<"/giocatore/[id]">["params
           <p className="text-white/70">{player.club ?? "Nessun circolo"}</p>
         </div>
       </header>
-      {championships.length === 0 && <p className="mt-6 text-neutral-600 dark:text-neutral-400">Non partecipa ancora a nessun campionato.</p>}
+      {championships.length === 0 && <p className="mt-6 text-neutral-600 dark:text-neutral-400">Non partecipa ancora a nessuna lega.</p>}
       {championships.map((c) => <ChampionshipBlock key={c.id} c={c} />)}
     </>
   );
