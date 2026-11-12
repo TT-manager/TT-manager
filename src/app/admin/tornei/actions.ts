@@ -80,7 +80,7 @@ export async function setEnrollment(_prev: EnrollState, formData: FormData): Pro
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments").select("status").eq("id", tournamentId).maybeSingle();
   if (!t) return { error: "Torneo non trovato." };
-  if (t.status !== "draft") return { error: "I gironi sono già stati generati: le iscrizioni sono chiuse." };
+  if (t.status !== "draft") return { error: "Gironi, tabellone o calendario sono già stati generati: le iscrizioni sono chiuse." };
 
   const { data: current } = await supabase.from("tournament_players").select("player_id").eq("tournament_id", tournamentId);
   const have = new Set((current ?? []).map((r) => r.player_id as string));
@@ -125,7 +125,7 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments").select("status, format").eq("id", tournamentId).maybeSingle();
   if (!t) return { error: "Torneo non trovato." };
-  if (t.status !== "draft") return { error: "I gironi sono già stati generati." };
+  if (t.status !== "draft") return { error: "Gironi, tabellone o calendario sono già stati generati." };
   const parsed = parseFormat(t.format);
   if (t.format === null) return { error: "Imposta prima il formato del torneo." };
   if ("errors" in parsed) return { error: parsed.errors.join(" ") };
@@ -143,7 +143,7 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
   // "Prenota" il passaggio di stato: se due richieste arrivano insieme, solo una passa.
   const { data: claimed } = await supabase.from("tournaments").update({ status: knockoutOnly ? "knockout" : "groups" })
     .eq("id", tournamentId).eq("status", "draft").select("id");
-  if (!claimed?.length) return { error: "I gironi sono già stati generati." };
+  if (!claimed?.length) return { error: "Gironi, tabellone o calendario sono già stati generati." };
 
   const rollback = async () => {
     await supabase.from("matches").delete().eq("tournament_id", tournamentId);

@@ -40,7 +40,8 @@ export function EnrollmentForm({ tournamentId, players, enrolledIds, locked, sav
       <input type="hidden" name="tournament_id" value={tournamentId} />
       {/* Gli iscritti nascosti dal filtro restano nel modulo. */}
       {[...checked].filter((id) => !shown.some((p) => p.id === id)).map((id) => <input key={id} type="hidden" name="player_id" value={id} />)}
-      {locked && <p className="text-amber-700 dark:text-amber-400">I gironi sono già stati generati: iscrizioni chiuse.</p>}
+      {locked && <p className="text-amber-700 dark:text-amber-400">
+        Iscrizioni chiuse: gironi, tabellone o calendario sono già stati generati. Per modificarle usa «Annulla» qui sotto (solo se non ci sono risultati).</p>}
       <div className="flex flex-wrap items-center gap-3">
         <input placeholder="Cerca…" value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full rounded border bg-transparent px-3 py-2 sm:w-64" aria-label="Cerca giocatore" />
         {!locked && <>
@@ -59,13 +60,15 @@ export function EnrollmentForm({ tournamentId, players, enrolledIds, locked, sav
           </li>
         ))}
       </ul>
-      <div className="flex items-center gap-4">
-        <button disabled={pending || locked} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
-          Salva iscrizioni ({checked.size})</button>
-        {!changedSinceSave && state.error && <p role="alert" className="text-red-700 dark:text-red-400">{state.error}</p>}
-        {!changedSinceSave && state.ok && <p className="text-green-700 dark:text-green-400">{state.ok}</p>}
-        {changedSinceSave && <p className="text-sm text-amber-700 dark:text-amber-400">Modifiche non ancora salvate.</p>}
-      </div>
+      {!locked && (
+        <div className="flex items-center gap-4">
+          <button disabled={pending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
+            Salva iscrizioni ({checked.size})</button>
+          {!changedSinceSave && state.error && <p role="alert" className="text-red-700 dark:text-red-400">{state.error}</p>}
+          {!changedSinceSave && state.ok && <p className="text-green-700 dark:text-green-400">{state.ok}</p>}
+          {changedSinceSave && <p className="text-sm text-amber-700 dark:text-amber-400">Modifiche non ancora salvate.</p>}
+        </div>
+      )}
     </form>
   );
 }

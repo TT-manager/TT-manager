@@ -24,7 +24,7 @@ export default async function FormatPage({ params }: PageProps<"/admin/tornei/[i
       <Link href={`/admin/tornei/${id}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {t.name}</Link>
       <h1 className="mt-2 text-2xl font-bold">Formato del torneo</h1>
       {t.status !== "draft"
-        ? <p className="mt-4">Gironi o tabellone sono già stati generati: il formato non si può più cambiare. Per modificarlo annulla prima i gironi.</p>
+        ? <p className="mt-4">Gironi, tabellone o calendario sono già stati generati: il formato non si può più cambiare. Per modificarlo usa «Annulla» nella pagina del torneo (solo se non ci sono risultati).</p>
         : <FormatEditor action={updateFormat} hidden={{ tournament_id: id }}
             initial={parsed && "format" in parsed ? parsed.format : null} enrolled={count ?? 0} />}
     </main>
