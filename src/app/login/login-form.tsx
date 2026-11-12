@@ -37,6 +37,10 @@ export function SignupForm({ next }: { next?: string }) {
       <label className="block">Password (almeno 8 caratteri)<input name="password" type="password" required minLength={8} autoComplete="new-password" className={field} /></label>
       <Msg s={state} />
       <button disabled={pending} className={btn}>{pending ? "Registrazione…" : "Registrati"}</button>
+      <p className="text-xs text-muted">
+        Registrandoti accetti i <Link href="/termini" className="underline">Termini d&apos;uso</Link> e dichiari di aver letto
+        l&apos;<Link href="/privacy" className="underline">Informativa privacy</Link>.
+      </p>
       <p className="text-sm">Hai già un account? <Link href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"} className="underline">Accedi</Link></p>
     </form>
   );
