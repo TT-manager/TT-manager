@@ -2,11 +2,15 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { getChampionships, getRanking } from "@/lib/data";
 import { RankingTable } from "@/components/ranking-table";
+import { AccountLink } from "@/components/account-link";
 
 export default function Home() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-3xl font-bold">Tennis tavolo</h1>
+      <div className="flex items-baseline justify-between gap-4">
+        <h1 className="text-3xl font-bold">Tennis tavolo</h1>
+        <nav className="text-sm"><Suspense fallback={null}><AccountLink /></Suspense></nav>
+      </div>
       <p className="mt-2 text-neutral-600 dark:text-neutral-400">Classifiche dei campionati e tornei in diretta.</p>
 
       <form action="/t" className="mt-6 flex gap-2">
@@ -20,7 +24,7 @@ export default function Home() {
       </Suspense>
 
       <footer className="mt-16 text-sm text-neutral-500 dark:text-neutral-400">
-        <Link href="/login" className="hover:underline">Accesso amministratori</Link>
+        <Link href="/admin" className="hover:underline">Amministrazione</Link>
       </footer>
     </main>
   );

@@ -23,4 +23,5 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/admin/:path*", "/login"] };
+// Su tutte le pagine (tranne file statici), così la sessione resta sempre valida.
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };

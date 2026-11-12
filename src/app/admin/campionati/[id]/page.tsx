@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
+import { CopyField } from "@/components/copy-field";
+import { siteOrigin } from "@/lib/origin";
+import { hasServiceKey } from "@/lib/organizer";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { listAdminUsers } from "@/lib/admins";
 import { STATUS_LABEL } from "@/lib/labels";
-import { addChampionshipAdmin, addMembers, recomputeAction, removeChampionshipAdmin, removeMember, renameChampionship } from "../actions";
+import { addChampionshipAdmin, addMembers, decideRequest, disableInvite, regenerateInvite, recomputeAction, removeChampionshipAdmin, removeMember, renameChampionship } from "../actions";
 import { ChampionshipHeader, input, loadManagedChampionship, muted } from "./shared";
 
 export const metadata = { title: "Campionato" };
@@ -21,6 +25,8 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
   const adminUsers = admin.role === "owner" ? await listAdminUsers() : [];
   const assigned = new Set((admins ?? []).map((a) => a.user_id as string));
   const hidden = <input type="hidden" name="championship_id" value={id} />;
+  const { requests, unclaimed, invite } = await loadJoinData(id);
+  const inviteUrl = invite ? `${await siteOrigin()}/partecipa/${c.slug}?invito=${invite}` : null;
 
   return (
     <main className="space-y-10">
@@ -70,8 +76,43 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
         <p className={`mt-1 ${muted}`}>La classifica si ricalcola da sola a ogni modifica; il pulsante serve solo per sicurezza.</p>
       </section>
 
+      <section>
+        <h2 className="text-lg font-semibold">Richieste di partecipazione{requests.length > 0 && ` (${requests.length})`}</h2>
+        {requests.length === 0 ? <p className={`mt-2 ${muted}`}>Nessuna richiesta in attesa.</p> : (
+          <ul className="mt-2 divide-y">
+            {requests.map((r) => (
+              <li key={r.id} className="py-3">
+                <p><strong>{r.name}</strong> <span className={muted}>{r.email}{r.viaInvite && " · arrivato dal link d'invito"}</span></p>
+                <ActionForm action={decideRequest} submitLabel="Conferma" primary={false} className="mt-2 flex flex-wrap items-center gap-3">
+                  {hidden}<input type="hidden" name="request_id" value={r.id} />
+                  <select name="decision" defaultValue="approve" className={`select-arrow ${input}`} aria-label="Decisione">
+                    <option value="approve">Approva</option><option value="reject">Rifiuta</option>
+                  </select>
+                  {unclaimed.length > 0 && (
+                    <select name="link_player_id" defaultValue={r.claimId ?? ""} className={`select-arrow ${input}`} aria-label="Collega a">
+                      <option value="">come giocatore nuovo</option>
+                      {unclaimed.map((u) => <option key={u.id} value={u.id}>collegalo a {u.name}{u.id === r.claimId ? " (dice di essere lui)" : ""}</option>)}
+                    </select>)}
+                </ActionForm>
+              </li>))}
+          </ul>)}
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold">Link d&apos;invito</h2>
+        <p className={`mt-1 ${muted}`}>Mandalo a chi vuoi far entrare (per esempio su WhatsApp): chi si registra da qui entra subito nel campionato.
+          Chi dice di essere già in classifica (es. dai tornei passati) finisce comunque tra le richieste, per un tuo controllo.</p>
+        {inviteUrl ? <div className="mt-2"><CopyField value={inviteUrl} label="Link d'invito" /></div> : <p className="mt-2">Nessun link attivo.</p>}
+        <div className="mt-2 flex flex-wrap gap-4">
+          <ActionForm action={regenerateInvite} submitLabel={inviteUrl ? "Crea un link nuovo" : "Crea il link"} primary={false}
+            confirmText={inviteUrl ? "Il link attuale smetterà di funzionare. Continuare?" : undefined}>{hidden}</ActionForm>
+          {inviteUrl && <ActionForm action={disableInvite} submitLabel="Disattiva il link" primary={false} confirmText="Disattivare il link d'invito?">{hidden}</ActionForm>}
+        </div>
+      </section>
+
       <section className="rounded-lg border p-4">
-        <h2 className="text-lg font-semibold">Aggiungi giocatori al campionato</h2>
+        <h2 className="text-lg font-semibold">Aggiungi giocatori a mano</h2>
+        <p className={`mt-1 ${muted}`}>Di solito non serve: i giocatori si registrano da soli. Usalo per chi non avrà un account o per i nomi dei tornei passati.</p>
         <ActionForm action={addMembers} submitLabel="Aggiungi" className="mt-3">
           {hidden}
           {others.length > 0 && (
@@ -123,4 +164,24 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
       )}
     </main>
   );
+}
+
+async function loadJoinData(cid: string) {
+  if (!hasServiceKey()) return { requests: [], unclaimed: [], invite: null };
+  const svc = createServiceClient();
+  const [{ data: reqs }, { data: free }, { data: inv }] = await Promise.all([
+    svc.from("championship_requests").select("id, user_id, claim_player_id, via_invite").eq("championship_id", cid).eq("status", "pending").order("created_at"),
+    svc.from("championship_players").select("player_id, players!inner(full_name, user_id)").eq("championship_id", cid).is("players.user_id", null),
+    svc.from("championship_invites").select("token").eq("championship_id", cid).maybeSingle(),
+  ]);
+  const userIds = (reqs ?? []).map((r) => r.user_id as string);
+  const { data: owners } = userIds.length ? await svc.from("players").select("user_id, full_name").in("user_id", userIds) : { data: [] };
+  const nameOf = new Map((owners ?? []).map((o) => [o.user_id as string, o.full_name as string]));
+  const requests = await Promise.all((reqs ?? []).map(async (r) => {
+    const { data } = await svc.auth.admin.getUserById(r.user_id as string);
+    return { id: r.id as number, name: nameOf.get(r.user_id as string) ?? "?", email: data.user?.email ?? "", claimId: r.claim_player_id as string | null, viaInvite: r.via_invite as boolean };
+  }));
+  const unclaimed = (free ?? []).map((f) => ({ id: f.player_id as string, name: (f.players as unknown as { full_name: string }).full_name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "it"));
+  return { requests, unclaimed, invite: (inv?.token as string | undefined) ?? null };
 }

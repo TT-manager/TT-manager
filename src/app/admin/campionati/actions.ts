@@ -2,7 +2,10 @@
 import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireChampionshipManager, requireOwner } from "@/lib/auth";
+import { randomBytes } from "node:crypto";
+import { attachToChampionship } from "@/lib/account";
 import { recomputeChampionship } from "@/lib/closing";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { DEFAULT_RANKING, parseRankingSettings } from "@/lib/domain/ranking";
 import { hasServiceKey } from "@/lib/organizer";
 import { createServerSupabase } from "@/lib/supabase/server";
@@ -226,3 +229,51 @@ export async function removeChampionshipAdmin(_prev: ActionState, formData: Form
   return { ok: "Tolto dal campionato." };
 }
 
+
+// ── Richieste di partecipazione e link d'invito ───────────────────────────
+export async function decideRequest(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const cid = str(formData, "championship_id");
+  await requireChampionshipManager(cid);
+  if (!hasServiceKey()) return { error: "Chiave segreta non configurata." };
+  const svc = createServiceClient();
+  const { data: req } = await svc.from("championship_requests").select("id, user_id, status")
+    .eq("id", Number(str(formData, "request_id"))).eq("championship_id", cid).maybeSingle();
+  if (!req || req.status !== "pending") return { error: "Richiesta non più in attesa." };
+  const decided = { decided_at: new Date().toISOString() };
+  if (str(formData, "decision") === "reject") {
+    await svc.from("championship_requests").update({ status: "rejected", ...decided }).eq("id", req.id);
+    revalidatePath(`/admin/campionati/${cid}`); refresh();
+    return { ok: "Richiesta rifiutata." };
+  }
+  const link = str(formData, "link_player_id");
+  if (link && !UUID.test(link)) return { error: "Scelta non valida." };
+  if (link) {
+    const { data: m } = await svc.from("championship_players").select("player_id").eq("championship_id", cid).eq("player_id", link).maybeSingle();
+    if (!m) return { error: "Quel giocatore non è nel campionato." };
+  }
+  const r = await attachToChampionship(cid, req.user_id as string, link || null);
+  if (r.error) return { error: r.error };
+  await svc.from("championship_requests").update({ status: "approved", ...decided }).eq("id", req.id);
+  return done(cid, "Richiesta approvata.");
+}
+
+export async function regenerateInvite(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const cid = str(formData, "championship_id");
+  await requireChampionshipManager(cid);
+  if (!hasServiceKey()) return { error: "Chiave segreta non configurata." };
+  const token = randomBytes(18).toString("base64url");
+  const { error } = await createServiceClient().from("championship_invites")
+    .upsert({ championship_id: cid, token, created_at: new Date().toISOString() }, { onConflict: "championship_id" });
+  if (error) return { error: "Non sono riuscito a creare il link." };
+  revalidatePath(`/admin/campionati/${cid}`); refresh();
+  return { ok: "Nuovo link creato: quello vecchio non funziona più." };
+}
+
+export async function disableInvite(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const cid = str(formData, "championship_id");
+  await requireChampionshipManager(cid);
+  if (!hasServiceKey()) return { error: "Chiave segreta non configurata." };
+  await createServiceClient().from("championship_invites").delete().eq("championship_id", cid);
+  revalidatePath(`/admin/campionati/${cid}`); refresh();
+  return { ok: "Link disattivato." };
+}

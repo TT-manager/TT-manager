@@ -27,7 +27,8 @@ async function Championship({ params }: { params: PageProps<"/c/[slug]">["params
   return (
     <>
       <h1 className="mt-4 text-3xl font-bold">{c.name}</h1>
-      <p className="text-neutral-600 dark:text-neutral-400">{c.kind === "doubles" ? "Doppio" : "Singolare"}</p>
+      <p className="text-neutral-600 dark:text-neutral-400">{c.kind === "doubles" ? "Doppio" : "Singolare"} ·{" "}
+        <Link href={`/partecipa/${c.slug}`} className="underline">Vuoi giocare? Chiedi di partecipare</Link></p>
 
       <h2 className="mt-8 text-xl font-semibold">Classifica</h2>
       <RankingTable rows={rows} label={c.settings.label} />

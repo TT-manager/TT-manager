@@ -17,7 +17,11 @@ export async function getAdmin(): Promise<AdminInfo | null> {
 
 export async function requireAdmin(): Promise<AdminInfo> {
   const admin = await getAdmin();
-  if (!admin) redirect("/login");
+  if (!admin) {
+    // Chi ha un account da giocatore ma non è amministratore va al suo profilo.
+    const { data } = await (await createServerSupabase()).auth.getClaims();
+    redirect(data?.claims?.sub ? "/profilo" : "/login?next=/admin");
+  }
   return admin;
 }
 
