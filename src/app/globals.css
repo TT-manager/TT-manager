@@ -3,6 +3,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* I controlli del browser (calendario, tendine, caselle) seguono il tema chiaro/scuro. */
+  color-scheme: light dark;
 }
 
 @theme inline {
