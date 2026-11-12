@@ -18,15 +18,15 @@ export function SiteFooter() {
         <nav aria-label="Il sito">
           <h2 className={heading}>Il sito</h2>
           <ul className="mt-3 space-y-1.5">
-            <li><Link href="/" className={link}>Classifica</Link></li>
+            <li><Link href="/" className={link}>Home</Link></li>
             <li><Link href="/faq" className={link}>Domande frequenti</Link></li>
             <li><Link href="/login" className={link}>Accedi</Link></li>
             <li><Link href="/registrati" className={link}>Registrati</Link></li>
           </ul>
         </nav>
 
-        <nav aria-label="Assistenza e informazioni legali">
-          <h2 className={heading}>Assistenza e legale</h2>
+        <nav aria-label="Informazioni legali">
+          <h2 className={heading}>Informazioni legali</h2>
           <ul className="mt-3 space-y-1.5">
             {SUPPORT_EMAIL && <li><a href={`mailto:${SUPPORT_EMAIL}`} className={link}>{SUPPORT_EMAIL}</a></li>}
             <li><Link href="/privacy" className={link}>Informativa privacy</Link></li>
