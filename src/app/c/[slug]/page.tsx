@@ -38,7 +38,7 @@ async function Championship({ params }: { params: PageProps<"/c/[slug]">["params
         <ul className="mt-2 divide-y">
           {tournaments.map((t) => (
             <li key={t.id} className="flex flex-wrap items-baseline justify-between gap-x-4 py-2">
-              <Link href={`/t/${t.public_code}`} className="font-medium hover:underline">{t.name}</Link>
+              <Link href={`/t/${t.public_code}`} className="font-medium hover:underline">{t.name}{!t.ranked && <span className="ml-2 text-sm font-normal text-sky-700 dark:text-sky-300">amichevole</span>}</Link>
               <span className="text-sm text-neutral-600 dark:text-neutral-400">
                 {t.starts_on ? new Date(t.starts_on).toLocaleDateString("it-IT") : ""} · {STATUS_LABEL[t.status as string]}</span>
             </li>))}

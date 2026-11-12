@@ -43,7 +43,7 @@ export async function recomputeChampionship(championshipId: string, opts: { clos
     svc.from("championship_players").select("player_id, start_override, joined_on").eq("championship_id", championshipId),
     svc.from("past_results").select("player_id, position, past_tournaments!inner(championship_id)").eq("past_tournaments.championship_id", championshipId),
     svc.from("player_absences").select("player_id, from_date, to_date").eq("championship_id", championshipId),
-    svc.from("tournaments").select("id, status, starts_on, closed_at, created_at").eq("championship_id", championshipId),
+    svc.from("tournaments").select("id, status, starts_on, closed_at, created_at").eq("championship_id", championshipId).eq("ranked", true),
   ]);
   // Tornei conteggiati dopo questa operazione, in ordine cronologico.
   const counted = (tournaments ?? [])

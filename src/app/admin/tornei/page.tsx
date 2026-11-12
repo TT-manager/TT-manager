@@ -10,7 +10,7 @@ export default async function TournamentsPage() {
   await requireAdmin();
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.from("tournaments")
-    .select("id, name, starts_on, status, public_code, championships(name)").order("created_at", { ascending: false });
+    .select("id, name, starts_on, status, public_code, ranked, championship_id, championships(name)").order("created_at", { ascending: false });
   if (error) throw new Error("Impossibile leggere i tornei");
   return (
     <main>
@@ -22,9 +22,9 @@ export default async function TournamentsPage() {
         <ul className="mt-6 divide-y">
           {data.map((t) => (
             <li key={t.id} className="flex flex-wrap items-baseline gap-x-4 py-3">
-              <Link href={`/admin/tornei/${t.id}`} className="font-medium underline-offset-2 hover:underline">{t.name}</Link>
+              <Link href={`/gestione/${t.id}`} className="font-medium underline-offset-2 hover:underline">{t.name}</Link>
               <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                {(t.championships as unknown as { name: string } | null)?.name} · {t.starts_on ? new Date(t.starts_on).toLocaleDateString("it-IT") : "senza data"} · {STATUS_LABEL[t.status]} · codice {t.public_code}
+                {t.championship_id ? (t.championships as unknown as { name: string } | null)?.name : "Amichevole di un utente"}{t.championship_id && !t.ranked ? " (amichevole)" : ""} · {t.starts_on ? new Date(t.starts_on).toLocaleDateString("it-IT") : "senza data"} · {STATUS_LABEL[t.status]} · codice {t.public_code}
               </span>
             </li>
           ))}

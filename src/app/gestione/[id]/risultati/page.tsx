@@ -6,11 +6,11 @@ import { getPublicTournament } from "@/lib/data";
 import { stageName } from "@/lib/domain/format";
 import { groupLabel, isPlayed } from "@/lib/domain/tournament";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { adminSubmitResult } from "../../actions";
+import { adminSubmitResult } from "@/app/gestione/actions";
 
 export const metadata = { title: "Risultati torneo" };
 
-export default async function AdminResultsPage({ params }: PageProps<"/admin/tornei/[id]/risultati">) {
+export default async function AdminResultsPage({ params }: PageProps<"/gestione/[id]/risultati">) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   await requireTournamentManager(id);
@@ -28,7 +28,7 @@ export default async function AdminResultsPage({ params }: PageProps<"/admin/tor
 
   return (
     <main>
-      <Link href={`/admin/tornei/${id}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {tournament.name}</Link>
+      <Link href={`/gestione/${id}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {tournament.name}</Link>
       <h1 className="mt-2 text-2xl font-bold">Risultati</h1>
       {closed && <p className="mt-2 text-amber-700 dark:text-amber-400">Torneo chiuso: per correggere un risultato riaprilo dalla pagina del torneo.</p>}
       <ul className="mt-4">

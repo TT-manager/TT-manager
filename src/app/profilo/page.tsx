@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { ActionForm } from "@/components/action-form";
 import { requireAccount } from "@/lib/account";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { STATUS_LABEL } from "@/lib/labels";
 import { logout } from "../login/actions";
 import { cancelRequest, updateProfile } from "./actions";
 
@@ -22,11 +23,15 @@ export default function ProfilePage() {
 async function Profile() {
   const account = await requireAccount("/profilo");
   const svc = createServiceClient();
-  const [{ data: memberships }, { data: requests }, { data: all }] = await Promise.all([
+  const [{ data: memberships }, { data: requests }, { data: all }, { data: friendlies }, { count: friendRequests }] = await Promise.all([
     svc.from("championship_players").select("rating, games_played, championships(id, name, slug)").eq("player_id", account.player.id),
     svc.from("championship_requests").select("id, status, created_at, championships(name, slug)").eq("user_id", account.userId)
       .neq("status", "approved").order("created_at", { ascending: false }).limit(20),
     svc.from("championships").select("id, name, slug, kind").order("name"),
+    svc.from("tournaments").select("id, name, starts_on, status, public_code").eq("owner_user_id", account.userId)
+      .order("created_at", { ascending: false }).limit(30),
+    svc.from("friendships").select("user_a", { count: "exact", head: true })
+      .or(`user_a.eq.${account.userId},user_b.eq.${account.userId}`).eq("status", "pending").neq("requested_by", account.userId),
   ]);
   type C = { id: string; name: string; slug: string };
   const mine = (memberships ?? []).map((m) => ({ ...(m.championships as unknown as C), rating: m.rating as number, games: m.games_played as number }));
@@ -40,6 +45,7 @@ async function Profile() {
         <h1 className="text-3xl font-bold">{account.player.full_name}</h1>
         <div className="flex items-center gap-3 text-sm">
           {account.isAdmin && <Link href="/admin" className="underline">Amministrazione</Link>}
+          <Link href="/amici" className="underline">Amici{friendRequests ? ` (${friendRequests} richieste)` : ""}</Link>
           <Link href={`/giocatore/${account.player.id}`} className="underline">La mia scheda pubblica</Link>
           <form action={logout}><button className="rounded border px-3 py-1">Esci</button></form>
         </div>
@@ -69,6 +75,22 @@ async function Profile() {
           </>)}
         {(requests ?? []).some((r) => r.status === "rejected") && (
           <p className={`mt-2 ${muted}`}>Richieste non accettate: {(requests ?? []).filter((r) => r.status === "rejected").map((r) => (r.championships as unknown as C).name).join(", ")}.</p>)}
+      </section>
+
+      <section>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold">I miei tornei amichevoli</h2>
+          <Link href="/amichevole/nuovo" className="rounded bg-black px-4 py-2 text-sm text-white dark:bg-white dark:text-black">Crea un amichevole</Link>
+        </div>
+        {(friendlies ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>Organizza una sfida con i tuoi amici: non conta per nessuna classifica.</p> : (
+          <ul className="mt-2 divide-y">
+            {friendlies!.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
+                <Link href={`/gestione/${t.id}`} className="font-medium hover:underline">{t.name}</Link>
+                <span className={muted}>{t.starts_on ? new Date(t.starts_on).toLocaleDateString("it-IT") + " · " : ""}{STATUS_LABEL[t.status as string]} ·{" "}
+                  <Link href={`/t/${t.public_code}`} className="underline">pagina pubblica</Link></span>
+              </li>))}
+          </ul>)}
       </section>
 
       {others.length > 0 && (

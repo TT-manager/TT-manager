@@ -46,15 +46,32 @@ export async function requireChampionshipManager(championshipId: string): Promis
   return admin;
 }
 
-/** Come sopra, partendo da un torneo. Restituisce anche il campionato del torneo. */
-export async function requireTournamentManager(tournamentId: string): Promise<AdminInfo & { championshipId: string }> {
-  const admin = await requireAdmin();
+export type TournamentAccess = {
+  userId: string; isAdmin: boolean;
+  championshipId: string | null; ownerUserId: string | null; ranked: boolean; kind: "singles" | "doubles";
+};
+
+/**
+ * Verifica che chi è collegato possa gestire il torneo: proprietario, admin del campionato
+ * o, per gli amichevoli degli utenti, chi lo ha creato. La riga del torneo è leggibile
+ * solo se le regole del database lo consentono, quindi la lettura stessa è il controllo.
+ * Da chiamare SEMPRE prima di scritture con la chiave segreta.
+ */
+export async function requireTournamentManager(tournamentId: string): Promise<TournamentAccess> {
   const supabase = await createServerSupabase();
-  const { data: t } = await supabase.from("tournaments").select("championship_id").eq("id", tournamentId).maybeSingle();
-  // Con le regole del database la riga è leggibile solo da chi può gestire il campionato.
-  if (!t) redirect("/admin");
-  await requireChampionshipManager(t.championship_id as string);
-  return { ...admin, championshipId: t.championship_id as string };
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims.sub;
+  if (!userId) redirect(`/login?next=${encodeURIComponent(`/gestione/${tournamentId}`)}`);
+  const [{ data: t }, { data: admin }] = await Promise.all([
+    supabase.from("tournaments").select("championship_id, owner_user_id, ranked, kind").eq("id", tournamentId).maybeSingle(),
+    supabase.from("admins").select("role").eq("user_id", userId).maybeSingle(),
+  ]);
+  if (!t) redirect(admin ? "/admin" : "/profilo");
+  return {
+    userId, isAdmin: Boolean(admin),
+    championshipId: t.championship_id as string | null, ownerUserId: t.owner_user_id as string | null,
+    ranked: t.ranked as boolean, kind: t.kind as "singles" | "doubles",
+  };
 }
 
 /** Campionati che l'admin loggato può gestire. */

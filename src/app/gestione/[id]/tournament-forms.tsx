@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useActionState, useState } from "react";
-import { closeTournamentAction, generateGroups, regenerateOrganizerCode, reopenTournamentAction, resetGroups, setEnrollment, type CloseState, type EnrollState, type GenState, type RegenState } from "../actions";
+import { addGuest, closeTournamentAction, generateGroups, regenerateOrganizerCode, reopenTournamentAction, resetGroups, setEnrollment, type CloseState, type EnrollState, type GenState, type RegenState } from "@/app/gestione/actions";
 
 type P = { id: string; full_name: string; club: string | null; rating: number };
 
@@ -24,7 +24,7 @@ export function EnrollmentForm({ tournamentId, players, enrolledIds, locked, clo
     for (const p of shown) { if (on) next.add(p.id); else next.delete(p.id); }
     update(next);
   };
-  if (players.length === 0) return <p className="mt-2">Nessun giocatore attivo: aggiungili prima nella pagina Giocatori.</p>;
+  if (players.length === 0) return <p className="mt-2">Nessun giocatore da iscrivere per ora.</p>;
   return (
     // Invio manuale: l'invio con `action` farebbe svuotare a React le caselle (restano selezionate in memoria
     // ma appaiono vuote). Così il modulo resta com'è e mostra la selezione salvata.
@@ -125,17 +125,17 @@ export function GroupsControl({ tournamentId, status, mode, hasFormat }:
   );
 }
 
-export function ClosingControl({ tournamentId, status, summary }:
-  { tournamentId: string; status: string; summary: { toRate: number; unplayed: number; finished: boolean } | null }) {
+export function ClosingControl({ tournamentId, status, summary, ranked = true }:
+  { tournamentId: string; status: string; summary: { toRate: number; unplayed: number; finished: boolean } | null; ranked?: boolean }) {
   const [closeState, closeAction, closing] = useActionState<CloseState, FormData>(closeTournamentAction, {});
   const [reopenState, reopenAction, reopening] = useActionState<CloseState, FormData>(reopenTournamentAction, {});
   const msg = (s: CloseState) => s.error ? <p role="alert" className="text-red-700 dark:text-red-400">{s.error}</p>
     : s.ok ? <p className="text-green-700 dark:text-green-400">{s.ok}</p> : null;
   if (status === "closed") return (
     <form action={reopenAction} className="mt-2 space-y-2"
-      onSubmit={(e) => { if (!confirm("Riaprire il torneo? Le variazioni di rating di questo torneo saranno annullate finché non lo richiudi.")) e.preventDefault(); }}>
+      onSubmit={(e) => { if (!confirm(ranked ? "Riaprire il torneo? Le variazioni di punti di questo torneo saranno annullate finché non lo richiudi." : "Riaprire il torneo?")) e.preventDefault(); }}>
       <input type="hidden" name="tournament_id" value={tournamentId} />
-      <p>Torneo chiuso: i risultati sono conteggiati nella classifica generale.</p>
+      <p>{ranked ? "Torneo chiuso: i risultati sono conteggiati nella classifica del campionato." : "Torneo chiuso."}</p>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">Per correggere un risultato riapri il torneo, correggi e poi richiudilo.</p>
       <button disabled={reopening} className="rounded border px-4 py-2">Riapri torneo</button>
       {msg(reopenState)}{msg(closeState)}
@@ -146,13 +146,13 @@ export function ClosingControl({ tournamentId, status, summary }:
     <form action={closeAction} className="mt-2 space-y-2"
       onSubmit={(e) => {
         const warn = summary.unplayed ? `\n\nAttenzione: ${summary.unplayed} partite non sono state giocate e verranno ignorate.` : "";
-        if (!confirm(`Chiudere il torneo e aggiornare la classifica generale con ${summary.toRate} partite?${warn}`)) e.preventDefault();
+        if (!confirm(ranked ? `Chiudere il torneo e aggiornare la classifica del campionato con ${summary.toRate} partite?${warn}` : `Chiudere il torneo?${warn}`)) e.preventDefault();
       }}>
       <input type="hidden" name="tournament_id" value={tournamentId} />
-      <p>{summary.toRate} partite giocate da conteggiare · {summary.unplayed} ancora da giocare.
+      <p>{summary.toRate} partite giocate{ranked ? " da conteggiare" : ""} · {summary.unplayed} ancora da giocare.
         {!summary.finished && <span className="text-amber-700 dark:text-amber-400"> La finale non è ancora stata giocata.</span>}</p>
       <button disabled={closing || summary.toRate === 0} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
-        {closing ? "Chiusura…" : "Chiudi torneo e aggiorna la classifica"}</button>
+        {closing ? "Chiusura…" : ranked ? "Chiudi torneo e aggiorna la classifica" : "Chiudi torneo"}</button>
       {msg(closeState)}{msg(reopenState)}
     </form>
   );
@@ -172,7 +172,7 @@ export function PairsForm({ tournamentId, players, initialPairs, locked, closed 
   const complete = pairs.filter(([a, b]) => a && b);
   const sel = "select-arrow rounded border bg-transparent py-2 pl-3";
 
-  if (players.length < 2) return <p className="mt-2">Servono almeno due giocatori nel campionato: aggiungili dalla pagina del campionato.</p>;
+  if (players.length < 2) return <p className="mt-2">Servono almeno due giocatori da iscrivere.</p>;
   return (
     <form className="mt-2 space-y-3" onSubmit={(e) => {
       e.preventDefault();
@@ -215,6 +215,27 @@ export function PairsForm({ tournamentId, players, initialPairs, locked, closed 
           {changed && <p className="text-sm text-amber-700 dark:text-amber-400">Modifiche non ancora salvate{pairs.length !== complete.length ? " (le coppie incomplete non vengono salvate)" : ""}.</p>}
         </div>
       )}
+    </form>
+  );
+}
+
+/** Aggiunge un ospite (senza account) agli amichevoli. */
+export function GuestForm({ tournamentId }: { tournamentId: string }) {
+  const [state, action, pending] = useActionState<EnrollState, FormData>(addGuest, {});
+  const [name, setName] = useState("");
+  return (
+    <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={(e) => {
+      e.preventDefault();
+      const data = new FormData();
+      data.set("tournament_id", tournamentId); data.set("guest_name", name);
+      startTransition(() => action(data));
+      setName("");
+    }}>
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome dell'ospite" maxLength={80} required
+        className="rounded border bg-transparent px-3 py-1.5" aria-label="Nome dell'ospite" />
+      <button disabled={pending} className="rounded border px-3 py-1.5">Aggiungi ospite</button>
+      {state.error && <span role="alert" className="text-red-700 dark:text-red-400">{state.error}</span>}
+      {state.ok && <span className="text-green-700 dark:text-green-400">{state.ok}</span>}
     </form>
   );
 }

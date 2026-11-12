@@ -40,7 +40,7 @@ export async function getRanking(championshipId: string): Promise<RankingRow[]> 
 export async function getChampionshipTournaments(championshipId: string) {
   const supabase = createPublicClient();
   const [{ data: tournaments }, { data: past }] = await Promise.all([
-    supabase.from("tournaments_public").select("id, name, starts_on, status, public_code, closed_at").eq("championship_id", championshipId)
+    supabase.from("tournaments_public").select("id, name, starts_on, status, public_code, closed_at, ranked").eq("championship_id", championshipId)
       .order("starts_on", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }),
     supabase.from("past_tournaments").select("id, name, held_on, past_results(position, players(full_name))")
       .eq("championship_id", championshipId).order("held_on", { ascending: false, nullsFirst: false }),
@@ -85,14 +85,15 @@ export async function getPlayer(id: string) {
 }
 
 export type PublicTournament = {
-  id: string; name: string; starts_on: string | null; status: string; public_code: string; format: unknown; championship_id: string;
+  id: string; name: string; starts_on: string | null; status: string; public_code: string; format: unknown; championship_id: string | null;
+  ranked: boolean; kind: "singles" | "doubles";
 };
 
 /** Torneo pubblico con iscritti (giocatori o coppie) e partite (nessun dato riservato). */
 export async function getPublicTournament(publicCode: string) {
   const supabase = createPublicClient();
   const { data: t, error } = await supabase.from("tournaments_public")
-    .select("id, name, starts_on, status, public_code, format, championship_id").eq("public_code", publicCode).maybeSingle();
+    .select("id, name, starts_on, status, public_code, format, championship_id, ranked, kind").eq("public_code", publicCode).maybeSingle();
   if (error) throw new Error("Impossibile leggere il torneo");
   if (!t) return null;
   const [entries, { data: matches, error: e2 }, { data: championship }] = await Promise.all([
@@ -100,7 +101,9 @@ export async function getPublicTournament(publicCode: string) {
     supabase.from("matches")
       .select("id, phase, group_no, stage, round, position, player_a, player_b, sets_a, sets_b, set_scores, best_of, set_points, golden_point, source_a, source_b")
       .eq("tournament_id", t.id),
-    supabase.from("championships").select("name, slug").eq("id", t.championship_id).maybeSingle(),
+    t.championship_id
+      ? supabase.from("championships").select("name, slug").eq("id", t.championship_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   if (e2) throw new Error("Impossibile leggere il torneo");
   const names = new Map(entries.map((e) => [e.id, entryName(e)]));

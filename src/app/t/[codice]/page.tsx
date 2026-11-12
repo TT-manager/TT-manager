@@ -35,7 +35,7 @@ async function Tournament({ params }: { params: PageProps<"/t/[codice]">["params
   if (raw !== code) redirect(`/t/${code}`);
   const data = await getPublicTournament(code);
   if (!data) notFound();
-  const { tournament: t, members, names, matches, enrolledCount } = data;
+  const { tournament: t, championship, members, names, matches, enrolledCount } = data;
   const name = (id: string | null) => (id ? names.get(id) ?? "?" : null);
   const parsed = parseFormat(t.format);
   const groups = groupViews(members, matches);
@@ -47,7 +47,10 @@ async function Tournament({ params }: { params: PageProps<"/t/[codice]">["params
     <>
       <header className="mt-4 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-3xl font-bold">{t.name}</h1>
+          <h1 className="text-3xl font-bold">{t.name}
+            {!t.ranked && <span className="ml-3 rounded bg-sky-100 px-2 py-0.5 align-middle text-sm font-normal text-sky-900 dark:bg-sky-900 dark:text-sky-100">Amichevole</span>}</h1>
+          {championship && <p className={muted}><Link href={`/c/${championship.slug}`} className="underline">{championship.name}</Link>
+            {t.ranked ? " · vale per la classifica" : " · non vale per la classifica"}</p>}
           <p className={muted}>
             {[t.starts_on && new Date(t.starts_on).toLocaleDateString("it-IT"), STATUS_LABEL[t.status], `codice ${t.public_code}`]
               .filter(Boolean).join(" · ")}

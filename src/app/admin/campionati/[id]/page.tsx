@@ -16,8 +16,8 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
   const { admin, supabase, championship: c } = await loadManagedChampionship(id);
   const [{ data: ranking }, { data: allPlayers }, { data: tournaments }, { data: admins }] = await Promise.all([
     supabase.from("championship_ranking").select("player_id, full_name, club, rating, games_played, position").eq("championship_id", id).order("position").order("full_name"),
-    supabase.from("players").select("id, full_name, club, active").order("full_name"),
-    supabase.from("tournaments").select("id, name, starts_on, status").eq("championship_id", id).order("starts_on", { ascending: false, nullsFirst: false }),
+    (hasServiceKey() ? createServiceClient() : supabase).from("players").select("id, full_name, club, active").is("guest_of", null).order("full_name"),
+    supabase.from("tournaments").select("id, name, starts_on, status, ranked").eq("championship_id", id).order("starts_on", { ascending: false, nullsFirst: false }),
     supabase.from("championship_admins").select("user_id").eq("championship_id", id),
   ]);
   const members = new Set((ranking ?? []).map((r) => r.player_id as string));
@@ -41,7 +41,7 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
           <ul className="mt-2 divide-y">
             {tournaments!.map((t) => (
               <li key={t.id} className="flex flex-wrap items-baseline gap-x-4 py-2">
-                <Link href={`/admin/tornei/${t.id}`} className="font-medium hover:underline">{t.name}</Link>
+                <Link href={`/gestione/${t.id}`} className="font-medium hover:underline">{t.name}</Link>{!t.ranked && <span className="text-sm text-sky-700 dark:text-sky-300">amichevole</span>}
                 <span className={muted}>{t.starts_on ? new Date(t.starts_on).toLocaleDateString("it-IT") : "senza data"} · {STATUS_LABEL[t.status]}</span>
               </li>
             ))}

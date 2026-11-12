@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useActionState } from "react";
-import { createTournament, type CreateState } from "../actions";
+import { createTournament, type CreateState } from "@/app/gestione/actions";
 
 const input = "rounded border bg-transparent px-3 py-2";
 
@@ -15,6 +15,11 @@ export default function NewTournamentForm({ championships, preselected }:
         <select name="championship_id" defaultValue={preselected} required className="select-arrow rounded border bg-transparent py-2 pl-3">
           {championships.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select></label>
+      <fieldset className="space-y-1">
+        <legend>Tipo di torneo</legend>
+        <label className="flex items-center gap-2"><input type="radio" name="ranked" value="ranked" defaultChecked /> Valido per la classifica del campionato</label>
+        <label className="flex items-center gap-2"><input type="radio" name="ranked" value="friendly" /> Amichevole (non cambia la classifica e non conta come torneo saltato)</label>
+      </fieldset>
       <section className="grid gap-3 sm:grid-cols-[1fr_12rem]">
         <label className="grid gap-1">Nome<input name="name" required maxLength={100} className={input} /></label>
         <label className="grid gap-1">Data<input name="starts_on" type="date" className={input} /></label>
@@ -28,7 +33,7 @@ export default function NewTournamentForm({ championships, preselected }:
   );
 }
 
-function Created({ c }: { c: NonNullable<CreateState["created"]> }) {
+export function Created({ c }: { c: NonNullable<CreateState["created"]> }) {
   return (
     <div className="mt-6 space-y-4">
       <p>Torneo <strong>{c.name}</strong> creato.</p>
@@ -39,7 +44,7 @@ function Created({ c }: { c: NonNullable<CreateState["created"]> }) {
           Se lo perdi, potrai generarne uno nuovo dalla pagina del torneo.</p>
       </div>
       <p>Codice pubblico per seguire il torneo: <span className="font-mono text-xl">{c.publicCode}</span></p>
-      <Link href={`/admin/tornei/${c.id}`} className="inline-block rounded bg-black px-4 py-2 text-white dark:bg-white dark:text-black">Vai al torneo e iscrivi i giocatori</Link>
+      <Link href={`/gestione/${c.id}`} className="inline-block rounded bg-black px-4 py-2 text-white dark:bg-white dark:text-black">Vai al torneo e iscrivi i giocatori</Link>
     </div>
   );
 }

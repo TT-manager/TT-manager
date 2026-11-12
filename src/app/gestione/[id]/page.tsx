@@ -7,26 +7,33 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { describeFormat, parseFormat } from "@/lib/domain/format";
 import { closingSummary } from "@/lib/closing";
 import { hasServiceKey } from "@/lib/organizer";
-import { ClosingControl, EnrollmentForm, GroupsControl, PairsForm, RegenerateCode } from "./tournament-forms";
+import { friendlyCandidates } from "@/lib/friends";
+import { ClosingControl, EnrollmentForm, GroupsControl, GuestForm, PairsForm, RegenerateCode } from "./tournament-forms";
 
 export const metadata = { title: "Torneo" };
 
-export default async function TournamentAdminPage({ params }: PageProps<"/admin/tornei/[id]">) {
+export default async function TournamentAdminPage({ params }: PageProps<"/gestione/[id]">) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const { championshipId } = await requireTournamentManager(id);
+  const access = await requireTournamentManager(id);
+  const { championshipId } = access;
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments")
     .select("id, name, starts_on, status, public_code, format").eq("id", id).maybeSingle();
   if (!t) notFound();
-  // Si iscrivono i giocatori del campionato, con i loro punti nel campionato.
-  const [{ data: ranking }, entries, { data: championship }] = await Promise.all([
-    supabase.from("championship_ranking").select("player_id, full_name, club, rating").eq("championship_id", championshipId).order("full_name"),
+  // Torneo di campionato: si iscrivono i giocatori del campionato, con i loro punti.
+  // Amichevole di un utente: lui, i suoi amici e i suoi ospiti.
+  const [players, entries, championship] = await Promise.all([
+    championshipId
+      ? supabase.from("championship_ranking").select("player_id, full_name, club, rating").eq("championship_id", championshipId).order("full_name")
+          .then(({ data }) => (data ?? []).map((r) => ({ id: r.player_id as string, full_name: r.full_name as string, club: r.club as string | null, rating: r.rating as number })))
+      : access.ownerUserId && hasServiceKey() ? friendlyCandidates(access.ownerUserId) : Promise.resolve([]),
     loadEntries(supabase, id),
-    supabase.from("championships").select("name, kind").eq("id", championshipId).maybeSingle(),
+    championshipId ? supabase.from("championships").select("name").eq("id", championshipId).maybeSingle().then(({ data }) => data) : Promise.resolve(null),
   ]);
-  const players = (ranking ?? []).map((r) => ({ id: r.player_id as string, full_name: r.full_name as string, club: r.club as string | null, rating: r.rating as number }));
-  const doubles = championship?.kind === "doubles";
+  const doubles = access.kind === "doubles";
+  const friendly = !access.ranked;
+  const userFriendly = !championshipId;
   const enrolledIds = entries.flatMap((e) => e.players.map((p) => p.id));
   const pairs = entries.map((e) => e.players.map((p) => p.id));
   const parsed = parseFormat(t.format);
@@ -37,8 +44,12 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
   return (
     <main className="space-y-8">
       <div>
-        <Link href={`/admin/campionati/${championshipId}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {championship?.name ?? "Campionato"}</Link>
-        <h1 className="mt-2 text-2xl font-bold">{t.name}</h1>
+        {championshipId
+          ? <Link href={`/admin/campionati/${championshipId}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {championship?.name ?? "Campionato"}</Link>
+          : <Link href="/profilo" className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← Il mio profilo</Link>}
+        <h1 className="mt-2 text-2xl font-bold">{t.name}
+          {friendly && <span className="ml-3 rounded bg-sky-100 px-2 py-0.5 align-middle text-sm font-normal text-sky-900 dark:bg-sky-900 dark:text-sky-100">Amichevole</span>}</h1>
+        {friendly && <p className="text-sm text-neutral-600 dark:text-neutral-400">Non conta per nessuna classifica.</p>}
         <p className="text-neutral-600 dark:text-neutral-400">
           {t.starts_on ? new Date(t.starts_on).toLocaleDateString("it-IT") : "Senza data"} · {STATUS_LABEL[t.status]}
         </p>
@@ -54,7 +65,7 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
             ? <ul className="mt-2 list-disc pl-5">{describeFormat(parsed.format, entries.length || undefined).map((l) => <li key={l}>{l}</li>)}</ul>
             : <p className="mt-2 text-red-700 dark:text-red-400">Formato non valido: correggilo.</p>}
         {t.status === "draft" && (
-          <Link href={`/admin/tornei/${t.id}/formato`} className="mt-3 inline-block rounded border px-4 py-2">
+          <Link href={`/gestione/${t.id}/formato`} className="mt-3 inline-block rounded border px-4 py-2">
             {t.format === null ? "Imposta il formato" : "Modifica il formato"}</Link>
         )}
       </section>
@@ -64,6 +75,11 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
         {doubles
           ? <PairsForm tournamentId={t.id} players={players} initialPairs={pairs} locked={t.status !== "draft"} closed={t.status === "closed"} />
           : <EnrollmentForm tournamentId={t.id} players={players} enrolledIds={enrolledIds} locked={t.status !== "draft"} closed={t.status === "closed"} />}
+        {userFriendly && t.status === "draft" && (
+          <div className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+            <p>Puoi iscrivere te stesso e i tuoi <a href="/amici" className="underline">amici</a>. Per chi non ha un account aggiungi un ospite:</p>
+            <GuestForm tournamentId={t.id} />
+          </div>)}
       </section>
 
       <section>
@@ -75,13 +91,13 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
       {t.status !== "draft" && (
         <section>
           <h2 className="text-lg font-semibold">Risultati</h2>
-          <p className="mt-2"><Link href={`/admin/tornei/${t.id}/risultati`} className="underline">Vedi e correggi tutti i risultati</Link></p>
+          <p className="mt-2"><Link href={`/gestione/${t.id}/risultati`} className="underline">Vedi e correggi tutti i risultati</Link></p>
         </section>
       )}
 
       <section>
         <h2 className="text-lg font-semibold">Chiusura</h2>
-        <ClosingControl tournamentId={t.id} status={t.status} summary={summary} />
+        <ClosingControl tournamentId={t.id} status={t.status} summary={summary} ranked={access.ranked} />
       </section>
 
       <section>
