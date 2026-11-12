@@ -113,7 +113,7 @@ async function ChampionshipCard({ c, member, myPlayerId }: { c: Championship; me
           <h3 className="text-2xl font-bold uppercase">{c.name}</h3>
           <p className="text-sm text-white/70">{c.kind === "doubles" ? "Doppio" : "Singolare"} · {rows.length} giocatori</p>
         </div>
-        {me && <div className="text-right"><p className="font-display text-3xl font-bold leading-none">#{me.position}</p>
+        {me && <div className="text-right"><p className="font-display text-3xl font-bold leading-none">{me.games_played > 0 ? `#${me.position}` : "—"}</p>
           <p className="text-xs text-white/70">{me.rating} {c.settings.label.toLowerCase()}</p></div>}
       </div>
       <div className="flex-1 space-y-4 px-5 py-4">
@@ -146,7 +146,7 @@ function Podium({ rows, label, myPlayerId }: { rows: RankingRow[]; label: string
     <ol className="space-y-2">
       {rows.map((r, i) => (
         <li key={r.player_id} className={`flex items-center gap-3 rounded-lg px-2 py-1.5 ${r.player_id === myPlayerId ? "bg-gold/15" : ""}`}>
-          <span className={`flex h-6 w-6 items-center justify-center rounded-full font-display text-sm font-bold text-white ${MEDAL[i]}`}>{r.position}</span>
+          <span className={`flex h-6 w-6 items-center justify-center rounded-full font-display text-sm font-bold ${r.games_played > 0 ? `text-white ${MEDAL[i]}` : "text-muted"}`}>{r.position}</span>
           <Avatar name={r.full_name} path={r.avatar_path} size="h-8 w-8 text-[0.7rem]" />
           <Link href={`/giocatore/${r.player_id}`} className="flex-1 truncate font-medium hover:text-brand">{r.full_name}</Link>
           <span className="font-display text-lg font-semibold tabular-nums">{r.rating}<span className="ml-1 text-xs font-normal text-muted">{label.toLowerCase()}</span></span>
