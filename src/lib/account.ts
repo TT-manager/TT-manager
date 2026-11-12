@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import { hasServiceKey } from "./organizer";
 import { createServiceClient } from "./supabase/admin";
 import { createServerSupabase } from "./supabase/server";
+import { createClubRequest } from "./clubs-server";
+import { parseClubChoice } from "./clubs";
 
 export type Account = {
   userId: string; email: string; isAdmin: boolean;
-  player: { id: string; full_name: string; club: string | null; avatar_path: string | null };
+  player: { id: string; full_name: string; club: string | null; club_id: string | null; avatar_path: string | null };
 };
 
 /** Utente collegato con la sua scheda giocatore (creata al primo accesso), oppure null. */
@@ -16,10 +18,10 @@ export async function getAccount(): Promise<Account | null> {
   const claims = data?.claims;
   if (!claims?.sub || !hasServiceKey()) return null;
   const userId = claims.sub, email = String(claims.email ?? "");
-  const meta = (claims.user_metadata ?? {}) as { full_name?: unknown; club?: unknown };
+  const meta = (claims.user_metadata ?? {}) as { full_name?: unknown; club_id?: unknown; club_request?: unknown };
   const [{ data: admin }, player] = await Promise.all([
     supabase.from("admins").select("role").eq("user_id", userId).maybeSingle(),
-    ensurePlayer(userId, typeof meta.full_name === "string" ? meta.full_name : "", typeof meta.club === "string" ? meta.club : "", email),
+    ensurePlayer(userId, typeof meta.full_name === "string" ? meta.full_name : "", meta, email),
   ]);
   return { userId, email, isAdmin: Boolean(admin), player };
 }
@@ -30,15 +32,37 @@ export async function requireAccount(next: string): Promise<Account> {
   return account;
 }
 
-async function ensurePlayer(userId: string, name: string, club: string, email: string) {
+/** Circolo scelto in registrazione (salvato nei dati dell'account): uno dell'elenco o una richiesta. */
+function signupClub(meta: { club_id?: unknown; club_request?: unknown }) {
+  const req = (meta.club_request ?? null) as { name?: unknown; city?: unknown } | null;
+  const choice = parseClubChoice((k) => ({
+    club_id: req ? "nuovo" : meta.club_id, new_club_name: req?.name, new_club_city: req?.city,
+  } as Record<string, unknown>)[k]);
+  return "error" in choice ? { kind: "none" as const } : choice;
+}
+
+async function ensurePlayer(userId: string, name: string, meta: { club_id?: unknown; club_request?: unknown }, email: string) {
   const svc = createServiceClient();
-  const find = () => svc.from("players").select("id, full_name, club, avatar_path").eq("user_id", userId).maybeSingle();
+  const find = () => svc.from("players").select("id, full_name, club, club_id, avatar_path").eq("user_id", userId).maybeSingle();
   const { data: found } = await find();
   if (found) return found as Account["player"];
   const fullName = (name.trim() || email.split("@")[0] || "Giocatore").slice(0, 80);
-  const { data: created, error } = await svc.from("players")
-    .insert({ full_name: fullName, club: club.trim().slice(0, 80) || null, user_id: userId }).select("id, full_name, club, avatar_path").single();
-  if (created) return created as Account["player"];
+  const club = signupClub(meta);
+  const insert = (clubId: string | null) => svc.from("players")
+    .insert({ full_name: fullName, club_id: clubId, user_id: userId }).select("id, full_name, club, club_id, avatar_path").single();
+  let { data: created, error } = await insert(club.kind === "existing" ? club.clubId : null);
+  if (error?.code === "23503") ({ data: created, error } = await insert(null)); // circolo eliminato nel frattempo
+  if (created) {
+    if (club.kind === "request") {
+      const r = await createClubRequest(userId, club.name, club.city);
+      if (r.existingId) { // il circolo nel frattempo è entrato in elenco: lo assegniamo subito
+        const { data: updated } = await svc.from("players").update({ club_id: r.existingId }).eq("id", created.id)
+          .select("id, full_name, club, club_id, avatar_path").single();
+        if (updated) created = updated;
+      }
+    }
+    return created as Account["player"];
+  }
   if (error?.code === "23505") { const { data: again } = await find(); if (again) return again as Account["player"]; }
   throw new Error("Impossibile creare la scheda giocatore");
 }

@@ -10,6 +10,7 @@ export default function AdminHome() {
         <li><Link href="/admin/campionati" className="underline">Campionati: giocatori, tornei, classifica di partenza e regole</Link></li>
         <li><Link href="/admin/giocatori" className="underline">Anagrafica dei giocatori</Link></li>
         <li><Link href="/admin/tornei" className="underline">Tornei: crea, iscrivi i giocatori, risultati e chiusura</Link></li>
+        <li><Link href="/admin/circoli" className="underline">Circoli: elenco e richieste di nuovi circoli</Link> (solo proprietario)</li>
         <li><Link href="/admin/amministratori" className="underline">Amministratori</Link> (solo proprietario)</li>
         <li><Link href="/admin/password" className="underline">Cambia la tua password</Link></li>
       </ul>

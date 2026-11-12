@@ -4,15 +4,17 @@ import { requireAdmin } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { clearAvatar } from "@/lib/avatar-server";
 import { hasServiceKey } from "@/lib/organizer";
+import { parseClubChoice } from "@/lib/clubs";
 
 export type FormState = { error?: string; ok?: string };
 
 function parsePlayer(formData: FormData) {
   const full_name = String(formData.get("full_name") ?? "").trim();
-  const club = String(formData.get("club") ?? "").trim();
+  const club = parseClubChoice((k) => formData.get(k), false);
   if (full_name.length < 2) return { error: "Il nome è obbligatorio (almeno 2 lettere)." } as const;
-  if (full_name.length > 80 || club.length > 80) return { error: "Nome o circolo troppo lunghi." } as const;
-  return { value: { full_name, club: club || null } } as const;
+  if (full_name.length > 80) return { error: "Nome troppo lungo." } as const;
+  if ("error" in club) return { error: club.error } as const;
+  return { value: { full_name, club_id: club.kind === "existing" ? club.clubId : null } } as const;
 }
 
 export async function addPlayer(_prev: FormState, formData: FormData): Promise<FormState> {

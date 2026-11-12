@@ -6,6 +6,8 @@ import { hasServiceKey } from "@/lib/organizer";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { listAdminUsers } from "@/lib/admins";
 import { STATUS_LABEL } from "@/lib/labels";
+import { clubLabel } from "@/lib/clubs";
+import { listClubs } from "@/lib/clubs-server";
 import { addChampionshipAdmin, addMembers, decideRequest, disableInvite, regenerateInvite, recomputeAction, removeChampionshipAdmin, removeMember, renameChampionship, setVisibility } from "../actions";
 import { ChampionshipHeader, input, loadManagedChampionship, muted } from "./shared";
 
@@ -14,11 +16,12 @@ export const metadata = { title: "Campionato" };
 export default async function ChampionshipPage({ params }: PageProps<"/admin/campionati/[id]">) {
   const { id } = await params;
   const { admin, supabase, championship: c } = await loadManagedChampionship(id);
-  const [{ data: ranking }, { data: allPlayers }, { data: tournaments }, { data: admins }] = await Promise.all([
+  const [{ data: ranking }, { data: allPlayers }, { data: tournaments }, { data: admins }, clubs] = await Promise.all([
     supabase.from("championship_ranking").select("player_id, full_name, club, rating, games_played, position").eq("championship_id", id).order("position").order("full_name"),
     (hasServiceKey() ? createServiceClient() : supabase).from("players").select("id, full_name, club, active").is("guest_of", null).order("full_name"),
     supabase.from("tournaments").select("id, name, starts_on, status, ranked").eq("championship_id", id).order("starts_on", { ascending: false, nullsFirst: false }),
     supabase.from("championship_admins").select("user_id").eq("championship_id", id),
+    listClubs(),
   ]);
   const members = new Set((ranking ?? []).map((r) => r.player_id as string));
   const others = (allPlayers ?? []).filter((p) => p.active && !members.has(p.id as string));
@@ -128,7 +131,10 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
           <p className={`mt-4 ${muted}`}>{others.length > 0 ? "Oppure crea un giocatore nuovo:" : "Crea un giocatore nuovo:"}</p>
           <div className="mt-1 grid gap-2 sm:grid-cols-2">
             <input name="new_name" placeholder="Nome e cognome" maxLength={80} className={input} aria-label="Nome e cognome" />
-            <input name="new_club" placeholder="Circolo (facoltativo)" maxLength={80} className={input} aria-label="Circolo" />
+            <select name="club_id" defaultValue="" className={input} aria-label="Circolo">
+              <option value="">Nessun circolo</option>
+              {clubs.map((cl) => <option key={cl.id} value={cl.id}>{clubLabel(cl)}</option>)}
+            </select>
           </div>
         </ActionForm>
       </section>

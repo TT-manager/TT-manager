@@ -8,7 +8,9 @@ import { Avatar } from "@/components/avatar";
 import { AvatarUploader } from "./avatar-uploader";
 import { formatDeadline, registrationIsOpen } from "@/lib/registration";
 import { logout } from "../login/actions";
-import { cancelRequest, updateProfile } from "./actions";
+import { cancelClubRequest, cancelRequest, updateProfile } from "./actions";
+import { ClubPicker } from "@/components/club-picker";
+import { listClubs } from "@/lib/clubs-server";
 
 export const metadata = { title: "Il mio profilo" };
 const input = "rounded border bg-transparent px-3 py-2";
@@ -26,7 +28,7 @@ export default function ProfilePage() {
 async function Profile() {
   const account = await requireAccount("/profilo");
   const svc = createServiceClient();
-  const [{ data: memberships }, { data: requests }, { data: all }, { data: friendlies }, { count: friendRequests }] = await Promise.all([
+  const [{ data: memberships }, { data: requests }, { data: all }, { data: friendlies }, { count: friendRequests }, clubs, { data: clubRequest }] = await Promise.all([
     svc.from("championship_players").select("rating, games_played, championships(id, name, slug)").eq("player_id", account.player.id),
     svc.from("championship_requests").select("id, status, created_at, championships(name, slug)").eq("user_id", account.userId)
       .neq("status", "approved").order("created_at", { ascending: false }).limit(20),
@@ -35,6 +37,9 @@ async function Profile() {
       .order("created_at", { ascending: false }).limit(30),
     svc.from("friendships").select("user_a", { count: "exact", head: true })
       .or(`user_a.eq.${account.userId},user_b.eq.${account.userId}`).eq("status", "pending").neq("requested_by", account.userId),
+    listClubs(),
+    svc.from("club_requests").select("name, city, status").eq("user_id", account.userId)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
   type C = { id: string; name: string; slug: string };
   const mine = (memberships ?? []).map((m) => ({ ...(m.championships as unknown as C), rating: m.rating as number, games: m.games_played as number }));
@@ -139,9 +144,17 @@ async function Profile() {
         <ActionForm action={updateProfile} submitLabel="Salva" className="mt-2">
           <div className="grid gap-2 sm:grid-cols-2">
             <input name="full_name" defaultValue={account.player.full_name} required maxLength={80} className={input} aria-label="Nome e cognome" />
-            <input name="club" defaultValue={account.player.club ?? ""} maxLength={80} placeholder="Circolo (facoltativo)" className={input} aria-label="Circolo" />
+            <ClubPicker clubs={clubs} defaultValue={account.player.club_id ?? ""} allowRequest={clubRequest?.status !== "pending"} className={`${input} w-full`} />
           </div>
         </ActionForm>
+        {clubRequest?.status === "pending" && (
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+            <span className="badge">In attesa</span>
+            <span>Hai chiesto di aggiungere il circolo <strong>{clubRequest.name}</strong>{clubRequest.city ? ` (${clubRequest.city})` : ""}.</span>
+            <ActionForm action={cancelClubRequest} submitLabel="Annulla richiesta" primary={false} inline />
+          </div>)}
+        {clubRequest?.status === "rejected" && !account.player.club_id && (
+          <p className={`mt-2 ${muted}`}>La richiesta del circolo «{clubRequest.name}» non è stata approvata. Puoi sceglierne uno dall&apos;elenco.</p>)}
         <p className={`mt-2 ${muted}`}>Email: {account.email} · <Link href="/nuova-password" className="underline">Cambia password</Link></p>
       </section>
     </div>

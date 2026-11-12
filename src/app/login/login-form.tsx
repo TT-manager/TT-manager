@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useActionState } from "react";
+import { ClubPicker } from "@/components/club-picker";
+import type { Club } from "@/lib/clubs";
 import { forgotPassword, login, setNewPassword, signup, type LoginState } from "./actions";
 
 const field = "mt-1 w-full rounded border bg-transparent px-3 py-2";
@@ -25,14 +27,14 @@ export default function LoginForm({ next }: { next?: string }) {
   );
 }
 
-export function SignupForm({ next }: { next?: string }) {
+export function SignupForm({ next, clubs = [] }: { next?: string; clubs?: Club[] }) {
   const [state, action, pending] = useActionState<LoginState, FormData>(signup, {});
   if (state.ok) return <p className="mt-6 rounded border border-green-600 p-4">{state.ok}</p>;
   return (
     <form action={action} className="mt-6 space-y-4">
       {next && <input type="hidden" name="next" value={next} />}
       <label className="block">Nome e cognome<input name="full_name" required maxLength={80} autoComplete="name" className={field} /></label>
-      <label className="block">Circolo (facoltativo)<input name="club" maxLength={80} className={field} /></label>
+      <div><span className="block">Circolo (facoltativo)</span><ClubPicker clubs={clubs} allowRequest className={field} /></div>
       <label className="block">Email<input name="email" type="email" required autoComplete="email" className={field} /></label>
       <label className="block">Password (almeno 8 caratteri)<input name="password" type="password" required minLength={8} autoComplete="new-password" className={field} /></label>
       <Msg s={state} />

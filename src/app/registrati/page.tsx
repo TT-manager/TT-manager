@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { safeNext } from "@/lib/account";
+import { listClubs } from "@/lib/clubs-server";
 import { SignupForm } from "../login/login-form";
 
 export const metadata = { title: "Registrati" };
@@ -15,6 +16,6 @@ export default function SignupPage({ searchParams }: PageProps<"/registrati">) {
 }
 
 async function WithParams({ searchParams }: { searchParams: PageProps<"/registrati">["searchParams"] }) {
-  const { next } = await searchParams;
-  return <SignupForm next={typeof next === "string" ? safeNext(next) : undefined} />;
+  const [{ next }, clubs] = await Promise.all([searchParams, listClubs()]);
+  return <SignupForm next={typeof next === "string" ? safeNext(next) : undefined} clubs={clubs} />;
 }

@@ -10,6 +10,7 @@ import { DEFAULT_RANKING, parseRankingSettings } from "@/lib/domain/ranking";
 import { hasServiceKey } from "@/lib/organizer";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { ActionState } from "@/components/action-form";
+import { parseClubChoice } from "@/lib/clubs";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -77,11 +78,13 @@ export async function addMembers(_prev: ActionState, formData: FormData): Promis
   await requireChampionshipManager(cid);
   const ids = formData.getAll("player_id").map(String).filter((x) => UUID.test(x));
   const name = str(formData, "new_name");
-  const club = str(formData, "new_club");
+  const club = parseClubChoice((k) => formData.get(k), false);
   const supabase = await createServerSupabase();
   if (name) {
-    if (name.length < 2 || name.length > 80 || club.length > 80) return { error: "Nome (2-80 caratteri) o circolo non validi." };
-    const { data, error } = await supabase.from("players").insert({ full_name: name, club: club || null }).select("id").single();
+    if (name.length < 2 || name.length > 80) return { error: "Il nome deve avere 2-80 caratteri." };
+    if ("error" in club) return { error: club.error };
+    const { data, error } = await supabase.from("players")
+      .insert({ full_name: name, club_id: club.kind === "existing" ? club.clubId : null }).select("id").single();
     if (error) return { error: "Non sono riuscito a creare il giocatore." };
     ids.push(data.id as string);
   }

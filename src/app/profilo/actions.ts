@@ -6,18 +6,41 @@ import { clearAvatar } from "@/lib/avatar-server";
 import { imageKind } from "@/lib/avatar";
 import { createServiceClient } from "@/lib/supabase/admin";
 import type { ActionState } from "@/components/action-form";
+import { parseClubChoice } from "@/lib/clubs";
+import { createClubRequest } from "@/lib/clubs-server";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
 export async function updateProfile(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const account = await requireAccount("/profilo");
-  const fullName = str(formData, "full_name"), club = str(formData, "club");
-  if (fullName.length < 2 || fullName.length > 80 || club.length > 80) return { error: "Nome (2-80 caratteri) o circolo non validi." };
-  const { error } = await createServiceClient().from("players").update({ full_name: fullName, club: club || null }).eq("id", account.player.id);
+  const fullName = str(formData, "full_name");
+  if (fullName.length < 2 || fullName.length > 80) return { error: "Il nome deve avere 2-80 caratteri." };
+  const club = parseClubChoice((k) => formData.get(k));
+  if ("error" in club) return { error: club.error };
+  const svc = createServiceClient();
+  const update: { full_name: string; club_id?: string | null } = { full_name: fullName };
+  if (club.kind !== "request") update.club_id = club.kind === "existing" ? club.clubId : null;
+  const { error } = await svc.from("players").update(update).eq("id", account.player.id);
+  if (error?.code === "23503") return { error: "Quel circolo non è più in elenco: ricarica la pagina." };
   if (error) return { error: "Non sono riuscito a salvare." };
+  if (club.kind === "request") {
+    const r = await createClubRequest(account.userId, club.name, club.city);
+    if (r.existingId) await svc.from("players").update({ club_id: r.existingId }).eq("id", account.player.id);
+    refresh();
+    if (r.existingId) return { ok: "Il circolo era già in elenco: l'ho aggiunto al tuo profilo." };
+    if (r.error) return { error: r.error };
+    return { ok: "Salvato. Richiesta del circolo inviata: te lo aggiungo appena l'amministratore la approva." };
+  }
   refresh();
   return { ok: "Salvato." };
+}
+
+export async function cancelClubRequest(): Promise<ActionState> {
+  const account = await requireAccount("/profilo");
+  await createServiceClient().from("club_requests").delete().eq("user_id", account.userId).eq("status", "pending");
+  refresh();
+  return { ok: "Richiesta annullata." };
 }
 
 /**

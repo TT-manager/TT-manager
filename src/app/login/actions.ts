@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { safeNext } from "@/lib/account";
+import { parseClubChoice } from "@/lib/clubs";
 import { siteOrigin as origin } from "@/lib/origin";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -24,16 +25,21 @@ export async function signup(_prev: LoginState, formData: FormData): Promise<Log
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const fullName = String(formData.get("full_name") ?? "").trim();
-  const club = String(formData.get("club") ?? "").trim();
+  const club = parseClubChoice((k) => formData.get(k));
   const next = safeNext(formData.get("next"));
   if (fullName.length < 2 || fullName.length > 80) return { error: "Scrivi nome e cognome (2-80 caratteri)." };
-  if (club.length > 80) return { error: "Nome del circolo troppo lungo." };
+  if ("error" in club) return { error: club.error };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Email non valida." };
   if (password.length < 8) return { error: "La password deve avere almeno 8 caratteri." };
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.auth.signUp({
     email, password,
-    options: { data: { full_name: fullName, club }, emailRedirectTo: `${await origin()}/auth/conferma?next=${encodeURIComponent(next)}` },
+    options: {
+      data: {
+        full_name: fullName,
+        club_id: club.kind === "existing" ? club.clubId : null,
+        club_request: club.kind === "request" ? { name: club.name, city: club.city } : null,
+      }, emailRedirectTo: `${await origin()}/auth/conferma?next=${encodeURIComponent(next)}` },
   });
   if (error?.code === "weak_password") return { error: "Password troppo semplice: scegline una più lunga o meno comune." };
   if (error?.code === "over_email_send_rate_limit") return { error: "Troppe registrazioni in poco tempo: riprova tra un'ora." };
