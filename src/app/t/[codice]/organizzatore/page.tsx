@@ -52,7 +52,7 @@ async function Content({ params }: { params: PageProps<"/t/[codice]/organizzator
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span><span className="text-sm text-neutral-600 dark:text-neutral-400">{label(m)}</span><br />
           <strong>{name(m.player_a)}</strong> – <strong>{name(m.player_b)}</strong></span>
-        {isPlayed(m) && <span className="tabular-nums">{m.sets_a}-{m.sets_b}{m.set_scores ? ` (${m.set_scores.map(([a, b]) => `${a}-${b}`).join(", ")})` : ""}</span>}
+        {isPlayed(m) && <span className="tabular-nums">{m.sets_a}-{m.sets_b}{m.set_scores ? ` (${m.set_scores.map(([a, b]) => `${a}-${b}`).join(", ")})` : ""}{m.disputed && <span className="badge-contested ml-2">Contestato: correggi o salva per confermare</span>}</span>}
       </div>
       <MatchForm action={submitResult} hidden={{ public_code: code }} matchId={m.id} bestOf={m.best_of} rules={{ points: m.set_points, golden: m.golden_point }} a={name(m.player_a)} b={name(m.player_b)} initial={m.set_scores} />
     </li>

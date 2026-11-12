@@ -16,7 +16,7 @@ export function Bracket({ knockout, resolved, name }: {
   const first = stages[0];
   const at = (s: number, p: number) => knockout.find((k) => k.stage === s && k.position === p);
   const final = at(0, 0);
-  const champion = final && isPlayed(final)
+  const champion = final && isPlayed(final) && !final.disputed
     ? name(((final.sets_a as number) > (final.sets_b as number) ? final.player_a ?? resolved.get(final.id)?.player_a : final.player_b ?? resolved.get(final.id)?.player_b) ?? null)
     : null;
   const unit = 112; // altezza di un posto del primo turno, in px
@@ -85,7 +85,8 @@ function Slot({ m, s, p, first, at, resolved, name }: {
   );
   return (
     <div className={`relative w-full ${stub}`}>
-      <div className={`overflow-hidden rounded-lg border bg-surface text-sm shadow-sm ${s === 0 ? "border-2 border-gold" : "border-line"}`}>
+      {m.disputed && <span className="badge-contested absolute -top-2.5 right-2 z-10 !px-1.5 !text-[0.6rem]">Contestato</span>}
+      <div className={`overflow-hidden rounded-lg border bg-surface text-sm shadow-sm ${m.disputed ? "border-2 border-amber-400" : s === 0 ? "border-2 border-gold" : "border-line"}`}>
         {row(a, m.source_a, m.sets_a, winA)}
         <div className="border-t border-line" />
         {row(b, m.source_b, m.sets_b, played && !winA)}

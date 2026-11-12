@@ -6,7 +6,8 @@ import { getPublicTournament } from "@/lib/data";
 import { stageName } from "@/lib/domain/format";
 import { groupLabel, isPlayed } from "@/lib/domain/tournament";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { adminSubmitResult } from "@/app/gestione/actions";
+import { adminSubmitResult, confirmDisputedAction } from "@/app/gestione/actions";
+import { ActionForm } from "@/components/action-form";
 
 export const metadata = { title: "Risultati torneo" };
 
@@ -19,10 +20,11 @@ export default async function AdminResultsPage({ params }: PageProps<"/gestione/
   if (!t) notFound();
   const data = await getPublicTournament(t.public_code);
   if (!data) notFound();
-  const { tournament, names, matches } = data;
+  const { tournament, names, matches, playerNames } = data;
+  const disputed = matches.filter((m) => m.disputed).length;
   const name = (pid: string | null) => (pid ? names.get(pid) ?? "?" : null);
   const closed = tournament.status === "closed";
-  const sorted = [...matches].sort((x, y) =>
+  const sorted = [...matches].sort((x, y) => Number(y.disputed) - Number(x.disputed) ||
     (x.phase === y.phase ? 0 : x.phase === "group" ? -1 : 1) ||
     (x.group_no ?? 0) - (y.group_no ?? 0) || (y.stage ?? 0) - (x.stage ?? 0) || x.round - y.round || x.position - y.position);
 
@@ -31,6 +33,8 @@ export default async function AdminResultsPage({ params }: PageProps<"/gestione/
       <Link href={`/gestione/${id}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {tournament.name}</Link>
       <h1 className="mt-2 text-2xl font-bold">Risultati</h1>
       {closed && <p className="mt-2 text-amber-700 dark:text-amber-400">Torneo chiuso: per correggere un risultato riaprilo dalla pagina del torneo.</p>}
+      {disputed > 0 && <p className="mt-3 rounded-lg bg-amber-400/15 px-4 py-2 text-sm"><span className="badge-contested mr-2">{disputed}</span>
+        {disputed === 1 ? "Un risultato è contestato" : `${disputed} risultati sono contestati`}: confermalo così com&apos;è oppure correggilo. Finché non decidi, quel girone non si chiude, chi ha vinto non passa al turno dopo e il torneo non si può chiudere.</p>}
       <ul className="mt-4">
         {sorted.map((m) => (
           <li key={m.id} className="border-t py-3">
@@ -41,8 +45,15 @@ export default async function AdminResultsPage({ params }: PageProps<"/gestione/
                 </span><br />
                 {name(m.player_a) ?? "da definire"} – {name(m.player_b) ?? "da definire"}
               </span>
-              <span className="tabular-nums">{isPlayed(m) ? `${m.sets_a}-${m.sets_b}` : "da giocare"}</span>
+              <span className="text-right tabular-nums">{isPlayed(m) ? `${m.sets_a}-${m.sets_b}` : "da giocare"}
+                {m.disputed && <span className="badge-contested ml-2">Contestato</span>}
+                {isPlayed(m) && m.reported_by && <span className="block text-xs text-muted">inserito da {playerNames.get(m.reported_by) ?? "un giocatore"}</span>}</span>
             </div>
+            {!closed && m.disputed && (
+              <ActionForm action={confirmDisputedAction} submitLabel="Conferma il risultato così com'è" primary={false} className="mt-2">
+                <input type="hidden" name="tournament_id" value={id} />
+                <input type="hidden" name="match_id" value={m.id} />
+              </ActionForm>)}
             {!closed && m.player_a && m.player_b && (
               <MatchForm action={adminSubmitResult} hidden={{ tournament_id: id }} matchId={m.id} bestOf={m.best_of} rules={{ points: m.set_points, golden: m.golden_point }}
                 a={name(m.player_a)!} b={name(m.player_b)!} initial={m.set_scores} />

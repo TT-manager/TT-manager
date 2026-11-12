@@ -10,7 +10,8 @@ import { hasServiceKey } from "@/lib/organizer";
 import { friendlyCandidates } from "@/lib/friends";
 import { ActionForm } from "@/components/action-form";
 import { formatDeadline, isoToRomeLocal, registrationIsOpen } from "@/lib/registration";
-import { setRegistration } from "@/app/gestione/actions";
+import { setPlayerResults, setRegistration } from "@/app/gestione/actions";
+import { disputedCount } from "@/lib/results";
 import { ClosingControl, EnrollmentForm, GroupsControl, GuestForm, PairsForm, RegenerateCode } from "./tournament-forms";
 
 export const metadata = { title: "Torneo" };
@@ -22,7 +23,7 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
   const { championshipId } = access;
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments")
-    .select("id, name, starts_on, status, public_code, format, registration_open, registration_deadline").eq("id", id).maybeSingle();
+    .select("id, name, starts_on, status, public_code, format, registration_open, registration_deadline, player_results").eq("id", id).maybeSingle();
   if (!t) notFound();
   // Torneo di lega: si iscrivono i giocatori della lega, con i loro punti.
   // Amichevole di un utente: lui, i suoi amici e i suoi ospiti.
@@ -43,6 +44,7 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
   const mode = "format" in parsed ? parsed.format.mode ?? "groups" : "groups";
   const knockoutOnly = mode === "knockout";
   const summary = t.status !== "draft" && hasServiceKey() ? await closingSummary(t.id) : null;
+  const disputed = t.status !== "draft" && hasServiceKey() ? await disputedCount(t.id) : 0;
 
   return (
     <main className="space-y-8">
@@ -109,12 +111,19 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
         <GroupsControl tournamentId={t.id} status={t.status} mode={mode} hasFormat={t.format !== null} />
       </section>
 
-      {t.status !== "draft" && (
-        <section>
-          <h2 className="text-lg font-semibold">Risultati</h2>
-          <p className="mt-2"><Link href={`/gestione/${t.id}/risultati`} className="underline">Vedi e correggi tutti i risultati</Link></p>
-        </section>
-      )}
+      <section>
+        <h2 className="text-lg font-semibold">Risultati</h2>
+        {disputed > 0 && <p className="mt-2 rounded-lg bg-amber-400/15 px-4 py-2 text-sm"><span className="badge-contested mr-2">{disputed}</span>
+          {disputed === 1 ? "Un risultato è contestato" : `${disputed} risultati sono contestati`}: <Link href={`/gestione/${t.id}/risultati`} className="underline">decidi</Link>.</p>}
+        {t.status !== "draft" && <p className="mt-2"><Link href={`/gestione/${t.id}/risultati`} className="underline">Vedi e correggi tutti i risultati</Link></p>}
+        {t.status !== "closed" && (
+          <ActionForm action={setPlayerResults} submitLabel="Salva" primary={false} className="mt-3">
+            <input type="hidden" name="tournament_id" value={t.id} />
+            <label className="flex items-start gap-2"><input type="checkbox" name="player_results" defaultChecked={t.player_results} className="mt-1" />
+              <span>Anche i giocatori inseriscono i risultati delle loro partite
+                <span className="block text-sm text-neutral-600 dark:text-neutral-400">Il risultato vale subito; l&apos;avversario può contestarlo e in quel caso decidi tu. Puoi sempre correggere tutto.</span></span></label>
+          </ActionForm>)}
+      </section>
 
       <section>
         <h2 className="text-lg font-semibold">Chiusura</h2>

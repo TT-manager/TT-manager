@@ -89,19 +89,20 @@ export async function getPlayer(id: string) {
 export type PublicTournament = {
   id: string; name: string; starts_on: string | null; status: string; public_code: string; format: unknown; championship_id: string | null;
   ranked: boolean; kind: "singles" | "doubles"; registration_open: boolean; registration_deadline: string | null;
+  player_results: boolean;
 };
 
 /** Torneo pubblico con iscritti (giocatori o coppie) e partite (nessun dato riservato). */
 export async function getPublicTournament(publicCode: string) {
   const supabase = createPublicClient();
   const { data: t, error } = await supabase.from("tournaments_public")
-    .select("id, name, starts_on, status, public_code, format, championship_id, ranked, kind, registration_open, registration_deadline").eq("public_code", publicCode).maybeSingle();
+    .select("id, name, starts_on, status, public_code, format, championship_id, ranked, kind, registration_open, registration_deadline, player_results").eq("public_code", publicCode).maybeSingle();
   if (error) throw new Error("Impossibile leggere il torneo");
   if (!t) return null;
   const [entries, { data: matches, error: e2 }, { data: championship }] = await Promise.all([
     loadEntries(supabase, t.id),
     supabase.from("matches")
-      .select("id, phase, group_no, stage, round, position, player_a, player_b, sets_a, sets_b, set_scores, best_of, set_points, golden_point, source_a, source_b")
+      .select("id, phase, group_no, stage, round, position, player_a, player_b, sets_a, sets_b, set_scores, best_of, set_points, golden_point, source_a, source_b, reported_by, disputed_at")
       .eq("tournament_id", t.id),
     t.championship_id
       ? supabase.from("championships").select("name, slug").eq("id", t.championship_id).maybeSingle()
@@ -116,6 +117,10 @@ export async function getPublicTournament(publicCode: string) {
     enrolledCount: entries.length,
     enrolled: entries.map((e) => ({ name: entryName(e), solo: t.kind === "doubles" && e.players.length === 1 })).sort((a, b) => a.name.localeCompare(b.name, "it")),
     names,
-    matches: (matches ?? []) as unknown as (MatchRow & { best_of: number; round: number; set_points: number; golden_point: number | null; rated?: boolean })[],
+    /** Giocatori di ogni voce (1 nel singolare, 2 nel doppio) e nomi dei singoli giocatori. */
+    entryPlayers: new Map(entries.map((e) => [e.id, e.players.map((p) => p.id)])),
+    playerNames: new Map(entries.flatMap((e) => e.players.map((p) => [p.id, p.name] as const))),
+    matches: ((matches ?? []) as unknown as (MatchRow & { best_of: number; round: number; set_points: number; golden_point: number | null; rated?: boolean; reported_by: string | null; disputed_at: string | null })[])
+      .map((m) => ({ ...m, disputed: m.disputed_at !== null })),
   };
 }

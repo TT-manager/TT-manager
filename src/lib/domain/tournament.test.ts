@@ -234,3 +234,35 @@ describe("girone unico", () => {
 });
 
 import { parseFormat } from "./format";
+
+describe("risultati contestati", () => {
+  const plan = buildTournament(players, fmt);
+  const members = plan.assignments.map((a) => ({ playerId: a.playerId, group: a.group! }));
+  const num = (id: string | null) => Number(id!.slice(1));
+  const played = rows(plan).map((m) => m.phase === "group"
+    ? { ...m, sets_a: num(m.player_a) < num(m.player_b) ? 2 : 0, sets_b: num(m.player_a) < num(m.player_b) ? 0 : 2 }
+    : m);
+
+  it("una partita contestata conta nel girone ma non lo chiude: i suoi qualificati non entrano", () => {
+    const first = played.find((m) => m.phase === "group" && m.group_no === 1)!;
+    const db = played.map((m) => (m.id === first.id ? { ...m, disputed: true } : m));
+    const groups = groupViews(members, db);
+    expect(groups[0].complete).toBe(false);
+    expect(groups[1].complete).toBe(true);
+    expect(groups[0].standings[0].wins).toBe(3); // il risultato resta in classifica
+    const r = resolveKnockout(groups, db.filter((m) => m.phase === "knockout"));
+    expect(r.flatMap((k) => [k.player_a, k.player_b]).filter(Boolean).every((p) => members.find((x) => x.playerId === p)!.group === 2)).toBe(true);
+  });
+
+  it("nel tabellone il vincitore di una partita contestata non avanza", () => {
+    const groups = groupViews(members, played);
+    let ko = played.filter((m) => m.phase === "knockout");
+    const placed = new Map(resolveKnockout(groups, ko).map((k) => [k.id, k]));
+    ko = ko.map((m) => ({ ...m, player_a: placed.get(m.id)!.player_a, player_b: placed.get(m.id)!.player_b }));
+    const semi = ko.find((m) => m.stage === 1 && m.position === 0)!;
+    const decided = ko.map((m) => (m.id === semi.id ? { ...m, sets_a: 3, sets_b: 0 } : m));
+    const final = (rows: MatchRow[]) => resolveKnockout(groups, rows).find((k) => k.id === "k0-0")!;
+    expect(final(decided).player_a).toBe(semi.player_a);
+    expect(final(decided.map((m) => (m.id === semi.id ? { ...m, disputed: true } : m))).player_a).toBeNull();
+  });
+});

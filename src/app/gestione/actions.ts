@@ -10,7 +10,7 @@ import { formatOrganizerCode, hashCode, newOrganizerCode, newPublicCode } from "
 import { parseFormat } from "@/lib/domain/format";
 import { buildTournament } from "@/lib/domain/tournament";
 import { hasServiceKey, revokeOrganizerSessions } from "@/lib/organizer";
-import { saveResult, setsFromForm } from "@/lib/results";
+import { confirmDisputed, disputedCount, saveResult, setsFromForm } from "@/lib/results";
 import { closeTournament, reopenTournament } from "@/lib/closing";
 import type { ResultState } from "@/components/match-form";
 
@@ -269,12 +269,36 @@ export async function adminSubmitResult(_prev: ResultState, formData: FormData):
   return r;
 }
 
+/** L'organizzatore conferma così com'è un risultato contestato. */
+export async function confirmDisputedAction(_prev: ResultState, formData: FormData): Promise<ResultState> {
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  await requireTournamentManager(tournamentId);
+  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  const r = await confirmDisputed(tournamentId, String(formData.get("match_id") ?? ""));
+  if (r.ok) { revalidatePath(`/gestione/${tournamentId}/risultati`); refresh(); }
+  return r;
+}
+
+/** Attiva o disattiva l'inserimento dei risultati da parte dei giocatori. */
+export async function setPlayerResults(_prev: ResultState, formData: FormData): Promise<ResultState> {
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  await requireTournamentManager(tournamentId);
+  const on = formData.get("player_results") === "on";
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.from("tournaments").update({ player_results: on }).eq("id", tournamentId);
+  if (error) return { error: "Non sono riuscito a salvare." };
+  revalidatePath(`/gestione/${tournamentId}`); refresh();
+  return { ok: on ? "Ora anche i giocatori inseriscono i risultati delle loro partite." : "Ora i risultati li inserisce solo l'organizzatore." };
+}
+
 export type CloseState = { error?: string; ok?: string };
 
 export async function closeTournamentAction(_prev: CloseState, formData: FormData): Promise<CloseState> {
   const tournamentId = String(formData.get("tournament_id") ?? "");
   const { championshipId, ranked } = await requireTournamentManager(tournamentId);
   if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  const disputed = await disputedCount(tournamentId);
+  if (disputed) return { error: disputed === 1 ? "C'è un risultato contestato: decidilo prima di chiudere il torneo." : `Ci sono ${disputed} risultati contestati: decidili prima di chiudere il torneo.` };
   const r = ranked && championshipId ? await closeTournament(championshipId, tournamentId) : await closeFriendly(tournamentId);
   if (r.ok) { await revokeOrganizerSessions(tournamentId); revalidatePath(`/gestione/${tournamentId}`); revalidatePath("/"); refresh(); }
   return r;

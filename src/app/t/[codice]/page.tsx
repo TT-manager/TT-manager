@@ -9,6 +9,7 @@ import { parseFormat, describeFormat } from "@/lib/domain/format";
 import { groupLabel, groupViews, isPlayed, resolveKnockout, type GroupView, type MatchRow } from "@/lib/domain/tournament";
 import { STATUS_LABEL } from "@/lib/labels";
 import { SelfEnroll } from "./self-enroll";
+import { MyMatches } from "./my-matches";
 
 export default function TournamentPage({ params, searchParams }: PageProps<"/t/[codice]">) {
   return (
@@ -34,7 +35,7 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
   if (raw !== code) redirect(`/t/${code}`);
   const data = await getPublicTournament(code);
   if (!data) notFound();
-  const { tournament: t, championship, members, names, matches, enrolledCount, enrolled } = data;
+  const { tournament: t, championship, members, names, matches, enrolledCount, enrolled, entryPlayers, playerNames } = data;
   const name = (id: string | null) => (id ? names.get(id) ?? "?" : null);
   const parsed = parseFormat(t.format);
   const groups = groupViews(members, matches);
@@ -106,6 +107,10 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
         </>
       ) : (
         <>
+          <Suspense fallback={null}><MyMatches t={t} matches={matches} entryPlayers={entryPlayers} playerNames={playerNames} name={name} /></Suspense>
+          {matches.some((m) => m.disputed) && (
+            <p className="mt-6 rounded-lg bg-amber-400/15 px-4 py-2 text-sm"><span className="badge-contested mr-2">Contestato</span>
+              Uno o più risultati sono contestati: finché l&apos;organizzatore non decide, quel girone non si chiude e chi ha vinto quella partita non passa al turno dopo.</p>)}
           {both && (
             <nav className="mt-6 flex gap-1 border-b border-line">
               {tabLink("qualificazione", "Qualificazione", `${groups.length} ${groups.length === 1 ? "girone" : "gironi"}${groupsDone ? " · conclusa" : ""}`)}
@@ -114,7 +119,7 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
 
           {tab === "qualificazione" && groups.length > 0 && (
             <div className={`mt-6 grid gap-6 ${groups.length > 1 ? "lg:grid-cols-2" : ""}`}>
-              {groups.map((g) => <Group key={g.group} g={g} name={name} single={league || groups.length === 1} />)}
+              {groups.map((g) => <Group key={g.group} g={g} name={name} playerNames={playerNames} single={league || groups.length === 1} />)}
             </div>)}
 
           {tab === "finale" && knockout.length > 0 && (
@@ -129,7 +134,7 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
   );
 }
 
-function Group({ g, name, single = false }: { g: GroupView; name: (id: string | null) => string | null; single?: boolean }) {
+function Group({ g, name, playerNames, single = false }: { g: GroupView; name: (id: string | null) => string | null; playerNames: Map<string, string>; single?: boolean }) {
   return (
     <section className="card overflow-hidden !p-0">
       <h3 className="flex items-center justify-between bg-ink px-4 py-2.5 text-lg font-bold uppercase text-white">
@@ -163,7 +168,9 @@ function Group({ g, name, single = false }: { g: GroupView; name: (id: string | 
             <li key={m.id} className="flex items-center justify-between gap-3 px-4 py-2">
               <span><span className={winA ? "rounded bg-gold/20 px-1 font-semibold" : ""}>{name(m.player_a)}</span> <span className="text-muted">vs</span> <span className={sc && !winA ? "rounded bg-gold/20 px-1 font-semibold" : ""}>{name(m.player_b)}</span></span>
               {sc ? <span className="text-right"><span className="rounded bg-ink px-2 py-0.5 font-display font-bold tabular-nums text-white dark:bg-neutral-700">{sc.sets}</span>
-                {sc.detail && <span className="block text-[0.7rem] text-muted">{sc.detail}</span>}</span>
+                {sc.detail && <span className="block text-[0.7rem] text-muted">{sc.detail}</span>}
+                {m.disputed ? <span className="badge-contested mt-1">Contestato</span>
+                  : (m as { reported_by?: string | null }).reported_by && <span className="block text-[0.7rem] text-muted">da {playerNames.get((m as { reported_by?: string | null }).reported_by!) ?? "un giocatore"}</span>}</span>
                 : <span className="text-xs text-muted">da giocare</span>}
             </li>);
         })}

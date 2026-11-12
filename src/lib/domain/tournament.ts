@@ -112,13 +112,18 @@ export interface MatchRow {
   set_scores: [number, number][] | null;
   source_a: SlotSource | null;
   source_b: SlotSource | null;
+  /** Risultato contestato: conta nel girone ma non lo chiude e non fa avanzare nel tabellone. */
+  disputed?: boolean;
 }
 
 export const isPlayed = (m: Pick<MatchRow, "sets_a" | "sets_b">) =>
   m.sets_a !== null && m.sets_b !== null && m.sets_a !== m.sets_b;
 
+/** Partita giocata e non contestata: solo queste fanno avanzare il torneo. */
+export const isSettled = (m: Pick<MatchRow, "sets_a" | "sets_b" | "disputed">) => isPlayed(m) && !m.disputed;
+
 export function winnerOf(m: MatchRow): string | null {
-  if (!isPlayed(m) || !m.player_a || !m.player_b) return null;
+  if (!isSettled(m) || !m.player_a || !m.player_b) return null;
   return (m.sets_a as number) > (m.sets_b as number) ? m.player_a : m.player_b;
 }
 
@@ -140,7 +145,7 @@ export function groupViews(members: { playerId: string; group: number; seed?: nu
       return { playerA: m.player_a!, playerB: m.player_b!, setsA: m.sets_a!, setsB: m.sets_b!, pointsA: pts[0], pointsB: pts[1] };
     });
     const seeds = new Map(members.filter((m) => m.group === g).map((m) => [m.playerId, m.seed ?? 9999]));
-    return { group: g, standings: computeStandings(ids, results), complete: gm.length > 0 && gm.every(isPlayed), matches: gm, seeds };
+    return { group: g, standings: computeStandings(ids, results), complete: gm.length > 0 && gm.every(isSettled), matches: gm, seeds };
   });
 }
 
@@ -239,6 +244,7 @@ export function resolveKnockout(groups: GroupView[], knockout: MatchRow[]) {
 
 export interface ResultChange {
   sets_a: number | null; sets_b: number | null; set_scores: [number, number][] | null;
+  disputed?: boolean;
 }
 
 export type ApplyOutcome =
