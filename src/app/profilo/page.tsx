@@ -4,6 +4,8 @@ import { ActionForm } from "@/components/action-form";
 import { requireAccount } from "@/lib/account";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { STATUS_LABEL } from "@/lib/labels";
+import { Avatar } from "@/components/avatar";
+import { AvatarUploader } from "./avatar-uploader";
 import { formatDeadline, registrationIsOpen } from "@/lib/registration";
 import { logout } from "../login/actions";
 import { cancelRequest, updateProfile } from "./actions";
@@ -50,7 +52,13 @@ async function Profile() {
   return (
     <div className="space-y-10">
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">{account.player.full_name}</h1>
+        <div className="flex items-center gap-4">
+          <Avatar name={account.player.full_name} path={account.player.avatar_path} size="h-20 w-20 text-2xl" />
+          <div>
+            <h1 className="text-3xl font-bold">{account.player.full_name}</h1>
+            <AvatarUploader hasPhoto={Boolean(account.player.avatar_path)} />
+          </div>
+        </div>
         <div className="flex items-center gap-3 text-sm">
           {account.isAdmin && <Link href="/admin" className="underline">Amministrazione</Link>}
           <Link href="/amici" className="underline">Amici{friendRequests ? ` (${friendRequests} richieste)` : ""}</Link>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getPlayer } from "@/lib/data";
+import { Avatar } from "@/components/avatar";
 
 export default function PlayerPage({ params }: PageProps<"/giocatore/[id]">) {
   return (
@@ -23,8 +24,13 @@ async function Player({ params }: { params: PageProps<"/giocatore/[id]">["params
   const { player, championships } = data;
   return (
     <>
-      <h1 className="mt-4 text-3xl font-bold">{player.full_name}</h1>
-      <p className="text-neutral-600 dark:text-neutral-400">{player.club ?? "Nessun circolo"}</p>
+      <header className="mt-4 flex items-center gap-5 rounded-2xl bg-ink p-5 text-white shadow-lg">
+        <Avatar name={player.full_name} path={player.avatar_path as string | null} size="h-24 w-24 text-3xl" />
+        <div>
+          <h1 className="text-3xl font-bold sm:text-4xl">{player.full_name}</h1>
+          <p className="text-white/70">{player.club ?? "Nessun circolo"}</p>
+        </div>
+      </header>
       {championships.length === 0 && <p className="mt-6 text-neutral-600 dark:text-neutral-400">Non partecipa ancora a nessun campionato.</p>}
       {championships.map((c) => <ChampionshipBlock key={c.id} c={c} />)}
     </>

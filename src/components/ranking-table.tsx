@@ -24,7 +24,7 @@ export function RankingTable({ rows, label, limit, highlight }: { rows: RankingR
               </td>
               <td>
                 <Link href={`/giocatore/${r.player_id}`} className="flex items-center gap-2 font-medium hover:text-brand">
-                  <Avatar name={r.full_name} size="h-7 w-7 text-[0.65rem]" />{r.full_name}</Link>
+                  <Avatar name={r.full_name} path={r.avatar_path} size="h-8 w-8 text-[0.7rem]" />{r.full_name}</Link>
               </td>
               <td className="hidden text-muted sm:table-cell">{r.club}</td>
               <td className="text-right tabular-nums text-muted">{r.games_played}</td>

@@ -6,7 +6,7 @@ import { createServerSupabase } from "./supabase/server";
 
 export type Account = {
   userId: string; email: string; isAdmin: boolean;
-  player: { id: string; full_name: string; club: string | null };
+  player: { id: string; full_name: string; club: string | null; avatar_path: string | null };
 };
 
 /** Utente collegato con la sua scheda giocatore (creata al primo accesso), oppure null. */
@@ -32,12 +32,12 @@ export async function requireAccount(next: string): Promise<Account> {
 
 async function ensurePlayer(userId: string, name: string, club: string, email: string) {
   const svc = createServiceClient();
-  const find = () => svc.from("players").select("id, full_name, club").eq("user_id", userId).maybeSingle();
+  const find = () => svc.from("players").select("id, full_name, club, avatar_path").eq("user_id", userId).maybeSingle();
   const { data: found } = await find();
   if (found) return found as Account["player"];
   const fullName = (name.trim() || email.split("@")[0] || "Giocatore").slice(0, 80);
   const { data: created, error } = await svc.from("players")
-    .insert({ full_name: fullName, club: club.trim().slice(0, 80) || null, user_id: userId }).select("id, full_name, club").single();
+    .insert({ full_name: fullName, club: club.trim().slice(0, 80) || null, user_id: userId }).select("id, full_name, club, avatar_path").single();
   if (created) return created as Account["player"];
   if (error?.code === "23505") { const { data: again } = await find(); if (again) return again as Account["player"]; }
   throw new Error("Impossibile creare la scheda giocatore");

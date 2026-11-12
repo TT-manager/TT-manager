@@ -2,6 +2,8 @@
 import { refresh, revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { clearAvatar } from "@/lib/avatar-server";
+import { hasServiceKey } from "@/lib/organizer";
 
 export type FormState = { error?: string; ok?: string };
 
@@ -49,4 +51,16 @@ export async function deletePlayer(_prev: FormState, formData: FormData): Promis
   revalidatePath("/admin/giocatori");
   refresh(); // aggiorna subito la pagina aperta
   return { ok: "Eliminato." };
+}
+
+/** Toglie la foto di un giocatore (per esempio se inappropriata). */
+export async function removePlayerAvatar(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+  if (!hasServiceKey()) return { error: "Chiave segreta non configurata." };
+  const id = String(formData.get("id") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return { error: "Giocatore non valido." };
+  await clearAvatar(id);
+  revalidatePath("/admin/giocatori");
+  refresh();
+  return { ok: "Foto tolta." };
 }

@@ -1,6 +1,7 @@
 "use client";
 import { useActionState } from "react";
-import { addPlayer, deletePlayer, updatePlayer, type FormState } from "./actions";
+import { addPlayer, deletePlayer, removePlayerAvatar, updatePlayer, type FormState } from "./actions";
+import { Avatar } from "@/components/avatar";
 
 const input = "rounded border bg-transparent px-3 py-2";
 const msg = (s: FormState) =>
@@ -19,9 +20,10 @@ export function AddPlayerForm() {
   );
 }
 
-export function PlayerRow({ player }: { player: { id: string; full_name: string; club: string | null; active: boolean; championships: string[] } }) {
+export function PlayerRow({ player }: { player: { id: string; full_name: string; club: string | null; active: boolean; championships: string[]; avatar_path: string | null } }) {
   const [state, action, pending] = useActionState<FormState, FormData>(updatePlayer, {});
   const [delState, delAction, delPending] = useActionState<FormState, FormData>(deletePlayer, {});
+  const [photoState, photoAction, photoPending] = useActionState<FormState, FormData>(removePlayerAvatar, {});
   return (
     <li className="py-3">
       <form action={action} className="grid items-center gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
@@ -37,7 +39,13 @@ export function PlayerRow({ player }: { player: { id: string; full_name: string;
           <input type="hidden" name="id" value={player.id} />
           <button disabled={delPending} className="underline">Elimina</button>
         </form>
-        {msg(state)}{msg(delState)}
+        {player.avatar_path && (
+          <form action={photoAction} className="flex items-center gap-2" onSubmit={(e) => { if (!confirm("Togliere la foto di questo giocatore?")) e.preventDefault(); }}>
+            <Avatar name={player.full_name} path={player.avatar_path} size="h-6 w-6" />
+            <input type="hidden" name="id" value={player.id} />
+            <button disabled={photoPending} className="underline">Togli foto</button>
+          </form>)}
+        {msg(state)}{msg(delState)}{msg(photoState)}
       </div>
     </li>
   );

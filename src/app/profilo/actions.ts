@@ -1,6 +1,9 @@
 "use server";
 import { refresh } from "next/cache";
 import { attachToChampionship, requireAccount } from "@/lib/account";
+import { randomBytes } from "node:crypto";
+import { clearAvatar } from "@/lib/avatar-server";
+import { imageKind } from "@/lib/avatar";
 import { createServiceClient } from "@/lib/supabase/admin";
 import type { ActionState } from "@/components/action-form";
 
@@ -68,4 +71,35 @@ export async function cancelRequest(_prev: ActionState, formData: FormData): Pro
   if (error) return { error: "Non sono riuscito ad annullarla." };
   refresh();
   return { ok: "Richiesta annullata." };
+}
+
+// ── Foto profilo ──────────────────────────────────────────────────────────
+const MAX_PHOTO = 512 * 1024;
+
+/** Carica la foto (già ritagliata e rimpicciolita dal browser). Solo per la propria scheda. */
+export async function uploadAvatar(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const account = await requireAccount("/profilo");
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) return { error: "Scegli una foto." };
+  if (file.size > MAX_PHOTO) return { error: "Foto troppo pesante: riprova con un'altra." };
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const kind = imageKind(bytes);
+  if (!kind) return { error: "Formato non valido: usa una foto JPEG, PNG o simile." };
+  const svc = createServiceClient();
+  const path = `${account.player.id}/${randomBytes(12).toString("base64url")}.${kind}`;
+  const { error } = await svc.storage.from("avatars").upload(path, bytes, { contentType: kind === "webp" ? "image/webp" : "image/jpeg", upsert: false });
+  if (error) return { error: "Non sono riuscito a caricare la foto." };
+  const { data: old } = await svc.from("players").select("avatar_path").eq("id", account.player.id).maybeSingle();
+  const { error: e2 } = await svc.from("players").update({ avatar_path: path }).eq("id", account.player.id);
+  if (e2) { await svc.storage.from("avatars").remove([path]); return { error: "Non sono riuscito a salvare la foto." }; }
+  if (old?.avatar_path) await svc.storage.from("avatars").remove([old.avatar_path as string]);
+  refresh();
+  return { ok: "Foto aggiornata." };
+}
+
+export async function removeAvatar(): Promise<ActionState> {
+  const account = await requireAccount("/profilo");
+  await clearAvatar(account.player.id);
+  refresh();
+  return { ok: "Foto tolta." };
 }

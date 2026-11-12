@@ -8,7 +8,7 @@ import type { MatchRow } from "./domain/tournament";
 export type Championship = { id: string; name: string; slug: string; kind: "singles" | "doubles"; settings: RankingSettings; isPublic: boolean };
 export type RankingRow = {
   player_id: string; full_name: string; club: string | null;
-  rating: number; games_played: number; position: number;
+  rating: number; games_played: number; position: number; avatar_path: string | null;
 };
 
 const toChampionship = (c: Record<string, unknown>): Championship => {
@@ -30,7 +30,7 @@ export async function getChampionshipBySlug(slug: string): Promise<Championship 
 
 export async function getRanking(championshipId: string): Promise<RankingRow[]> {
   const { data, error } = await createPublicClient()
-    .from("championship_ranking").select("player_id, full_name, club, rating, games_played, position")
+    .from("championship_ranking").select("player_id, full_name, club, rating, games_played, position, avatar_path")
     .eq("championship_id", championshipId).order("position").order("full_name");
   if (error) throw new Error("Impossibile leggere la classifica");
   return data as RankingRow[];
@@ -65,7 +65,7 @@ export type HistoryRow = {
 /** Giocatore con punti e storico in ogni campionato. */
 export async function getPlayer(id: string) {
   const supabase = createPublicClient();
-  const { data: player } = await supabase.from("players").select("id, full_name, club, active").eq("id", id).maybeSingle();
+  const { data: player } = await supabase.from("players").select("id, full_name, club, active, avatar_path").eq("id", id).maybeSingle();
   if (!player) return null;
   const [{ data: memberships }, { data: history }] = await Promise.all([
     supabase.from("championship_players").select("championship_id, rating, games_played, championships(name, slug, settings)").eq("player_id", id),
