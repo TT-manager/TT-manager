@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { LogoMark, SITE_NAME } from "./logo";
+import { SITE_NAME } from "./logo";
 
 /** Barra in alto, uguale su tutte le pagine. */
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-30 border-b-4 border-brand bg-ink text-white">
       <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-2.5">
-        <Link href="/" className="flex items-center gap-2">
-          <LogoMark />
-          <span className="font-display text-xl font-bold uppercase tracking-wide">{SITE_NAME}</span>
+        <Link href="/" className="flex items-center" aria-label={`${SITE_NAME}: home`}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- logo vettoriale, nessuna ottimizzazione necessaria */}
+          <img src="/logo-scuro.svg" alt={SITE_NAME} width={92} height={47} className="h-11 w-auto" />
         </Link>
         <nav className="ml-auto flex items-center gap-1 text-sm sm:gap-3">
           <Suspense fallback={null}><AccountNav /></Suspense>
