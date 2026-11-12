@@ -157,3 +157,64 @@ export function ClosingControl({ tournamentId, status, summary }:
     </form>
   );
 }
+
+/** Iscrizione a coppie (doppio): le coppie possono cambiare da un torneo all'altro. */
+export function PairsForm({ tournamentId, players, initialPairs, locked, closed = false }:
+  { tournamentId: string; players: P[]; initialPairs: string[][]; locked: boolean; closed?: boolean }) {
+  const [state, action, pending] = useActionState<EnrollState, FormData>(setEnrollment, {});
+  const [pairs, setPairs] = useState<[string, string][]>(() => initialPairs.map((p) => [p[0] ?? "", p[1] ?? ""]));
+  const [changed, setChanged] = useState(false);
+  const byId = new Map(players.map((p) => [p.id, p]));
+  const used = new Set(pairs.flat().filter(Boolean));
+  const update = (next: [string, string][]) => { setPairs(next); setChanged(true); };
+  const setSlot = (i: number, side: 0 | 1, id: string) =>
+    update(pairs.map((p, j) => (j === i ? (side === 0 ? [id, p[1]] : [p[0], id]) : p)));
+  const complete = pairs.filter(([a, b]) => a && b);
+  const sel = "select-arrow rounded border bg-transparent py-2 pl-3";
+
+  if (players.length < 2) return <p className="mt-2">Servono almeno due giocatori nel campionato: aggiungili dalla pagina del campionato.</p>;
+  return (
+    <form className="mt-2 space-y-3" onSubmit={(e) => {
+      e.preventDefault();
+      setChanged(false);
+      const data = new FormData();
+      data.set("tournament_id", tournamentId);
+      for (const [a, b] of complete) data.append("pair", `${a},${b}`);
+      startTransition(() => action(data));
+    }}>
+      {locked && <p className="text-amber-700 dark:text-amber-400">
+        {closed ? "Torneo chiuso: le coppie non si possono più modificare."
+          : "Iscrizioni chiuse: per modificare le coppie usa «Annulla» qui sotto (solo se non ci sono risultati)."}</p>}
+      <ul className="space-y-2">
+        {pairs.map(([a, b], i) => {
+          const avg = a && b ? Math.round(((byId.get(a)?.rating ?? 0) + (byId.get(b)?.rating ?? 0)) / 2) : null;
+          return (
+            <li key={i} className="flex flex-wrap items-center gap-2">
+              <span className="w-8 text-sm tabular-nums text-neutral-600 dark:text-neutral-400">{i + 1}.</span>
+              {[0, 1].map((side) => (
+                <select key={side} aria-label={`Coppia ${i + 1}, giocatore ${side + 1}`} disabled={locked} className={sel}
+                  value={side === 0 ? a : b} onChange={(e) => setSlot(i, side as 0 | 1, e.target.value)}>
+                  <option value="">— scegli —</option>
+                  {players.filter((p) => p.id === (side === 0 ? a : b) || !used.has(p.id))
+                    .map((p) => <option key={p.id} value={p.id}>{p.full_name} ({p.rating})</option>)}
+                </select>
+              ))}
+              {avg !== null && <span className="text-sm text-neutral-600 dark:text-neutral-400">media {avg}</span>}
+              {!locked && <button type="button" onClick={() => update(pairs.filter((_, j) => j !== i))} className="text-sm underline">Togli</button>}
+            </li>
+          );
+        })}
+      </ul>
+      {!locked && (
+        <div className="flex flex-wrap items-center gap-4">
+          <button type="button" onClick={() => update([...pairs, ["", ""]])} className="rounded border px-3 py-1 text-sm">+ Aggiungi coppia</button>
+          <button disabled={pending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
+            Salva coppie ({complete.length})</button>
+          {!changed && state.error && <p role="alert" className="text-red-700 dark:text-red-400">{state.error}</p>}
+          {!changed && state.ok && <p className="text-green-700 dark:text-green-400">{state.ok}</p>}
+          {changed && <p className="text-sm text-amber-700 dark:text-amber-400">Modifiche non ancora salvate{pairs.length !== complete.length ? " (le coppie incomplete non vengono salvate)" : ""}.</p>}
+        </div>
+      )}
+    </form>
+  );
+}

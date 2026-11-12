@@ -5,11 +5,16 @@ import { createTournament, type CreateState } from "../actions";
 
 const input = "rounded border bg-transparent px-3 py-2";
 
-export default function NewTournamentForm() {
+export default function NewTournamentForm({ championships, preselected }:
+  { championships: { id: string; name: string }[]; preselected?: string }) {
   const [state, action, pending] = useActionState<CreateState, FormData>(createTournament, {});
   if (state.created) return <Created c={state.created} />;
   return (
     <form action={action} className="mt-6 space-y-6">
+      <label className="grid gap-1 sm:w-96">Campionato
+        <select name="championship_id" defaultValue={preselected} required className="select-arrow rounded border bg-transparent py-2 pl-3">
+          {championships.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select></label>
       <section className="grid gap-3 sm:grid-cols-[1fr_12rem]">
         <label className="grid gap-1">Nome<input name="name" required maxLength={100} className={input} /></label>
         <label className="grid gap-1">Data<input name="starts_on" type="date" className={input} /></label>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import FormatEditor from "@/components/format-editor";
-import { requireAdmin } from "@/lib/auth";
+import { requireTournamentManager } from "@/lib/auth";
 import { parseFormat } from "@/lib/domain/format";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { updateFormat } from "../../actions";
@@ -9,13 +9,13 @@ import { updateFormat } from "../../actions";
 export const metadata = { title: "Formato del torneo" };
 
 export default async function FormatPage({ params }: PageProps<"/admin/tornei/[id]/formato">) {
-  await requireAdmin();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  await requireTournamentManager(id);
   const supabase = await createServerSupabase();
   const [{ data: t }, { count }] = await Promise.all([
     supabase.from("tournaments").select("id, name, status, format").eq("id", id).maybeSingle(),
-    supabase.from("tournament_players").select("player_id", { count: "exact", head: true }).eq("tournament_id", id),
+    supabase.from("tournament_entries").select("id", { count: "exact", head: true }).eq("tournament_id", id),
   ]);
   if (!t) notFound();
   const parsed = t.format ? parseFormat(t.format) : null;

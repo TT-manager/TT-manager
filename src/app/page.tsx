@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { getRanking } from "@/lib/data";
+import { getChampionships, getRanking } from "@/lib/data";
+import { RankingTable } from "@/components/ranking-table";
 
 export default function Home() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-3xl font-bold">Campionato di tennis tavolo</h1>
-      <p className="mt-2 text-neutral-600 dark:text-neutral-400">Classifica generale e tornei in diretta.</p>
+      <h1 className="text-3xl font-bold">Tennis tavolo</h1>
+      <p className="mt-2 text-neutral-600 dark:text-neutral-400">Classifiche dei campionati e tornei in diretta.</p>
 
       <form action="/t" className="mt-6 flex gap-2">
         <input name="codice" placeholder="Hai un codice torneo?" aria-label="Codice torneo"
@@ -14,9 +15,8 @@ export default function Home() {
         <button className="rounded bg-black px-4 py-2 text-white dark:bg-white dark:text-black">Apri</button>
       </form>
 
-      <h2 className="mt-10 text-xl font-semibold">Classifica</h2>
-      <Suspense fallback={<p className="mt-3 text-neutral-600 dark:text-neutral-400">Caricamento…</p>}>
-        <Ranking />
+      <Suspense fallback={<p className="mt-10 text-neutral-600 dark:text-neutral-400">Caricamento…</p>}>
+        <Championships />
       </Suspense>
 
       <footer className="mt-16 text-sm text-neutral-500 dark:text-neutral-400">
@@ -26,28 +26,19 @@ export default function Home() {
   );
 }
 
-async function Ranking() {
-  const rows = await getRanking();
-  if (rows.length === 0) {
-    return <p className="mt-3 text-neutral-600 dark:text-neutral-400">Nessun giocatore in classifica.</p>;
-  }
-  return (
-    <table className="mt-3 w-full text-left">
-      <thead className="text-sm text-neutral-500 dark:text-neutral-400">
-        <tr><th className="py-2">#</th><th>Giocatore</th><th className="hidden sm:table-cell">Circolo</th>
-          <th className="text-right">Partite</th><th className="text-right">Elo</th></tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.id} className="border-t">
-            <td className="py-2 tabular-nums">{r.position}</td>
-            <td><Link href={`/giocatore/${r.id}`} className="font-medium underline-offset-2 hover:underline">{r.full_name}</Link></td>
-            <td className="hidden text-neutral-600 dark:text-neutral-400 sm:table-cell">{r.club}</td>
-            <td className="text-right tabular-nums">{r.games_played}</td>
-            <td className="text-right font-semibold tabular-nums">{r.rating}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+async function Championships() {
+  const list = await getChampionships();
+  if (list.length === 0) return <p className="mt-10 text-neutral-600 dark:text-neutral-400">Nessun campionato ancora.</p>;
+  const rankings = await Promise.all(list.map((c) => getRanking(c.id)));
+  // Con un solo campionato mostriamo tutta la classifica, altrimenti i primi 10 di ognuno.
+  const limit = list.length > 1 ? 10 : undefined;
+  return list.map((c, i) => (
+    <section key={c.id} className="mt-10">
+      <h2 className="text-xl font-semibold"><Link href={`/c/${c.slug}`} className="hover:underline">{c.name}</Link>
+        <span className="ml-2 text-sm font-normal text-neutral-500 dark:text-neutral-400">{c.kind === "doubles" ? "doppio" : "singolare"}</span></h2>
+      <RankingTable rows={rankings[i]} label={c.settings.label} limit={limit} />
+      <p className="mt-2 text-sm"><Link href={`/c/${c.slug}`} className="underline">
+        {limit && rankings[i].length > limit ? "Classifica completa, tornei e albo d'oro" : "Tornei e albo d'oro"}</Link></p>
+    </section>
+  ));
 }

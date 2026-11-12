@@ -1,6 +1,6 @@
 "use server";
 import { refresh, revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
+import { requireChampionshipManager, requireTournamentManager } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { formatOrganizerCode, hashCode, newOrganizerCode, newPublicCode } from "@/lib/codes";
 import { parseFormat } from "@/lib/domain/format";
@@ -16,7 +16,9 @@ export type CreateState = {
 };
 
 export async function createTournament(_prev: CreateState, formData: FormData): Promise<CreateState> {
-  const admin = await requireAdmin();
+  const championshipId = String(formData.get("championship_id") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(championshipId)) return { errors: ["Scegli il campionato."] };
+  const admin = await requireChampionshipManager(championshipId);
   const name = String(formData.get("name") ?? "").trim();
   const startsOn = String(formData.get("starts_on") ?? "").trim();
   const errors: string[] = [];
@@ -35,6 +37,7 @@ export async function createTournament(_prev: CreateState, formData: FormData): 
       starts_on: startsOn || null,
       public_code: publicCode,
       organizer_code_hash: organizerHash,
+      championship_id: championshipId,
       created_by: admin.userId,
     }).select("id").single();
     if (!error) {
@@ -52,8 +55,8 @@ export type FormatState = { errors?: string[]; ok?: string };
 
 /** Imposta o modifica il formato: possibile finché il torneo è in preparazione. */
 export async function updateFormat(_prev: FormatState, formData: FormData): Promise<FormatState> {
-  await requireAdmin();
   const tournamentId = String(formData.get("tournament_id") ?? "");
+  await requireTournamentManager(tournamentId);
   let raw: unknown = null;
   try { raw = JSON.parse(String(formData.get("format") ?? "")); } catch { /* gestito sotto */ }
   const parsed = parseFormat(raw);
@@ -72,41 +75,61 @@ export async function updateFormat(_prev: FormatState, formData: FormData): Prom
 
 export type EnrollState = { error?: string; ok?: string };
 
-/** Imposta l'elenco degli iscritti (solo finché il torneo è in preparazione). */
+/**
+ * Imposta gli iscritti (solo finché il torneo è in preparazione).
+ * Singolare: campi `player_id`. Doppio: campi `pair` con «id1,id2».
+ * Si possono iscrivere solo giocatori del campionato; un giocatore una sola volta.
+ */
 export async function setEnrollment(_prev: EnrollState, formData: FormData): Promise<EnrollState> {
-  await requireAdmin();
   const tournamentId = String(formData.get("tournament_id") ?? "");
-  const wanted = new Set(formData.getAll("player_id").map(String));
+  const { championshipId } = await requireTournamentManager(tournamentId);
   const supabase = await createServerSupabase();
-  const { data: t } = await supabase.from("tournaments").select("status").eq("id", tournamentId).maybeSingle();
-  if (!t) return { error: "Torneo non trovato." };
+  const [{ data: t }, { data: ch }, { data: members }] = await Promise.all([
+    supabase.from("tournaments").select("status").eq("id", tournamentId).maybeSingle(),
+    supabase.from("championships").select("kind").eq("id", championshipId).maybeSingle(),
+    supabase.from("championship_players").select("player_id").eq("championship_id", championshipId),
+  ]);
+  if (!t || !ch) return { error: "Torneo non trovato." };
   if (t.status !== "draft") return { error: "Gironi, tabellone o calendario sono già stati generati: le iscrizioni sono chiuse." };
+  const allowed = new Set((members ?? []).map((m) => m.player_id as string));
 
-  const { data: current } = await supabase.from("tournament_players").select("player_id").eq("tournament_id", tournamentId);
-  const have = new Set((current ?? []).map((r) => r.player_id as string));
-  const toAdd = [...wanted].filter((id) => !have.has(id));
-  const toRemove = [...have].filter((id) => !wanted.has(id));
-  if (toRemove.length) {
-    const { error } = await supabase.from("tournament_players").delete()
-      .eq("tournament_id", tournamentId).in("player_id", toRemove);
-    if (error) return { error: "Non sono riuscito ad aggiornare le iscrizioni." };
+  const groups: string[][] = ch.kind === "doubles"
+    ? formData.getAll("pair").map((v) => String(v).split(",").map((x) => x.trim()).filter(Boolean))
+    : formData.getAll("player_id").map((v) => [String(v)]);
+  const seen = new Set<string>();
+  for (const g of groups) {
+    if (ch.kind === "doubles" && g.length !== 2) return { error: "Ogni coppia deve avere due giocatori." };
+    for (const id of g) {
+      if (!allowed.has(id)) return { error: "Si possono iscrivere solo giocatori del campionato." };
+      if (seen.has(id)) return { error: "Un giocatore compare in più di una coppia." };
+      seen.add(id);
+    }
   }
-  if (toAdd.length) {
-    const { error } = await supabase.from("tournament_players")
-      .insert(toAdd.map((player_id) => ({ tournament_id: tournamentId, player_id })));
-    if (error) return { error: "Non sono riuscito ad aggiornare le iscrizioni." };
+  // In preparazione non ci sono partite: si ricrea l'elenco da zero.
+  const { error: delError } = await supabase.from("tournament_entries").delete().eq("tournament_id", tournamentId);
+  if (delError) return { error: "Non sono riuscito ad aggiornare le iscrizioni." };
+  if (groups.length) {
+    const { data: created, error } = await supabase.from("tournament_entries")
+      .insert(groups.map(() => ({ tournament_id: tournamentId }))).select("id");
+    if (error || !created || created.length !== groups.length) return { error: "Non sono riuscito ad aggiornare le iscrizioni." };
+    const { error: e2 } = await supabase.from("entry_members").insert(groups.flatMap((g, i) =>
+      g.map((player_id) => ({ entry_id: created[i].id, tournament_id: tournamentId, player_id }))));
+    if (e2) {
+      await supabase.from("tournament_entries").delete().eq("tournament_id", tournamentId);
+      return { error: "Non sono riuscito ad aggiornare le iscrizioni: riprova." };
+    }
   }
   revalidatePath(`/admin/tornei/${tournamentId}`);
   refresh(); // aggiorna subito la pagina aperta
-  return { ok: `Iscritti: ${wanted.size}.` };
+  return { ok: ch.kind === "doubles" ? `Coppie iscritte: ${groups.length}.` : `Iscritti: ${groups.length}.` };
 }
 
 export type RegenState = { error?: string; organizerCode?: string };
 
 /** Genera un nuovo codice organizzatore: quello vecchio smette subito di funzionare. */
 export async function regenerateOrganizerCode(_prev: RegenState, formData: FormData): Promise<RegenState> {
-  await requireAdmin();
   const tournamentId = String(formData.get("tournament_id") ?? "");
+  await requireTournamentManager(tournamentId);
   const code = newOrganizerCode();
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.from("tournaments")
@@ -120,8 +143,8 @@ export type GenState = { error?: string };
 
 /** Compone i gironi, crea il calendario e lo scheletro del tabellone. Il torneo passa a "gironi in corso". */
 export async function generateGroups(_prev: GenState, formData: FormData): Promise<GenState> {
-  await requireAdmin();
   const tournamentId = String(formData.get("tournament_id") ?? "");
+  const { championshipId } = await requireTournamentManager(tournamentId);
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments").select("status, format").eq("id", tournamentId).maybeSingle();
   if (!t) return { error: "Torneo non trovato." };
@@ -131,12 +154,15 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
   if ("errors" in parsed) return { error: parsed.errors.join(" ") };
   const knockoutOnly = parsed.format.mode === "knockout";
 
-  const { data: tp } = await supabase.from("tournament_players")
-    .select("player_id, players(rating)").eq("tournament_id", tournamentId);
-  const players = (tp ?? []).map((r) => ({
-    id: r.player_id as string,
-    rating: (r.players as unknown as { rating: number } | null)?.rating ?? 1000,
-  }));
+  // Teste di serie dai punti del campionato (coppia = media dei due giocatori).
+  const [{ data: members }, { data: ratings }] = await Promise.all([
+    supabase.from("entry_members").select("entry_id, player_id").eq("tournament_id", tournamentId),
+    supabase.from("championship_players").select("player_id, rating").eq("championship_id", championshipId),
+  ]);
+  const ratingOf = new Map((ratings ?? []).map((r) => [r.player_id as string, r.rating as number]));
+  const byEntry = new Map<string, number[]>();
+  for (const m of members ?? []) byEntry.set(m.entry_id as string, [...(byEntry.get(m.entry_id as string) ?? []), ratingOf.get(m.player_id as string) ?? 1000]);
+  const players = [...byEntry].map(([id, rs]) => ({ id, rating: rs.reduce((a, b) => a + b, 0) / rs.length }));
   let plan;
   try { plan = buildTournament(players, parsed.format); } catch (e) { return { error: (e as Error).message }; }
 
@@ -149,9 +175,9 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
     await supabase.from("matches").delete().eq("tournament_id", tournamentId);
     await supabase.from("tournaments").update({ status: "draft" }).eq("id", tournamentId);
   };
-  const { error: e1 } = await supabase.from("tournament_players").upsert(
-    plan.assignments.map((a) => ({ tournament_id: tournamentId, player_id: a.playerId, seed: a.seed, group_no: a.group })),
-    { onConflict: "tournament_id,player_id" });
+  const { error: e1 } = await supabase.from("tournament_entries").upsert(
+    plan.assignments.map((a) => ({ id: a.playerId, tournament_id: tournamentId, seed: a.seed, group_no: a.group })),
+    { onConflict: "id" });
   const { error: e2 } = e1 ? { error: e1 } : await supabase.from("matches").insert([
     ...plan.matches.map((m) => ({
       tournament_id: tournamentId, phase: "group", group_no: m.group, round: m.round, position: m.position,
@@ -171,8 +197,8 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
 
 /** Torna in preparazione cancellando gironi e partite, solo se nessun risultato è stato inserito. */
 export async function resetGroups(_prev: GenState, formData: FormData): Promise<GenState> {
-  await requireAdmin();
   const tournamentId = String(formData.get("tournament_id") ?? "");
+  await requireTournamentManager(tournamentId);
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments").select("status").eq("id", tournamentId).maybeSingle();
   if (!t || t.status === "draft" || t.status === "closed") return { error: "Operazione non disponibile." };
@@ -181,7 +207,7 @@ export async function resetGroups(_prev: GenState, formData: FormData): Promise<
   if (count) return { error: `Ci sono già ${count} risultati inseriti: non posso annullare i gironi.` };
   const { error } = await supabase.from("matches").delete().eq("tournament_id", tournamentId);
   if (error) return { error: "Non sono riuscito ad annullare." };
-  await supabase.from("tournament_players").update({ group_no: null, seed: null }).eq("tournament_id", tournamentId);
+  await supabase.from("tournament_entries").update({ group_no: null, seed: null }).eq("tournament_id", tournamentId);
   await supabase.from("tournaments").update({ status: "draft" }).eq("id", tournamentId);
   revalidatePath(`/admin/tornei/${tournamentId}`);
   refresh(); // aggiorna subito la pagina aperta
@@ -190,9 +216,9 @@ export async function resetGroups(_prev: GenState, formData: FormData): Promise<
 
 /** Correzione di un risultato da parte di un admin (prima della chiusura del torneo). */
 export async function adminSubmitResult(_prev: ResultState, formData: FormData): Promise<ResultState> {
-  await requireAdmin();
-  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
   const tournamentId = String(formData.get("tournament_id") ?? "");
+  await requireTournamentManager(tournamentId); // prima della scrittura con la chiave segreta
+  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
   const clear = formData.get("intent") === "clear";
   const sets = clear ? null : setsFromForm(formData);
   if (sets && "error" in sets) return { error: sets.error, set: sets.set };
@@ -204,19 +230,19 @@ export async function adminSubmitResult(_prev: ResultState, formData: FormData):
 export type CloseState = { error?: string; ok?: string };
 
 export async function closeTournamentAction(_prev: CloseState, formData: FormData): Promise<CloseState> {
-  await requireAdmin();
-  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
   const tournamentId = String(formData.get("tournament_id") ?? "");
-  const r = await closeTournament(tournamentId);
+  const { championshipId } = await requireTournamentManager(tournamentId);
+  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  const r = await closeTournament(championshipId, tournamentId);
   if (r.ok) { await revokeOrganizerSessions(tournamentId); revalidatePath(`/admin/tornei/${tournamentId}`); revalidatePath("/"); refresh(); }
   return r;
 }
 
 export async function reopenTournamentAction(_prev: CloseState, formData: FormData): Promise<CloseState> {
-  await requireAdmin();
-  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
   const tournamentId = String(formData.get("tournament_id") ?? "");
-  const r = await reopenTournament(tournamentId);
+  const { championshipId } = await requireTournamentManager(tournamentId);
+  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  const r = await reopenTournament(championshipId, tournamentId);
   if (r.ok) { revalidatePath(`/admin/tornei/${tournamentId}`); revalidatePath("/"); refresh(); }
   return r;
 }
