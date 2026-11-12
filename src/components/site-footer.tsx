@@ -1,11 +1,27 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { logout } from "@/app/login/actions";
+import { createServerSupabase } from "@/lib/supabase/server";
 import { SITE_NAME } from "./logo";
 import { SUPPORT_EMAIL } from "@/lib/site";
 
 const link = "rounded px-1 -mx-1 py-0.5 hover:text-brand hover:underline focus-visible:outline-2 focus-visible:outline-brand";
 const heading = "font-display text-sm font-semibold uppercase tracking-wider text-foreground";
 
-/** Piè di pagina, uguale su tutte le pagine. Statico: non legge né sessione né dati. */
+/** Accedi/Registrati per chi non è collegato; profilo ed Esci per chi lo è. */
+async function AccountLinks() {
+  const { data } = await (await createServerSupabase()).auth.getClaims();
+  if (!data?.claims?.sub) return <>
+    <li><Link href="/login" className={link}>Accedi</Link></li>
+    <li><Link href="/registrati" className={link}>Registrati</Link></li>
+  </>;
+  return <>
+    <li><Link href="/profilo" className={link}>Il mio profilo</Link></li>
+    <li><form action={logout}><button className={`${link} cursor-pointer text-left`}>Esci</button></form></li>
+  </>;
+}
+
+/** Piè di pagina, uguale su tutte le pagine. Solo i link dell'account dipendono da chi è collegato. */
 export function SiteFooter() {
   return (
     <footer className="mt-16 border-t-4 border-ink bg-surface text-sm text-muted">
@@ -20,8 +36,7 @@ export function SiteFooter() {
           <ul className="mt-3 space-y-1.5">
             <li><Link href="/" className={link}>Home</Link></li>
             <li><Link href="/faq" className={link}>Domande frequenti</Link></li>
-            <li><Link href="/login" className={link}>Accedi</Link></li>
-            <li><Link href="/registrati" className={link}>Registrati</Link></li>
+            <Suspense fallback={null}><AccountLinks /></Suspense>
           </ul>
         </nav>
 
