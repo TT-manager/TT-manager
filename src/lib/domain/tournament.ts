@@ -3,7 +3,7 @@
  * Funzioni pure: nessun accesso al database.
  */
 import { computeStandings, roundRobinSchedule, snakeGroups, type Standing } from "./groups";
-import { bestOfForStage, groupSetRules, isKnockoutOnly, knockoutFirstStage, planBracket, stageName, stageSetRules, validateFormat, type CrossCriterion, type SlotSource, type TournamentFormat } from "./format";
+import { bestOfForStage, groupSetRules, isKnockoutOnly, isLeague, knockoutFirstStage, planBracket, stageName, stageSetRules, validateFormat, type CrossCriterion, type SlotSource, type TournamentFormat } from "./format";
 import { seedOrder } from "./bracket";
 import type { SetRules } from "./score";
 
@@ -71,12 +71,15 @@ export function buildTournament(players: SeededPlayer[], f: TournamentFormat): G
     if (errors.length) throw new Error(errors.join(" "));
     return buildKnockoutOnly([...players].sort((x, y) => y.rating - x.rating || x.id.localeCompare(y.id)), f);
   }
+  // Girone unico: un solo girone, nessun tabellone.
+  if (isLeague(f)) f = { ...f, groupCount: 1, qualification: [] };
   if (players.length < f.groupCount * 2)
     throw new Error(`Con ${f.groupCount} gironi servono almeno ${f.groupCount * 2} iscritti (ora sono ${players.length}).`);
   const seeded = [...players].sort((x, y) => y.rating - x.rating || x.id.localeCompare(y.id));
   const groups = snakeGroups(seeded, f.groupCount);
   const errors = validateFormat(f, groups.map((g) => g.length));
   if (errors.length) throw new Error(errors.join(" "));
+  const league = isLeague(f);
 
   const assignments = seeded.map((p, i) => ({
     playerId: p.id, seed: i + 1, group: groups.findIndex((g) => g.includes(p)) + 1,
@@ -90,7 +93,7 @@ export function buildTournament(players: SeededPlayer[], f: TournamentFormat): G
     rounds.forEach((round, ri) =>
       round.forEach(([a, b], pi) => matches.push({ group: gi + 1, round: ri + 1, position: pi, a, b, bestOf: f.groupBestOf, set })));
   });
-  const knockout = planBracket(f).rounds.flatMap((r) =>
+  const knockout = league ? [] : planBracket(f).rounds.flatMap((r) =>
     r.matches.map((m) => ({ stage: m.stage, position: m.match, a: m.a, b: m.b, bestOf: m.bestOf, set: m.set })));
   return { assignments, matches, knockout };
 }

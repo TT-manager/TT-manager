@@ -81,7 +81,9 @@ export async function reconcileBracket(tournamentId: string) {
       await svc.from("matches").update({ player_a: m.player_a, player_b: m.player_b })
         .eq("id", m.id).eq("tournament_id", tournamentId).is("sets_a", null);
   }
-  // Senza gironi (sola eliminazione diretta) il torneo è sempre nella fase a tabellone.
-  const status = groups.every((g) => g.complete) ? "knockout" : "groups";
+  // Senza gironi (sola eliminazione diretta) il torneo è sempre nella fase a tabellone;
+  // senza tabellone (girone unico) resta nella fase a gironi fino alla chiusura.
+  const hasKnockout = all.some((m) => m.phase === "knockout");
+  const status = hasKnockout && groups.every((g) => g.complete) ? "knockout" : "groups";
   if (status !== t.status) await svc.from("tournaments").update({ status }).eq("id", tournamentId).in("status", ["groups", "knockout"]);
 }

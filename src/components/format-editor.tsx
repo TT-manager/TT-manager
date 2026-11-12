@@ -1,8 +1,8 @@
 "use client";
 import { useActionState, useState } from "react";
 import {
-  CROSS_CRITERIA, DEFAULT_CROSS_CRITERIA, describeFormat, groupSizes, knockoutFirstStage, STAGE_NAMES, suggestGroupCounts,
-  validateFormat, VALID_BEST_OF, type BestOf, type CrossCriterion, type TournamentFormat,
+  CROSS_CRITERIA, DEFAULT_CROSS_CRITERIA, describeFormat, groupSizes, knockoutFirstStage, MODE_LABELS, STAGE_NAMES, suggestGroupCounts,
+  validateFormat, VALID_BEST_OF, type BestOf, type CrossCriterion, type TournamentFormat, type TournamentMode,
 } from "@/lib/domain/format";
 import { DEFAULT_SET_RULES, type SetRules } from "@/lib/domain/score";
 
@@ -15,8 +15,10 @@ const STAGES = [4, 3, 2, 1, 0];
 /** best = null: tutti i classificati indicati; best = N: i migliori N tra i classificati (ripescaggio). */
 type Rule = { positions: string; stage: number; best: number | null };
 
-function toFormat(mode: "groups" | "knockout", groupCount: number, groupBestOf: BestOf, rules: Rule[], ko: Record<number, BestOf>, def: BestOf,
+function toFormat(mode: TournamentMode, groupCount: number, groupBestOf: BestOf, rules: Rule[], ko: Record<number, BestOf>, def: BestOf,
   groupLegs: 1 | 2, groupSet: SetRules, koSet: Record<number, SetRules>, crossCriteria: CrossCriterion[]): TournamentFormat {
+  if (mode === "league")
+    return { mode, groupCount: 1, groupBestOf, groupLegs, groupSet, defaultKnockoutBestOf: def, knockoutBestOf: {}, qualification: [] };
   if (mode === "knockout")
     return { mode, groupCount: 0, groupBestOf, defaultKnockoutBestOf: def, knockoutBestOf: ko, knockoutSet: koSet, qualification: [] };
   return {
@@ -69,7 +71,7 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
 }) {
   const [state, action, pending] = useActionState<FormatState, FormData>(submit, {});
   const i0 = initial;
-  const [mode, setMode] = useState<"groups" | "knockout">(i0?.mode ?? "groups");
+  const [mode, setMode] = useState<TournamentMode>(i0?.mode ?? "groups");
   const [groupCount, setGroupCount] = useState(i0 && i0.groupCount > 0 ? i0.groupCount : (suggestGroupCounts(enrolled)[0]?.groups ?? 4));
   const [groupBestOf, setGroupBestOf] = useState<BestOf>(i0?.groupBestOf ?? 3);
   const def: BestOf = i0?.defaultKnockoutBestOf ?? 3; // set dei turni non ancora impostati
@@ -89,12 +91,14 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
     [next[i], next[i + d]] = [next[i + d], next[i]];
     setCriteria(next);
   };
-  const sizes = enrolled > 0 && mode === "groups" ? groupSizes(enrolled, groupCount) : undefined;
+  const sizes = enrolled > 0 && mode === "groups" ? groupSizes(enrolled, groupCount)
+    : enrolled > 0 && mode === "league" ? [enrolled] : undefined;
   const problems = [
     ...validateFormat(format, sizes),
     ...(sizes && sizes.some((n) => n < 2) ? [`Con ${enrolled} iscritti non si possono fare ${groupCount} gironi.`] : []),
   ];
-  const usedStages = mode === "knockout"
+  const usedStages = mode === "league" ? []
+    : mode === "knockout"
     ? STAGES.filter((s) => s <= (enrolled >= 2 ? knockoutFirstStage(enrolled) : 3))
     : problems.length ? [] : STAGES.filter((s) => s <= Math.max(...format.qualification.map((q) => q.stage)));
   const setRule = (i: number, patch: Partial<Rule>) => setRules(rules.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -107,15 +111,26 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Tipo di torneo</h2>
-        <select aria-label="Tipo di torneo" value={mode} onChange={(e) => setMode(e.target.value as "groups" | "knockout")} className={select}>
-          <option value="groups">Gironi + eliminazione diretta</option>
-          <option value="knockout">Solo eliminazione diretta</option>
+        <select aria-label="Tipo di torneo" value={mode} onChange={(e) => setMode(e.target.value as TournamentMode)} className={select}>
+          {(Object.keys(MODE_LABELS) as TournamentMode[]).map((m) => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}
         </select>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
           {enrolled > 0 ? `Iscritti adesso: ${enrolled}.` : "Nessun iscritto per ora: potrai modificare il formato finché non generi i gironi."}
+          {mode === "league" && enrolled >= 2 && ` Tutti contro tutti: ${(enrolled * (enrolled - 1)) / 2 * (groupLegs === 2 ? 2 : 1)} partite.`}
           {mode === "knockout" && enrolled >= 2 && ` Tabellone da ${2 ** (knockoutFirstStage(enrolled) + 1)}: ${2 ** (knockoutFirstStage(enrolled) + 1) - enrolled} teste di serie saltano il primo turno.`}
         </p>
       </section>
+
+      {mode === "league" && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Girone unico</h2>
+          <select aria-label="Andata e ritorno" value={groupLegs} onChange={(e) => setGroupLegs(Number(e.target.value) as 1 | 2)} className={select}>
+            <option value={1}>Solo andata</option>
+            <option value={2}>Andata e ritorno</option>
+          </select>
+          <PhaseRow label="Partite" bestOf={groupBestOf} onBestOf={setGroupBestOf} rules={groupSet} onRules={setGroupSet} />
+        </section>
+      )}
 
       {mode === "groups" && <>
       <section className="space-y-3">
@@ -197,7 +212,7 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
 
       </>}
 
-      <section className="space-y-1">
+      {mode !== "league" && <section className="space-y-1">
         <h2 className="text-lg font-semibold">Partite del tabellone</h2>
         {usedStages.length === 0
           ? <p className="text-sm text-neutral-600 dark:text-neutral-400">Completa le regole di qualificazione per impostare i turni.</p>
@@ -205,7 +220,7 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
               <PhaseRow key={s} label={STAGE_NAMES[s]} bestOf={ko[s] ?? def} onBestOf={(b) => setKo({ ...ko, [s]: b })}
                 rules={koSet[s] ?? DEFAULT_SET_RULES} onRules={(r) => setKoSet({ ...koSet, [s]: r })} />
             ))}</div>}
-      </section>
+      </section>}
 
       <section className="rounded-lg border p-4">
         <h2 className="font-semibold">Riepilogo</h2>

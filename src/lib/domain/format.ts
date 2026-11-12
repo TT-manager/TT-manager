@@ -39,8 +39,8 @@ export const CROSS_CRITERIA: Record<CrossCriterion, string> = {
 export const DEFAULT_CROSS_CRITERIA: CrossCriterion[] = ["winPct", "setDiffAvg", "pointDiffAvg"];
 
 export interface TournamentFormat {
-  /** "groups" = gironi + tabellone (default); "knockout" = solo eliminazione diretta. */
-  mode?: "groups" | "knockout";
+  /** "groups" = gironi + tabellone (default); "knockout" = solo eliminazione diretta; "league" = girone unico. */
+  mode?: TournamentMode;
   groupCount: number;
   groupBestOf: BestOf;
   /** 1 = sola andata, 2 = andata e ritorno (default 1). */
@@ -100,7 +100,14 @@ export interface BracketPlan {
 }
 
 /** Controlla il formato; restituisce l'elenco dei problemi in italiano (vuoto = valido). */
+export type TournamentMode = "groups" | "knockout" | "league";
+export const MODE_LABELS: Record<TournamentMode, string> = {
+  groups: "Gironi + eliminazione diretta",
+  knockout: "Solo eliminazione diretta",
+  league: "Girone unico",
+};
 export const isKnockoutOnly = (f: TournamentFormat) => f.mode === "knockout";
+export const isLeague = (f: TournamentFormat) => f.mode === "league";
 
 /** Numero di stadi del tabellone a eliminazione diretta con n giocatori (es. 8 → quarti = stadio 2). */
 export function knockoutFirstStage(n: number): number {
@@ -127,7 +134,15 @@ export function suggestGroupCounts(n: number): { groups: number; sizes: string }
 
 export function validateFormat(f: TournamentFormat, playersPerGroup?: number[]): string[] {
   const errors: string[] = [];
-  if (f.mode !== undefined && f.mode !== "groups" && f.mode !== "knockout") errors.push("Modalità del torneo non valida.");
+  if (f.mode !== undefined && !(f.mode in MODE_LABELS)) errors.push("Modalità del torneo non valida.");
+  if (isLeague(f)) {
+    if (!VALID_BEST_OF.includes(f.groupBestOf)) errors.push("Set delle partite non valido (1, 3, 5 o 7).");
+    if (f.groupLegs !== undefined && f.groupLegs !== 1 && f.groupLegs !== 2) errors.push("Solo andata oppure andata e ritorno.");
+    const e = setRulesError(groupSetRules(f));
+    if (e) errors.push(e);
+    if (playersPerGroup && playersPerGroup[0] !== undefined && playersPerGroup[0] < 2) errors.push("Servono almeno 2 iscritti.");
+    return errors;
+  }
   if (isKnockoutOnly(f)) {
     if (!VALID_BEST_OF.includes(f.defaultKnockoutBestOf)) errors.push("Set del tabellone non valido (1, 3, 5 o 7).");
     for (const [s, b] of Object.entries(f.knockoutBestOf))
@@ -295,8 +310,8 @@ export function parseFormat(raw: unknown): { format: TournamentFormat } | { erro
   };
   const ks = (typeof o.knockoutSet === "object" && o.knockoutSet) || {};
   const format: TournamentFormat = {
-    ...(o.mode === "knockout" || o.mode === "groups" ? { mode: o.mode } : {}),
-    groupCount: o.mode === "knockout" && o.groupCount === undefined ? 0 : int(o.groupCount),
+    ...(o.mode === "knockout" || o.mode === "groups" || o.mode === "league" ? { mode: o.mode } : {}),
+    groupCount: o.mode === "league" ? 1 : o.mode === "knockout" && o.groupCount === undefined ? 0 : int(o.groupCount),
     groupBestOf: int(o.groupBestOf) as BestOf,
     groupLegs: o.groupLegs === undefined ? 1 : (int(o.groupLegs) as 1 | 2),
     groupSet: rules(o.groupSet),
@@ -331,6 +346,13 @@ export const describeSetRules = (r: SetRules) =>
 
 /** Descrizione in italiano del formato, una riga per punto. */
 export function describeFormat(f: TournamentFormat, players?: number): string[] {
+  if (isLeague(f)) {
+    const legs = f.groupLegs === 2 ? " con andata e ritorno" : "";
+    return [
+      `Girone unico all'italiana${legs}: tutti contro tutti, partite ${sets(f.groupBestOf)} (${describeSetRules(groupSetRules(f))}).`,
+      "Vince il primo in classifica (punti, scontro diretto, differenza set, differenza punti).",
+    ];
+  }
   if (isKnockoutOnly(f)) {
     const lines = ["Solo eliminazione diretta: teste di serie in base alla classifica generale; se i giocatori non sono 4, 8, 16…, i migliori saltano il primo turno."];
     const first = players && players >= 2 ? knockoutFirstStage(players) : Math.max(0, ...Object.keys(f.knockoutBestOf).map(Number));

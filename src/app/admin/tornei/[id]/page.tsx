@@ -24,7 +24,8 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
   ]);
   const enrolledIds = (enrolled ?? []).map((e) => e.player_id as string);
   const parsed = parseFormat(t.format);
-  const knockoutOnly = "format" in parsed && parsed.format.mode === "knockout";
+  const mode = "format" in parsed ? parsed.format.mode ?? "groups" : "groups";
+  const knockoutOnly = mode === "knockout";
   const summary = t.status !== "draft" && hasServiceKey() ? await closingSummary(t.id) : null;
 
   return (
@@ -58,9 +59,9 @@ export default async function TournamentAdminPage({ params }: PageProps<"/admin/
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">{knockoutOnly ? "Tabellone" : "Gironi"}</h2>
-        {t.status !== "draft" && <p className="mt-2">{knockoutOnly ? "Tabellone generato." : "Gironi generati."} <Link href={`/t/${t.public_code}`} className="underline">Apri la pagina pubblica</Link></p>}
-        <GroupsControl tournamentId={t.id} status={t.status} knockoutOnly={knockoutOnly} hasFormat={t.format !== null} />
+        <h2 className="text-lg font-semibold">{knockoutOnly ? "Tabellone" : mode === "league" ? "Calendario" : "Gironi"}</h2>
+        {t.status !== "draft" && <p className="mt-2">{knockoutOnly ? "Tabellone generato." : mode === "league" ? "Calendario generato." : "Gironi generati."} <Link href={`/t/${t.public_code}`} className="underline">Apri la pagina pubblica</Link></p>}
+        <GroupsControl tournamentId={t.id} status={t.status} mode={mode} hasFormat={t.format !== null} />
       </section>
 
       {t.status !== "draft" && (

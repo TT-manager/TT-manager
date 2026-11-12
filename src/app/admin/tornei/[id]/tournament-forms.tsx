@@ -62,21 +62,24 @@ export function RegenerateCode({ tournamentId }: { tournamentId: string }) {
   );
 }
 
-export function GroupsControl({ tournamentId, status, knockoutOnly, hasFormat }:
-  { tournamentId: string; status: string; knockoutOnly: boolean; hasFormat: boolean }) {
+export function GroupsControl({ tournamentId, status, mode, hasFormat }:
+  { tournamentId: string; status: string; mode: "groups" | "knockout" | "league"; hasFormat: boolean }) {
+  const knockoutOnly = mode === "knockout";
+  const what = knockoutOnly ? "il tabellone" : mode === "league" ? "il calendario" : "i gironi";
   const [gen, genAction, genPending] = useActionState<GenState, FormData>(generateGroups, {});
   const [res, resAction, resPending] = useActionState<GenState, FormData>(resetGroups, {});
   if (status === "draft" && !hasFormat) return <p className="mt-2 text-neutral-600 dark:text-neutral-400">Imposta prima il formato del torneo.</p>;
   if (status === "draft") return (
     <form action={genAction} className="mt-2 space-y-2"
-      onSubmit={(e) => { if (!confirm(knockoutOnly ? "Generare il tabellone? Le iscrizioni verranno chiuse." : "Generare i gironi? Le iscrizioni verranno chiuse.")) e.preventDefault(); }}>
+      onSubmit={(e) => { if (!confirm(`Generare ${what}? Le iscrizioni verranno chiuse.`)) e.preventDefault(); }}>
       <input type="hidden" name="tournament_id" value={tournamentId} />
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
         {knockoutOnly
           ? "Le teste di serie sono posizionate in base alla classifica generale (la 1 e la 2 in metà opposte). Prima salva le iscrizioni."
+          : mode === "league" ? "Tutti contro tutti. Prima salva le iscrizioni."
           : "Le teste di serie (classifica generale) sono distribuite a serpentina nei gironi. Prima salva le iscrizioni."}</p>
       <button disabled={genPending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black">
-        {genPending ? "Generazione…" : knockoutOnly ? "Genera tabellone" : "Genera gironi e calendario"}</button>
+        {genPending ? "Generazione…" : knockoutOnly ? "Genera tabellone" : mode === "league" ? "Genera calendario" : "Genera gironi e calendario"}</button>
       {gen.error && <p role="alert" className="text-red-700 dark:text-red-400">{gen.error}</p>}
     </form>
   );
@@ -85,7 +88,7 @@ export function GroupsControl({ tournamentId, status, knockoutOnly, hasFormat }:
     <form action={resAction} className="mt-2 space-y-2"
       onSubmit={(e) => { if (!confirm("Annullare i gironi e tornare alle iscrizioni?")) e.preventDefault(); }}>
       <input type="hidden" name="tournament_id" value={tournamentId} />
-      <button disabled={resPending} className="rounded border px-4 py-2">{knockoutOnly ? "Annulla tabellone" : "Annulla gironi"} (solo se non ci sono risultati)</button>
+      <button disabled={resPending} className="rounded border px-4 py-2">Annulla {what} (solo se non ci sono risultati)</button>
       {res.error && <p role="alert" className="text-red-700 dark:text-red-400">{res.error}</p>}
     </form>
   );

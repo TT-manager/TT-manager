@@ -217,3 +217,20 @@ describe("solo eliminazione diretta", () => {
 import { describeFormat as describeFormatAll } from "./format";
 const describeFormatKo = (n: number) =>
   describeFormatAll({ mode: "knockout", groupCount: 0, groupBestOf: 3, defaultKnockoutBestOf: 3, knockoutBestOf: { 0: 5 }, qualification: [] }, n);
+
+describe("girone unico", () => {
+  const league: TF = { mode: "league", groupCount: 1, groupBestOf: 3, groupLegs: 2, defaultKnockoutBestOf: 3, knockoutBestOf: {}, qualification: [] };
+  it("tutti contro tutti, andata e ritorno, nessun tabellone", () => {
+    const plan = buildTournament(Array.from({ length: 5 }, (_, i) => ({ id: `l${i}`, rating: 1000 - i })), league);
+    expect(plan.knockout).toEqual([]);
+    expect(plan.matches).toHaveLength(2 * 10);
+    expect(new Set(plan.assignments.map((a) => a.group))).toEqual(new Set([1]));
+    expect(describeFormatAll(league)[0]).toBe("Girone unico all'italiana con andata e ritorno: tutti contro tutti, partite al meglio dei 3 set (set a 11).");
+  });
+  it("il formato salvato si rilegge come girone unico", () => {
+    const r = parseFormat(JSON.parse(JSON.stringify({ ...league, groupCount: 7 })));
+    expect("format" in r && [r.format.mode, r.format.groupCount]).toEqual(["league", 1]);
+  });
+});
+
+import { parseFormat } from "./format";
