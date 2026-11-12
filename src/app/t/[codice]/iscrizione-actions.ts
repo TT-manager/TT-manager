@@ -8,7 +8,7 @@ import type { ActionState } from "@/components/action-form";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
-/** Torneo aperto alle iscrizioni + verifica che il giocatore sia del campionato. */
+/** Torneo aperto alle iscrizioni + verifica che il giocatore sia della lega. */
 async function load(formData: FormData) {
   const code = normalizeCode(String(formData.get("public_code") ?? ""));
   const account = await requireAccount(`/t/${code}`);
@@ -19,7 +19,7 @@ async function load(formData: FormData) {
   if (!registrationIsOpen(t)) return { error: "Le iscrizioni a questo torneo sono chiuse." } as const;
   const { data: m } = await svc.from("championship_players").select("player_id")
     .eq("championship_id", t.championship_id).eq("player_id", account.player.id).maybeSingle();
-  if (!m) return { error: "Per iscriverti devi far parte del campionato." } as const;
+  if (!m) return { error: "Per iscriverti devi far parte della lega." } as const;
   return { svc, t, account } as const;
 }
 
@@ -35,7 +35,7 @@ export async function selfEnroll(_prev: ActionState, formData: FormData): Promis
   if (t.kind === "doubles" && partner) {
     if (!UUID.test(partner) || partner === me) return { error: "Scegli un compagno valido." };
     const { data: pm } = await svc.from("championship_players").select("player_id").eq("championship_id", t.championship_id).eq("player_id", partner).maybeSingle();
-    if (!pm) return { error: "Il compagno deve far parte del campionato." };
+    if (!pm) return { error: "Il compagno deve far parte della lega." };
     const { data: pe } = await svc.from("entry_members").select("entry_id").eq("tournament_id", t.id).eq("player_id", partner).maybeSingle();
     if (pe) {
       // Il compagno è già iscritto: va bene solo se è da solo, e allora completiamo la sua coppia.

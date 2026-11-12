@@ -22,6 +22,10 @@ async function entryNames(svc: Svc, entryIds: string[]) {
 const won = (m: { player_a: string; sets_a: number; sets_b: number }, entry: string) =>
   (m.player_a === entry) === (m.sets_a > m.sets_b);
 
+export type LiveTournament = {
+  name: string; code: string; ranked: boolean; league: string | null; phase: string;
+  played: number; total: number; playing: boolean;
+};
 export type NextMatch = { tournament: string; code: string; phase: string; opponent: string; ranked: boolean };
 export type Activity = { at: string; text: string; detail: string; href: string; who: string };
 
@@ -68,7 +72,25 @@ export async function loadDashboard(account: Account) {
     }
   }
 
-  // Cose da fare: richieste d'amicizia ricevute e iscrizioni aperte a cui non sei ancora iscritto.
+  // Tornei in corso: quelli a cui partecipi e quelli delle tue leghe.
+  const { data: liveRows } = await svc.from("tournaments").select("id, name, public_code, ranked, status, championships(name)")
+    .in("status", ["groups", "knockout"])
+    .or([tids.length && `id.in.(${tids.join(",")})`, championshipIds.length && `championship_id.in.(${championshipIds.join(",")})`].filter(Boolean).join(",") || "id.is.null")
+    .order("created_at", { ascending: false }).limit(10);
+  const liveIds = (liveRows ?? []).map((t) => t.id as string);
+  const { data: liveMatches } = liveIds.length
+    ? await svc.from("matches").select("tournament_id, sets_a, player_a, player_b").in("tournament_id", liveIds) : { data: [] };
+  const liveTournaments: LiveTournament[] = (liveRows ?? []).map((t) => {
+    const ms = (liveMatches ?? []).filter((m) => m.tournament_id === t.id && m.player_a && m.player_b);
+    return {
+      name: t.name as string, code: t.public_code as string, ranked: t.ranked as boolean,
+      league: (t.championships as unknown as { name: string } | null)?.name ?? null,
+      phase: t.status === "groups" ? "Qualificazione" : "Fase finale",
+      played: ms.filter((m) => m.sets_a !== null).length, total: ms.length, playing: tids.includes(t.id as string),
+    };
+  });
+
+  // Iscrizioni aperte a cui non sei ancora iscritto.
   const { data: openRows } = championshipIds.length ? await svc.from("tournaments")
     .select("id, status, championship_id, registration_open, registration_deadline")
     .in("championship_id", championshipIds).eq("status", "draft").eq("registration_open", true) : { data: [] };
@@ -108,8 +130,8 @@ export async function loadDashboard(account: Account) {
   }
 
   return {
-    kpi: { championships: championshipIds.length, games, wins, todo: (friendRequests ?? 0) + openToJoin, friendRequests: friendRequests ?? 0, openToJoin },
-    next, activity: activity.slice(0, 6), hasFriends: friends.length > 0,
+    kpi: { championships: championshipIds.length, games, wins, friendRequests: friendRequests ?? 0, openToJoin },
+    next, live: liveTournaments, activity: activity.slice(0, 6), hasFriends: friends.length > 0,
   };
 }
 

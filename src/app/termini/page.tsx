@@ -13,7 +13,7 @@ export default function TermsPage() {
       <section>
         <h2>1. Il servizio</h2>
         <p>
-          {SITE_NAME} permette di consultare classifiche, tornei e risultati di tennis tavolo e, con un account, di partecipare ai campionati,
+          {SITE_NAME} permette di consultare classifiche, tornei e risultati di tennis tavolo e, con un account, di partecipare alle leghe,
           gestire amicizie e inserire o consultare le proprie partite. Il servizio è gestito da <OwnerLine />.
         </p>
       </section>
@@ -37,7 +37,7 @@ export default function TermsPage() {
           <li>tentare di accedere ad aree riservate, aggirare i limiti di sicurezza o sovraccaricare il sito con accessi automatici;</li>
           <li>usare il sito per scopi illeciti o commerciali non autorizzati.</li>
         </ul>
-        <p>Chi gestisce un campionato o un torneo può correggere o annullare risultati e rimuovere iscrizioni, per mantenere la correttezza delle classifiche.</p>
+        <p>Chi gestisce una lega o un torneo può correggere o annullare risultati e rimuovere iscrizioni, per mantenere la correttezza delle classifiche.</p>
       </section>
 
       <section>

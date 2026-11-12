@@ -12,7 +12,7 @@ const display = Barlow_Condensed({ variable: "--font-display", subsets: ["latin"
 
 export const metadata: Metadata = {
   title: { default: `${SITE_NAME} · Tennis tavolo`, template: `%s · ${SITE_NAME}` },
-  description: "Campionati di tennis tavolo: classifiche, tornei e risultati in diretta.",
+  description: "Leghe di tennis tavolo: classifiche, tornei e risultati in diretta.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

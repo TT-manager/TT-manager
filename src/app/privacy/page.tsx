@@ -21,8 +21,8 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Dati dell&apos;account</strong>: nome e cognome, email, password (conservata in forma cifrata, non leggibile da noi), circolo sportivo se lo indichi.</li>
           <li><strong>Foto profilo</strong>, solo se la carichi tu. È facoltativa.</li>
-          <li><strong>Dati sportivi</strong>: iscrizioni a campionati e tornei, risultati delle partite, punteggio Elo e relativo storico, posizione in classifica.</li>
-          <li><strong>Rete sociale</strong>: amicizie e richieste di amicizia con altri giocatori, richieste di partecipazione ai campionati.</li>
+          <li><strong>Dati sportivi</strong>: iscrizioni a leghe e tornei, risultati delle partite, punteggio Elo e relativo storico, posizione in classifica.</li>
+          <li><strong>Rete sociale</strong>: amicizie e richieste di amicizia con altri giocatori, richieste di partecipazione alle leghe.</li>
           <li><strong>Dati tecnici</strong>: per proteggere l&apos;accesso degli organizzatori ai tornei conserviamo, per un periodo limitato, un&apos;impronta cifrata (hash) dell&apos;indirizzo IP per contare i tentativi di accesso errati. Non salviamo l&apos;IP in chiaro a questo scopo.</li>
           <li><strong>Messaggi</strong> che ci invii scrivendo all&apos;assistenza.</li>
         </ul>
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
       <section>
         <h2>3. Perché li trattiamo e su quale base</h2>
         <ul>
-          <li><strong>Creare e gestire il tuo account</strong>, farti partecipare a campionati e tornei, calcolare classifiche e Elo: esecuzione del servizio che hai richiesto (art. 6.1.b GDPR).</li>
+          <li><strong>Creare e gestire il tuo account</strong>, farti partecipare a leghe e tornei, calcolare classifiche e Elo: esecuzione del servizio che hai richiesto (art. 6.1.b GDPR).</li>
           <li><strong>Sicurezza e prevenzione degli abusi</strong>, ad esempio limitare i tentativi di accesso ripetuti: legittimo interesse del titolare (art. 6.1.f).</li>
           <li><strong>Rispondere alle tue richieste</strong> di assistenza: esecuzione del servizio o legittimo interesse.</li>
           <li><strong>Obblighi di legge</strong>, se previsti (art. 6.1.c).</li>
@@ -61,7 +61,7 @@ export default function PrivacyPage() {
           Questi fornitori possono trattare dati anche fuori dallo Spazio Economico Europeo. In tal caso il trasferimento avviene con garanzie adeguate,
           come le clausole contrattuali tipo della Commissione europea o una decisione di adeguatezza.
         </p>
-        <p>Gli organizzatori e gli amministratori dei campionati vedono i dati necessari a gestirli (iscritti, richieste, risultati).</p>
+        <p>Gli organizzatori e gli amministratori delle leghe vedono i dati necessari a gestirli (iscritti, richieste, risultati).</p>
       </section>
 
       <section>

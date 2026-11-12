@@ -1,5 +1,5 @@
 /**
- * Ranking di un campionato, «metodo A»: scambio di punti partita per partita
+ * Ranking di una lega, «metodo A»: scambio di punti partita per partita
  * (più punti se vince lo sfavorito), con:
  * - classifica di partenza dai podi dei tornei passati (+ correzioni manuali);
  * - doppio: forza della coppia = media dei due giocatori, stessi punti a entrambi
@@ -119,7 +119,7 @@ export function isJustified(absences: RankingInput["absences"], playerId: string
   return absences.some((a) => a.playerId === playerId && a.from <= date && (a.to === null || date <= a.to));
 }
 
-/** Ricalcolo completo della classifica del campionato. */
+/** Ricalcolo completo della classifica della lega. */
 export function computeRanking(input: RankingInput) {
   const { settings: s } = input;
   const start = startPoints(s, input.members, input.pastResults);
@@ -159,7 +159,7 @@ export function computeRanking(input: RankingInput) {
       const id = mem.playerId;
       if (present.has(id)) { missed.set(id, 0); continue; }
       const j = joined.get(id);
-      if (j && j > t.date) continue; // non era ancora nel campionato
+      if (j && j > t.date) continue; // non era ancora nella lega
       missed.set(id, (missed.get(id) ?? 0) + 1);
       if (!s.decay.enabled || isJustified(input.absences, id, t.date)) continue;
       const before = rating.get(id)!;

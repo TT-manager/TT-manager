@@ -141,7 +141,7 @@ export function ClosingControl({ tournamentId, status, summary, ranked = true }:
     <form action={reopenAction} className="mt-2 space-y-2"
       onSubmit={(e) => { if (!confirm(ranked ? "Riaprire il torneo? Le variazioni di punti di questo torneo saranno annullate finché non lo richiudi." : "Riaprire il torneo?")) e.preventDefault(); }}>
       <input type="hidden" name="tournament_id" value={tournamentId} />
-      <p>{ranked ? "Torneo chiuso: i risultati sono conteggiati nella classifica del campionato." : "Torneo chiuso."}</p>
+      <p>{ranked ? "Torneo chiuso: i risultati sono conteggiati nella classifica della lega." : "Torneo chiuso."}</p>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">Per correggere un risultato riapri il torneo, correggi e poi richiudilo.</p>
       <button disabled={reopening} className="rounded border px-4 py-2">Riapri torneo</button>
       {msg(reopenState)}{msg(closeState)}
@@ -152,7 +152,7 @@ export function ClosingControl({ tournamentId, status, summary, ranked = true }:
     <form action={closeAction} className="mt-2 space-y-2"
       onSubmit={(e) => {
         const warn = summary.unplayed ? `\n\nAttenzione: ${summary.unplayed} partite non sono state giocate e verranno ignorate.` : "";
-        if (!confirm(ranked ? `Chiudere il torneo e aggiornare la classifica del campionato con ${summary.toRate} partite?${warn}` : `Chiudere il torneo?${warn}`)) e.preventDefault();
+        if (!confirm(ranked ? `Chiudere il torneo e aggiornare la classifica della lega con ${summary.toRate} partite?${warn}` : `Chiudere il torneo?${warn}`)) e.preventDefault();
       }}>
       <input type="hidden" name="tournament_id" value={tournamentId} />
       <p>{summary.toRate} partite giocate{ranked ? " da conteggiare" : ""} · {summary.unplayed} ancora da giocare.

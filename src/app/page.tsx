@@ -36,7 +36,7 @@ async function HomeContent() {
     const { data } = await createServiceClient().from("championship_players").select("championship_id").eq("player_id", account.player.id);
     mine = new Set((data ?? []).map((r) => r.championship_id as string));
   }
-  // Si vedono i campionati di cui fai parte e quelli resi pubblici dall'admin.
+  // Si vedono le leghe di cui fai parte e quelli resi pubblici dall'admin.
   const shown = all.filter((c) => mine.has(c.id) || c.isPublic)
     .sort((a, b) => Number(mine.has(b.id)) - Number(mine.has(a.id)) || a.name.localeCompare(b.name, "it"));
 
@@ -49,11 +49,11 @@ async function HomeContent() {
           <div className="relative">
             <h1 className="text-4xl font-bold sm:text-5xl">{account ? `Ciao ${account.player.full_name.split(" ")[0]}!` : "Il tuo tennis tavolo"}</h1>
             <p className="mt-2 max-w-xl text-white/80">
-              {account ? "I tuoi campionati, i tornei in corso e le iscrizioni aperte." : "Classifiche dei campionati, tornei in diretta, iscrizioni e amichevoli con gli amici."}</p>
+              {account ? "Le tue leghe, i tornei in corso e le iscrizioni aperte." : "Classifiche delle leghe, tornei in diretta, iscrizioni e amichevoli con gli amici."}</p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
               {account
                 ? <><Link href="/amichevole/nuovo" className="btn-primary">Crea un torneo amichevole</Link><Link href="/amici" className="btn border border-white/30 hover:bg-white/10">Amici</Link></>
-                : <><Link href="/registrati" className="btn-primary">Registrati</Link><Link href="/login" className="btn border border-white/30 hover:bg-white/10">Accedi</Link></>}
+                : <><Link href="/registrati" className="btn-primary">Registrati</Link><Link href="/login" className="btn border border-white/30 hover:bg-white/10">Accedi</Link><Link href="/faq" className="text-sm text-white/80 underline hover:text-white">Come funziona?</Link></>}
             </div>
             <div className="mt-6"><p className="mb-1 text-sm text-white/70">Hai il codice di un torneo?</p><CodeBox /></div>
           </div>
@@ -64,7 +64,7 @@ async function HomeContent() {
         <Dashboard account={account}>
       {shown.length === 0 ? (
         <p className="mt-3 text-muted">
-          {account ? "Non fai ancora parte di nessun campionato: chiedi il link d'invito a chi lo organizza." : "Nessun campionato pubblico. Se hai ricevuto un invito, aprilo o accedi."}</p>
+          {account ? "Non fai ancora parte di nessuna lega: chiedi il link d'invito a chi la organizza." : "Nessuna lega pubblica. Se hai ricevuto un invito, aprilo o accedi."}</p>
       ) : (
         <div className={`mt-4 grid gap-5 ${account ? "" : "md:grid-cols-2"}`}>
           {shown.map((c) => <ChampionshipCard key={c.id} c={c} member={mine.has(c.id)} myPlayerId={account?.player.id} />)}
@@ -73,10 +73,10 @@ async function HomeContent() {
         </Dashboard>
       ) : (
         <>
-          <h2 className="mt-10 text-2xl font-bold uppercase">Campionati</h2>
+          <h2 className="mt-10 text-2xl font-bold uppercase">Leghe</h2>
       {shown.length === 0 ? (
         <p className="mt-3 text-muted">
-          {account ? "Non fai ancora parte di nessun campionato: chiedi il link d'invito a chi lo organizza." : "Nessun campionato pubblico. Se hai ricevuto un invito, aprilo o accedi."}</p>
+          {account ? "Non fai ancora parte di nessuna lega: chiedi il link d'invito a chi la organizza." : "Nessuna lega pubblica. Se hai ricevuto un invito, aprilo o accedi."}</p>
       ) : (
         <div className={`mt-4 grid gap-5 ${account ? "" : "md:grid-cols-2"}`}>
           {shown.map((c) => <ChampionshipCard key={c.id} c={c} member={mine.has(c.id)} myPlayerId={undefined} />)}
@@ -88,7 +88,7 @@ async function HomeContent() {
   );
 }
 
-/** Dashboard di chi è collegato: numeri, prossima partita, campionati, azioni rapide, amici. */
+/** Dashboard di chi è collegato: numeri, prossima partita, leghe, azioni rapide, amici. */
 async function Dashboard({ account, children }: { account: NonNullable<Awaited<ReturnType<typeof getAccount>>>; children: React.ReactNode }) {
   return <DashboardView d={await loadDashboard(account)} me={account.player}>{children}</DashboardView>;
 }
@@ -135,7 +135,7 @@ async function ChampionshipCard({ c, member, myPlayerId }: { c: Championship; me
       </div>
       <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
         {!member && myPlayerId ? <Link href={`/partecipa/${c.slug}`} className="text-sm link">Chiedi di partecipare</Link> : <span />}
-        <Link href={`/c/${c.slug}`} className="btn-dark py-1.5 text-sm">Apri il campionato →</Link>
+        <Link href={`/c/${c.slug}`} className="btn-dark py-1.5 text-sm">Apri la lega →</Link>
       </div>
     </article>
   );

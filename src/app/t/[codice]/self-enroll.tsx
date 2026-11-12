@@ -7,7 +7,7 @@ import { selfEnroll, selfWithdraw } from "./iscrizione-actions";
 
 type T = { id: string; public_code: string; status: string; kind: string; championship_id: string | null; registration_open: boolean; registration_deadline: string | null };
 
-/** Riquadro «Iscriviti» per i giocatori del campionato (va dentro <Suspense>). */
+/** Riquadro «Iscriviti» per i giocatori della lega (va dentro <Suspense>). */
 export async function SelfEnroll({ t, slug }: { t: T; slug: string | null }) {
   if (!registrationIsOpen(t)) return null;
   const here = `/t/${t.public_code}`;
@@ -24,7 +24,7 @@ export async function SelfEnroll({ t, slug }: { t: T; slug: string | null }) {
   ]);
   if (!member) return (
     <div className={box}><p className="font-semibold">Iscrizioni aperte</p>{deadline}
-      <p className="mt-2">Per iscriverti devi far parte del campionato. {slug && <Link href={`/partecipa/${slug}`} className="underline">Chiedi di partecipare</Link>}</p></div>);
+      <p className="mt-2">Per iscriverti devi far parte della lega. {slug && <Link href={`/partecipa/${slug}`} className="underline">Chiedi di partecipare</Link>}</p></div>);
   const hidden = <input type="hidden" name="public_code" value={t.public_code} />;
   if (mine) {
     const { data: mates } = await svc.from("entry_members").select("player_id, players(full_name)").eq("entry_id", mine.entry_id).neq("player_id", account.player.id);

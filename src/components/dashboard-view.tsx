@@ -9,11 +9,12 @@ export type DashboardData = Awaited<ReturnType<typeof loadDashboard>>;
 export function DashboardView({ d, me, children }: { d: DashboardData; me: { full_name: string; avatar_path: string | null }; children: ReactNode }) {
   const pct = d.kpi.games ? Math.round((d.kpi.wins / d.kpi.games) * 100) : null;
   const kpis = [
-    { label: "Campionati", value: String(d.kpi.championships).padStart(2, "0"), sub: d.kpi.championships ? "a cui partecipi" : "inizia a partecipare", icon: "🏆" },
+    { label: "Leghe", value: String(d.kpi.championships).padStart(2, "0"), sub: d.kpi.championships ? "a cui partecipi" : "inizia a partecipare", icon: "🏆" },
+    { label: "Tornei in corso", value: String(d.live.length).padStart(2, "0"), icon: "🔴",
+      href: d.live.length === 1 ? `/t/${d.live[0].code}` : d.live.length ? "#in-corso" : undefined,
+      sub: d.live.length === 1 ? d.live[0].name : d.live.length ? "nelle tue leghe e amichevoli" : "nessuno adesso" },
     { label: "Partite giocate", value: String(d.kpi.games).padStart(2, "0"), sub: d.kpi.games ? "amichevoli comprese" : "la prima ti aspetta", icon: "🏓" },
     { label: "Vittorie", value: pct === null ? "—" : `${pct}%`, sub: d.kpi.games ? `${d.kpi.wins} vinte · ${d.kpi.games - d.kpi.wins} perse` : "inizia a giocare", icon: "📈" },
-    { label: "Da fare", value: String(d.kpi.todo).padStart(2, "0"), href: d.kpi.friendRequests ? "/amici" : "/profilo",
-      sub: d.kpi.todo ? [d.kpi.friendRequests && (d.kpi.friendRequests === 1 ? "1 richiesta d'amicizia" : `${d.kpi.friendRequests} richieste d'amicizia`), d.kpi.openToJoin && (d.kpi.openToJoin === 1 ? "1 iscrizione aperta" : `${d.kpi.openToJoin} iscrizioni aperte`)].filter(Boolean).join(" · ") : "niente in sospeso", icon: "🔔" },
   ];
   return (
     <>
@@ -28,7 +29,7 @@ export function DashboardView({ d, me, children }: { d: DashboardData; me: { ful
               </div>
               <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-lg">{k.icon}</span>
             </div>);
-          return k.href && d.kpi.todo ? <Link key={k.label} href={k.href} className="block transition hover:-translate-y-0.5">{body}</Link> : <div key={k.label}>{body}</div>;
+          return k.href ? <Link key={k.label} href={k.href} className="block transition hover:-translate-y-0.5">{body}</Link> : <div key={k.label}>{body}</div>;
         })}
       </section>
 
@@ -59,7 +60,29 @@ export function DashboardView({ d, me, children }: { d: DashboardData; me: { ful
             </div>
           )}
 
-          <h2 className="mt-8 text-2xl font-bold uppercase">I tuoi campionati</h2>
+          {d.live.length > 0 && <>
+            <h2 id="in-corso" className="mt-8 scroll-mt-24 text-2xl font-bold uppercase">Tornei in corso</h2>
+            <ul className="mt-3 grid gap-3">
+              {d.live.map((t) => (
+                <li key={t.code}><Link href={`/t/${t.code}`} className="card block transition hover:border-brand">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2 font-bold"><span className="live-dot text-brand" /> <span className="truncate">{t.name}</span></span>
+                    <span className="flex items-center gap-2">
+                      {t.playing && <span className="badge bg-gold/20 text-ink dark:text-gold">Ci giochi</span>}
+                      <span className="text-xs uppercase tracking-wide text-muted">{t.phase}</span>
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted">{t.league ?? "Amichevole"}{t.league && !t.ranked ? " · amichevole" : ""}</p>
+                  {t.total > 0 && (
+                    <div className="mt-3 flex items-center gap-3 text-xs text-muted">
+                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-line"><span className="block h-full rounded-full bg-brand" style={{ width: `${Math.round((t.played / t.total) * 100)}%` }} /></span>
+                      <span className="tabular-nums">{t.played} su {t.total} partite</span>
+                    </div>)}
+                </Link></li>))}
+            </ul>
+          </>}
+
+          <h2 className="mt-8 text-2xl font-bold uppercase">Le tue leghe</h2>
           {children}
         </div>
 
@@ -68,12 +91,15 @@ export function DashboardView({ d, me, children }: { d: DashboardData; me: { ful
           <div className="card mt-3 grid gap-2 !p-3">
             {[
               { href: "/amichevole/nuovo", icon: "🏓", title: "Crea un torneo amichevole", sub: "Sfida i tuoi amici" },
-              { href: "/amici", icon: "👥", title: "Trova amici", sub: "Cerca e aggiungi giocatori" },
-              { href: "/profilo", icon: "👤", title: "Il mio profilo", sub: "Foto, dati, richieste" },
+              { href: "/amici", icon: "👥", title: d.kpi.friendRequests ? "Richieste d'amicizia" : "Trova amici",
+                sub: d.kpi.friendRequests ? (d.kpi.friendRequests === 1 ? "1 richiesta da accettare" : `${d.kpi.friendRequests} richieste da accettare`) : "Cerca e aggiungi giocatori", alert: d.kpi.friendRequests },
+              { href: "/profilo", icon: "👤", title: "Il mio profilo",
+                sub: d.kpi.openToJoin ? (d.kpi.openToJoin === 1 ? "1 iscrizione aperta a un torneo" : `${d.kpi.openToJoin} iscrizioni aperte a tornei`) : "Foto, dati, richieste", alert: d.kpi.openToJoin },
             ].map((a) => (
               <Link key={a.href} href={a.href} className="flex items-center gap-3 rounded-lg border border-line bg-background px-3 py-2.5 transition hover:border-brand">
                 <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface text-lg">{a.icon}</span>
                 <span className="flex-1"><span className="block text-sm font-bold">{a.title}</span><span className="text-xs text-muted">{a.sub}</span></span>
+                {"alert" in a && a.alert ? <span className="rounded-full bg-brand px-2 text-xs font-bold text-white">{a.alert}</span> : null}
                 <span aria-hidden="true" className="text-muted">›</span>
               </Link>))}
           </div>

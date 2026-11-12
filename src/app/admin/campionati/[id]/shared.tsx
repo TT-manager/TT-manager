@@ -4,7 +4,7 @@ import { requireChampionshipManager } from "@/lib/auth";
 import { DEFAULT_RANKING, parseRankingSettings } from "@/lib/domain/ranking";
 import { createServerSupabase } from "@/lib/supabase/server";
 
-/** Carica il campionato verificando che l'admin possa gestirlo. */
+/** Carica la lega verificando che l'admin possa gestirlo. */
 export async function loadManagedChampionship(id: string) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const admin = await requireChampionshipManager(id);
@@ -26,7 +26,7 @@ const TABS = [
 export function ChampionshipHeader({ c, current }: { c: { id: string; name: string; slug: string; kind: string }; current: string }) {
   return (
     <div>
-      <Link href="/admin/campionati" className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← Campionati</Link>
+      <Link href="/admin/campionati" className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← Leghe</Link>
       <h1 className="mt-2 text-2xl font-bold">{c.name}</h1>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">{c.kind === "doubles" ? "Doppio" : "Singolare"} ·{" "}
         <Link href={`/c/${c.slug}`} className="underline">pagina pubblica</Link></p>

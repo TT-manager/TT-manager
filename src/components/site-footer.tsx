@@ -12,13 +12,14 @@ export function SiteFooter() {
       <div className="mx-auto grid max-w-5xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div className="lg:col-span-2">
           <p className="font-display text-xl font-bold uppercase text-foreground">{SITE_NAME}</p>
-          <p className="mt-2 max-w-sm">Campionati di tennis tavolo: classifiche Elo, tornei e risultati in diretta.</p>
+          <p className="mt-2 max-w-sm">Leghe di tennis tavolo: classifiche Elo, tornei e risultati in diretta.</p>
         </div>
 
         <nav aria-label="Il sito">
           <h2 className={heading}>Il sito</h2>
           <ul className="mt-3 space-y-1.5">
             <li><Link href="/" className={link}>Classifica</Link></li>
+            <li><Link href="/faq" className={link}>Domande frequenti</Link></li>
             <li><Link href="/login" className={link}>Accedi</Link></li>
             <li><Link href="/registrati" className={link}>Registrati</Link></li>
           </ul>

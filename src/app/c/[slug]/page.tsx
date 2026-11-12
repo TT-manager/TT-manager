@@ -5,11 +5,12 @@ import { getChampionshipBySlug, getChampionshipTournaments, getRanking } from "@
 import { STATUS_LABEL } from "@/lib/labels";
 import { registrationIsOpen } from "@/lib/registration";
 import { RankingTable } from "@/components/ranking-table";
+import { PointsExplainer } from "@/components/points-explainer";
 
 export default function ChampionshipPage({ params }: PageProps<"/c/[slug]">) {
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <Link href="/" className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← Tutti i campionati</Link>
+      <Link href="/" className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← Tutte le leghe</Link>
       <Suspense fallback={<p className="mt-6 text-neutral-600 dark:text-neutral-400">Caricamento…</p>}>
         <Championship params={params} />
       </Suspense>
@@ -31,7 +32,7 @@ async function Championship({ params }: { params: PageProps<"/c/[slug]">["params
         <div className="relative p-6">
           <div aria-hidden="true" className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-brand/85" />
           <div className="relative">
-            <p className="text-sm uppercase tracking-widest text-white/60">Campionato · {c.kind === "doubles" ? "doppio" : "singolare"}</p>
+            <p className="text-sm uppercase tracking-widest text-white/60">Lega · {c.kind === "doubles" ? "doppio" : "singolare"}</p>
             <h1 className="text-4xl font-bold">{c.name}</h1>
             <p className="mt-2 text-sm text-white/75">{rows.length} giocatori in classifica</p>
             <Link href={`/partecipa/${c.slug}`} className="btn-primary mt-4">Vuoi giocare? Chiedi di partecipare</Link>
@@ -41,6 +42,7 @@ async function Championship({ params }: { params: PageProps<"/c/[slug]">["params
 
       <h2 className="mt-8 text-2xl font-bold uppercase">Classifica</h2>
       <RankingTable rows={rows} label={c.settings.label} />
+      <PointsExplainer s={c.settings} doubles={c.kind === "doubles"} />
 
       <h2 className="mt-10 text-2xl font-bold uppercase">Tornei</h2>
       {tournaments.length === 0 ? <p className="mt-2 text-muted">Nessun torneo ancora.</p> : (

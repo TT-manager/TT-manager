@@ -11,13 +11,13 @@ export default function NewTournamentForm({ championships, preselected }:
   if (state.created) return <Created c={state.created} />;
   return (
     <form action={action} className="mt-6 space-y-6">
-      <label className="grid gap-1 sm:w-96">Campionato
+      <label className="grid gap-1 sm:w-96">Lega
         <select name="championship_id" defaultValue={preselected} required className="select-arrow rounded border bg-transparent py-2 pl-3">
           {championships.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select></label>
       <fieldset className="space-y-1">
         <legend>Tipo di torneo</legend>
-        <label className="flex items-center gap-2"><input type="radio" name="ranked" value="ranked" defaultChecked /> Valido per la classifica del campionato</label>
+        <label className="flex items-center gap-2"><input type="radio" name="ranked" value="ranked" defaultChecked /> Valido per la classifica della lega</label>
         <label className="flex items-center gap-2"><input type="radio" name="ranked" value="friendly" /> Torneo amichevole (non cambia la classifica e non conta come torneo saltato)</label>
       </fieldset>
       <section className="grid gap-3 sm:grid-cols-[1fr_12rem]">

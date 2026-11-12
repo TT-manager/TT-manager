@@ -6,7 +6,7 @@ import { getAccount } from "@/lib/account";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { requestJoin } from "../../profilo/actions";
 
-export const metadata = { title: "Partecipa a un campionato" };
+export const metadata = { title: "Partecipa a una lega" };
 const muted = "text-sm text-neutral-600 dark:text-neutral-400";
 
 export default function JoinPage({ params, searchParams }: PageProps<"/partecipa/[slug]">) {
@@ -50,12 +50,12 @@ async function Join({ params, searchParams }: Pick<PageProps<"/partecipa/[slug]"
     svc.from("championship_requests").select("id").eq("championship_id", c.id).eq("user_id", account.userId).eq("status", "pending").maybeSingle(),
     svc.from("championship_players").select("player_id, players!inner(full_name, user_id)").eq("championship_id", c.id).is("players.user_id", null),
   ]);
-  if (member) return <>{header}<p className="mt-6">Fai già parte del campionato. <Link href={`/c/${slug}`} className="underline">Vai alla classifica</Link></p></>;
+  if (member) return <>{header}<p className="mt-6">Fai già parte della lega. <Link href={`/c/${slug}`} className="underline">Vai alla classifica</Link></p></>;
   if (pending) return <>{header}<p className="mt-6">La tua richiesta è in attesa di approvazione. <Link href="/profilo" className="underline">Il mio profilo</Link></p></>;
   const names = (unclaimed ?? []).map((u) => ({ id: u.player_id as string, name: (u.players as unknown as { full_name: string }).full_name }))
     .sort((a, b) => a.name.localeCompare(b.name, "it"));
   return <>{header}
-    <ActionForm action={requestJoin} submitLabel={validInvite ? "Entra nel campionato" : "Invia la richiesta"} className="mt-6 space-y-3">
+    <ActionForm action={requestJoin} submitLabel={validInvite ? "Entra nella lega" : "Invia la richiesta"} className="mt-6 space-y-3">
       <input type="hidden" name="slug" value={slug} />
       {validInvite && <input type="hidden" name="invito" value={token} />}
       <p>Entri come <strong>{account.player.full_name}</strong>.</p>

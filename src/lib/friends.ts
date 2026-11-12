@@ -13,7 +13,7 @@ export type Candidate = { id: string; full_name: string; club: string | null; ra
 
 /**
  * Giocatori iscrivibili a un amichevole creato da `ownerUserId`: lui stesso, i suoi amici
- * e i suoi ospiti. Il numero accanto al nome è il miglior punteggio nei campionati (1000 se nessuno).
+ * e i suoi ospiti. Il numero accanto al nome è il miglior punteggio nelle leghe (1000 se nessuno).
  */
 export async function friendlyCandidates(ownerUserId: string): Promise<Candidate[]> {
   const svc = createServiceClient();
@@ -30,7 +30,7 @@ export async function friendlyCandidates(ownerUserId: string): Promise<Candidate
   return list.map((p) => ({ ...p, rating: best.get(p.id) ?? 1000 })).sort((a, b) => a.full_name.localeCompare(b.full_name, "it"));
 }
 
-/** Miglior punteggio di ogni giocatore tra i campionati a cui partecipa. */
+/** Miglior punteggio di ogni giocatore tra le leghe a cui partecipa. */
 export async function bestRatings(playerIds: string[]): Promise<Map<string, number>> {
   const out = new Map<string, number>();
   if (!playerIds.length) return out;
