@@ -10,7 +10,7 @@ export function SiteHeader() {
       <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-2.5">
         <Link href="/" className="flex items-center" aria-label={`${SITE_NAME}: home`}>
           {/* eslint-disable-next-line @next/next/no-img-element -- logo vettoriale, nessuna ottimizzazione necessaria */}
-          <img src="/logo-scuro.svg" alt={SITE_NAME} width={131} height={40} className="h-10 w-auto" />
+          <img src="/logo-scuro.svg" alt={SITE_NAME} width={151} height={40} className="h-10 w-auto" />
         </Link>
         <nav className="ml-auto flex items-center gap-1 text-sm sm:gap-3">
           <Suspense fallback={null}><AccountNav /></Suspense>
