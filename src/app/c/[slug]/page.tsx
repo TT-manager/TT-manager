@@ -5,6 +5,7 @@ import { getChampionshipBySlug, getChampionshipTournaments, getRanking } from "@
 import { STATUS_LABEL } from "@/lib/labels";
 import { registrationIsOpen } from "@/lib/registration";
 import { RankingTable } from "@/components/ranking-table";
+import { PointsExplainer } from "@/components/points-explainer";
 
 export default function ChampionshipPage({ params }: PageProps<"/c/[slug]">) {
   return (
@@ -41,6 +42,7 @@ async function Championship({ params }: { params: PageProps<"/c/[slug]">["params
 
       <h2 className="mt-8 text-2xl font-bold uppercase">Classifica</h2>
       <RankingTable rows={rows} label={c.settings.label} />
+      <PointsExplainer s={c.settings} doubles={c.kind === "doubles"} />
 
       <h2 className="mt-10 text-2xl font-bold uppercase">Tornei</h2>
       {tournaments.length === 0 ? <p className="mt-2 text-muted">Nessun torneo ancora.</p> : (

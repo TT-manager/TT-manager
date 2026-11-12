@@ -53,7 +53,7 @@ async function HomeContent() {
             <div className="mt-5 flex flex-wrap items-center gap-3">
               {account
                 ? <><Link href="/amichevole/nuovo" className="btn-primary">Crea un torneo amichevole</Link><Link href="/amici" className="btn border border-white/30 hover:bg-white/10">Amici</Link></>
-                : <><Link href="/registrati" className="btn-primary">Registrati</Link><Link href="/login" className="btn border border-white/30 hover:bg-white/10">Accedi</Link></>}
+                : <><Link href="/registrati" className="btn-primary">Registrati</Link><Link href="/login" className="btn border border-white/30 hover:bg-white/10">Accedi</Link><Link href="/faq" className="text-sm text-white/80 underline hover:text-white">Come funziona?</Link></>}
             </div>
             <div className="mt-6"><p className="mb-1 text-sm text-white/70">Hai il codice di un torneo?</p><CodeBox /></div>
           </div>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { pointsSwing } from "./explain";
 import { computeRanking, DEFAULT_RANKING, parseRankingSettings, startPoints, type RankingInput } from "./ranking";
 
 const S = DEFAULT_RANKING;
@@ -86,5 +87,26 @@ describe("impostazioni", () => {
     expect(parseRankingSettings({ initial: -3 })).toHaveProperty("errors");
     expect(parseRankingSettings({ newUntil: 50, midUntil: 10 })).toHaveProperty("errors");
     expect(parseRankingSettings({ decay: { pct: "x" } })).toHaveProperty("errors");
+  });
+});
+
+describe("esempi della spiegazione dei punti", () => {
+  it("contro un avversario pari si vince o si perde metà della velocità", () => {
+    expect(pointsSwing(16, 0)).toEqual({ win: 8, loss: -8 });
+  });
+  it("battere uno più forte rende di più, perderci costa poco", () => {
+    expect(pointsSwing(16, 200)).toEqual({ win: 12, loss: -4 });
+    expect(pointsSwing(16, -200)).toEqual({ win: 4, loss: -12 });
+  });
+  it("coincide con il ricalcolo vero", () => {
+    const r = computeRanking({
+      settings: DEFAULT_RANKING,
+      members: [{ playerId: "a", override: 1000, joinedOn: null }, { playerId: "b", override: 1100, joinedOn: null }],
+      pastResults: [], absences: [],
+      tournaments: [{ id: "t", date: "2026-01-01", participants: ["a", "b"], matches: [{ id: "m", winners: ["a"], losers: ["b"] }] }],
+    });
+    const a = r.players.find((p) => p.id === "a")!, b = r.players.find((p) => p.id === "b")!;
+    expect(a.rating - 1000).toBe(pointsSwing(DEFAULT_RANKING.k.new, 100).win);
+    expect(b.rating - 1100).toBe(pointsSwing(DEFAULT_RANKING.k.new, -100).loss);
   });
 });
