@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyMatch, expectedScore } from "./elo";
+import { applyMatch, expectedScore } from "./scambio-punti";
 import { computeStandings, roundRobinSchedule, snakeGroups } from "./groups";
 import { advance, firstRound, seedOrder, totalRounds } from "./bracket";
 
-describe("elo", () => {
+describe("scambio di punti", () => {
   it("a parità di rating l'attesa è 0.5", () => {
     expect(expectedScore(1000, 1000)).toBeCloseTo(0.5);
   });
@@ -66,9 +66,9 @@ describe("tabellone", () => {
   });
 });
 
-import { rateMatches } from "./elo";
+import { rateMatches } from "./scambio-punti";
 
-describe("Elo di un torneo", () => {
+describe("punti di un torneo", () => {
   const start = new Map([["a", { rating: 1000, gamesPlayed: 0 }], ["b", { rating: 1000, gamesPlayed: 0 }], ["c", { rating: 1200, gamesPlayed: 100 }]]);
   it("applica le partite in sequenza e conta le partite giocate", () => {
     const r = rateMatches([{ id: "m1", winner: "a", loser: "b" }, { id: "m2", winner: "a", loser: "c" }], start);

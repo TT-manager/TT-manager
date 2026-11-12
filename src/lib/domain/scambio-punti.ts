@@ -1,4 +1,4 @@
-/** Rating Elo per il ranking generale. */
+/** Scambio di punti partita per partita, alla base del ranking. */
 
 export const INITIAL_RATING = 1000;
 
@@ -43,7 +43,7 @@ export interface RateableMatch { id: string; winner: string; loser: string }
 export interface RatingChange { playerId: string; matchId: string; before: number; after: number }
 
 /**
- * Applica l'Elo a una sequenza di partite (già in ordine cronologico).
+ * Applica lo scambio di punti a una sequenza di partite (già in ordine cronologico).
  * Restituisce lo storico partita per partita e lo stato finale di ogni giocatore coinvolto.
  */
 export function rateMatches(matches: RateableMatch[], start: Map<string, EloPlayer>) {

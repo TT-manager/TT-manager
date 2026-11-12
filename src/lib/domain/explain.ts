@@ -1,4 +1,4 @@
-import { expectedScore } from "./elo";
+import { expectedScore } from "./scambio-punti";
 
 /**
  * Punti che si guadagnano (vittoria) o si perdono (sconfitta) contro un avversario

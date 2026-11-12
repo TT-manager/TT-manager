@@ -1,6 +1,6 @@
 # Campionato di tennis tavolo
 
-Applicazione web per gestire un campionato: classifica generale Elo, tornei con gironi
+Applicazione web per gestire un campionato: classifica a punti (ranking), tornei con gironi
 e tabellone a eliminazione, inserimento dei risultati da parte degli organizzatori.
 
 ## Come si usa
@@ -12,7 +12,7 @@ e tabellone a eliminazione, inserimento dei risultati da parte degli organizzato
   codice organizzatore ricevuto dall'admin.
 - **Amministratori** (`/login`): giocatori, tornei (formato configurabile: gironi, set per
   fase, chi passa e in quale turno entra), iscrizioni, generazione dei gironi, correzione dei
-  risultati, chiusura del torneo (applica l'Elo) e riapertura. Il proprietario gestisce gli admin.
+  risultati, chiusura del torneo (aggiorna il ranking) e riapertura. Il proprietario gestisce gli admin.
 
 ## Sviluppo
 
@@ -26,7 +26,7 @@ npm test && npx tsc --noEmit && npm run lint && npm run build
 Next.js (App Router, Cache Components) e Supabase. Prima di scrivere codice Next leggi
 `node_modules/next/dist/docs/` (vedi `AGENTS.md`).
 
-- `src/lib/domain/`: logica pura con test (Elo, gironi, formato, tabellone, punteggi).
+- `src/lib/domain/`: logica pura con test (ranking, gironi, formato, tabellone, punteggi).
 - `supabase/migrations/`: schema del database, nell'ordine in cui è stato applicato.
 
 ## Sicurezza (in breve)

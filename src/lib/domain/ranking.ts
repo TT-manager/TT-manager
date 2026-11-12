@@ -9,7 +9,7 @@
  *
  * Il ricalcolo riparte sempre da zero: stesso input → stessa classifica.
  */
-import { expectedScore } from "./elo";
+import { expectedScore } from "./scambio-punti";
 
 export interface RankingSettings {
   /** Nome dei punti mostrato sul sito. */
