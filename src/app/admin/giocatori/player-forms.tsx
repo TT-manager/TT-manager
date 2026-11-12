@@ -10,17 +10,16 @@ const msg = (s: FormState) =>
 export function AddPlayerForm() {
   const [state, action, pending] = useActionState<FormState, FormData>(addPlayer, {});
   return (
-    <form action={action} className="mt-4 grid gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_7rem_auto]">
+    <form action={action} className="mt-4 grid gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_auto]">
       <input name="full_name" placeholder="Nome e cognome" required className={input} aria-label="Nome e cognome" />
       <input name="club" placeholder="Circolo (facoltativo)" className={input} aria-label="Circolo" />
-      <input name="rating" type="number" defaultValue={1000} min={100} max={3000} className={input} aria-label="Rating iniziale" />
       <button disabled={pending} className="rounded bg-black px-4 py-2 text-white disabled:opacity-60 dark:bg-white dark:text-black">Aggiungi</button>
-      <div className="sm:col-span-4">{msg(state)}</div>
+      <div className="sm:col-span-3">{msg(state)}</div>
     </form>
   );
 }
 
-export function PlayerRow({ player }: { player: { id: string; full_name: string; club: string | null; rating: number; games_played: number; active: boolean } }) {
+export function PlayerRow({ player }: { player: { id: string; full_name: string; club: string | null; active: boolean; championships: string[] } }) {
   const [state, action, pending] = useActionState<FormState, FormData>(updatePlayer, {});
   const [delState, delAction, delPending] = useActionState<FormState, FormData>(deletePlayer, {});
   return (
@@ -33,7 +32,7 @@ export function PlayerRow({ player }: { player: { id: string; full_name: string;
         <button disabled={pending} className="rounded border px-3 py-2 text-sm">Salva</button>
       </form>
       <div className="mt-1 flex items-center gap-4 text-sm text-neutral-600 dark:text-neutral-400">
-        <span>Elo {player.rating} · {player.games_played} partite</span>
+        <span>{player.championships.length ? `Campionati: ${player.championships.join(", ")}` : "In nessun campionato"}</span>
         <form action={delAction}>
           <input type="hidden" name="id" value={player.id} />
           <button disabled={delPending} className="underline">Elimina</button>

@@ -17,11 +17,8 @@ export async function addPlayer(_prev: FormState, formData: FormData): Promise<F
   await requireAdmin();
   const parsed = parsePlayer(formData);
   if ("error" in parsed) return { error: parsed.error };
-  const rating = Number(formData.get("rating") || 1000);
-  if (!Number.isInteger(rating) || rating < 100 || rating > 3000)
-    return { error: "Il rating iniziale deve essere un numero tra 100 e 3000." };
   const supabase = await createServerSupabase();
-  const { error } = await supabase.from("players").insert({ ...parsed.value, rating });
+  const { error } = await supabase.from("players").insert(parsed.value);
   if (error) return { error: "Non sono riuscito a salvare il giocatore." };
   revalidatePath("/admin/giocatori");
   refresh(); // aggiorna subito la pagina aperta

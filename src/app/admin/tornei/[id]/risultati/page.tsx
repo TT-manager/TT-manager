@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MatchForm } from "@/components/match-form";
-import { requireAdmin } from "@/lib/auth";
+import { requireTournamentManager } from "@/lib/auth";
 import { getPublicTournament } from "@/lib/data";
 import { stageName } from "@/lib/domain/format";
 import { groupLabel, isPlayed } from "@/lib/domain/tournament";
@@ -11,9 +11,9 @@ import { adminSubmitResult } from "../../actions";
 export const metadata = { title: "Risultati torneo" };
 
 export default async function AdminResultsPage({ params }: PageProps<"/admin/tornei/[id]/risultati">) {
-  await requireAdmin();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  await requireTournamentManager(id);
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments").select("public_code").eq("id", id).maybeSingle();
   if (!t) notFound();

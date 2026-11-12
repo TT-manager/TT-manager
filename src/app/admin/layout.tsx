@@ -19,6 +19,7 @@ async function Header() {
   return (
     <header className="mb-8 flex flex-wrap items-center gap-x-5 gap-y-2 border-b pb-3">
       <Link href="/admin" className="font-bold">Amministrazione</Link>
+      <Link href="/admin/campionati" className="hover:underline">Campionati</Link>
       <Link href="/admin/giocatori" className="hover:underline">Giocatori</Link>
       <Link href="/admin/tornei" className="hover:underline">Tornei</Link>
       {admin.role === "owner" && <Link href="/admin/amministratori" className="hover:underline">Amministratori</Link>}
