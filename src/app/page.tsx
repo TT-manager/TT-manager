@@ -6,6 +6,8 @@ import { getAccount } from "@/lib/account";
 import { formatDeadline, registrationIsOpen } from "@/lib/registration";
 import { createPublicClient } from "@/lib/supabase/public";
 import { createServiceClient } from "@/lib/supabase/admin";
+import { loadDashboard } from "@/lib/dashboard";
+import { DashboardView } from "@/components/dashboard-view";
 
 export default function Home() {
   return (
@@ -58,17 +60,37 @@ async function HomeContent() {
         </div>
       </section>
 
-      <h2 className="mt-10 text-2xl font-bold uppercase">{account ? "I tuoi campionati" : "Campionati"}</h2>
+      {account ? (
+        <Dashboard account={account}>
       {shown.length === 0 ? (
         <p className="mt-3 text-muted">
           {account ? "Non fai ancora parte di nessun campionato: chiedi il link d'invito a chi lo organizza." : "Nessun campionato pubblico. Se hai ricevuto un invito, aprilo o accedi."}</p>
       ) : (
-        <div className="mt-4 grid gap-5 md:grid-cols-2">
+        <div className={`mt-4 grid gap-5 ${account ? "" : "md:grid-cols-2"}`}>
           {shown.map((c) => <ChampionshipCard key={c.id} c={c} member={mine.has(c.id)} myPlayerId={account?.player.id} />)}
         </div>
       )}
+        </Dashboard>
+      ) : (
+        <>
+          <h2 className="mt-10 text-2xl font-bold uppercase">Campionati</h2>
+      {shown.length === 0 ? (
+        <p className="mt-3 text-muted">
+          {account ? "Non fai ancora parte di nessun campionato: chiedi il link d'invito a chi lo organizza." : "Nessun campionato pubblico. Se hai ricevuto un invito, aprilo o accedi."}</p>
+      ) : (
+        <div className={`mt-4 grid gap-5 ${account ? "" : "md:grid-cols-2"}`}>
+          {shown.map((c) => <ChampionshipCard key={c.id} c={c} member={mine.has(c.id)} myPlayerId={undefined} />)}
+        </div>
+      )}
+        </>
+      )}
     </>
   );
+}
+
+/** Dashboard di chi è collegato: numeri, prossima partita, campionati, azioni rapide, amici. */
+async function Dashboard({ account, children }: { account: NonNullable<Awaited<ReturnType<typeof getAccount>>>; children: React.ReactNode }) {
+  return <DashboardView d={await loadDashboard(account)} me={account.player}>{children}</DashboardView>;
 }
 
 const MEDAL = ["bg-gold", "bg-silver", "bg-bronze"];
