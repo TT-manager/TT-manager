@@ -85,3 +85,14 @@ describe("Elo di un torneo", () => {
     expect(() => rateMatches([{ id: "m1", winner: "a", loser: "x" }], start)).toThrow();
   });
 });
+
+describe("scontro diretto con andata e ritorno", () => {
+  it("somma le due partite: una vittoria a testa, decide la differenza set", () => {
+    // a e b a pari punti; a vince 3-0, b vince 3-2: a è avanti negli scontri diretti.
+    const s = computeStandings(["a", "b"], [
+      { playerA: "a", playerB: "b", setsA: 3, setsB: 0 },
+      { playerA: "b", playerB: "a", setsA: 3, setsB: 2 },
+    ]);
+    expect(s.map((x) => x.playerId)).toEqual(["a", "b"]);
+  });
+});

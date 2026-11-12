@@ -52,3 +52,24 @@ describe("lettura dei set dal modulo", () => {
     expect(setsFromForm(form([["11", ""]]))).toMatchObject({ set: 1 });
   });
 });
+
+describe("punti per set e golden point", () => {
+  const g = { points: 11, golden: 15 };
+  it.each([[[11, 9]], [[12, 10]], [[15, 13]], [[16, 14]], [[16, 15]]])("golden sul 15: valido %j", (s) => {
+    expect(setError(s as [number, number], g)).toBeNull();
+  });
+  it.each([[[17, 15]], [[18, 16]], [[15, 14]], [[16, 16]]])("golden sul 15: non valido %j", (s) => {
+    expect(setError(s as [number, number], g)).not.toBeNull();
+  });
+  it("set a 21 e a 7", () => {
+    expect(setError([21, 18], { points: 21, golden: null })).toBeNull();
+    expect(setError([11, 9], { points: 21, golden: null })).toMatch(/21/);
+    expect(setError([7, 3], { points: 7, golden: null })).toBeNull();
+    expect(setError([9, 7], { points: 7, golden: null })).toBeNull();
+    expect(setError([9, 6], { points: 7, golden: null })).toMatch(/esattamente 2/);
+  });
+  it("le regole arrivano alla validazione della partita", () => {
+    expect(validateMatch([[16, 15], [11, 3]], 3, g)).toHaveProperty("result");
+    expect(validateMatch([[17, 15], [11, 3]], 3, g)).toMatchObject({ set: 1 });
+  });
+});

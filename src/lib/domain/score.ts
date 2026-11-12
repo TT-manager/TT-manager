@@ -1,26 +1,41 @@
 /**
  * Validazione dei punteggi di una partita di tennis tavolo, set per set.
- * Regole: un set si vince a 11 con almeno 2 punti di scarto; dal 10-10 si va
- * ai vantaggi (scarto esattamente 2). La partita finisce appena un giocatore
- * vince la maggioranza dei set previsti (best of).
+ * Regole: un set si vince a `points` (di solito 11) con almeno 2 punti di scarto;
+ * dal pari a points-1 si va ai vantaggi (scarto esattamente 2). Con il golden point
+ * (es. 15): sul 15 pari il punto successivo decide il set (16-15).
+ * La partita finisce appena un giocatore vince la maggioranza dei set (best of).
  */
+
+export interface SetRules {
+  /** Punti per vincere il set (default 11). */
+  points: number;
+  /** Punteggio di parità oltre il quale decide un solo punto (golden point), oppure null. */
+  golden: number | null;
+}
+export const DEFAULT_SET_RULES: SetRules = { points: 11, golden: null };
 
 export type SetScore = [number, number];
 
 export interface ValidResult { setsA: number; setsB: number; sets: SetScore[] }
 
 /** Errore del singolo set, o null se valido. */
-export function setError([a, b]: SetScore): string | null {
+export function setError([a, b]: SetScore, rules: SetRules = DEFAULT_SET_RULES): string | null {
+  const { points, golden } = rules;
   if (![a, b].every((x) => Number.isInteger(x) && x >= 0 && x <= 99)) return "punteggi non validi";
   const hi = Math.max(a, b), lo = Math.min(a, b);
-  if (hi < 11) return "nessuno è arrivato a 11";
-  if (hi - lo < 2) return "serve uno scarto di almeno 2 punti";
-  if (hi > 11 && hi - lo !== 2) return "ai vantaggi lo scarto deve essere esattamente 2";
+  if (hi < points) return `nessuno è arrivato a ${points}`;
+  if (golden !== null && hi === golden + 1 && lo === golden) return null; // golden point
+  if (hi - lo < 2) return golden !== null && lo >= golden
+    ? `sul ${golden} pari decide il golden point: il set finisce ${golden + 1}-${golden}`
+    : "serve uno scarto di almeno 2 punti";
+  if (hi > points && hi - lo !== 2) return "ai vantaggi lo scarto deve essere esattamente 2";
+  if (golden !== null && hi > golden + 1)
+    return `con il golden point sul ${golden} pari il set non può superare ${golden + 1}`;
   return null;
 }
 
 /** `set` (da 1) indica la riga da evidenziare, quando l'errore riguarda un set preciso. */
-export function validateMatch(sets: SetScore[], bestOf: number): { result: ValidResult } | { error: string; set?: number } {
+export function validateMatch(sets: SetScore[], bestOf: number, rules: SetRules = DEFAULT_SET_RULES): { result: ValidResult } | { error: string; set?: number } {
   const toWin = Math.ceil(bestOf / 2);
   if (sets.length === 0) return { error: "Inserisci almeno un set." };
   if (sets.length > bestOf) return { error: `Al massimo ${bestOf} set.` };
@@ -28,7 +43,7 @@ export function validateMatch(sets: SetScore[], bestOf: number): { result: Valid
   for (let i = 0; i < sets.length; i++) {
     if (setsA === toWin || setsB === toWin)
       return { error: `La partita era già finita dopo il set ${i}: togli i set in più.`, set: i + 1 };
-    const err = setError(sets[i]);
+    const err = setError(sets[i], rules);
     if (err) return { error: `Set ${i + 1}: ${err}.`, set: i + 1 };
     if (sets[i][0] > sets[i][1]) setsA++; else setsB++;
   }

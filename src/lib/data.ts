@@ -44,7 +44,7 @@ export async function getPublicTournament(publicCode: string) {
   const [{ data: tp, error: e1 }, { data: matches, error: e2 }] = await Promise.all([
     supabase.from("tournament_players").select("player_id, group_no, seed, players(full_name, rating)").eq("tournament_id", t.id),
     supabase.from("matches")
-      .select("id, phase, group_no, stage, round, position, player_a, player_b, sets_a, sets_b, set_scores, best_of, source_a, source_b")
+      .select("id, phase, group_no, stage, round, position, player_a, player_b, sets_a, sets_b, set_scores, best_of, set_points, golden_point, source_a, source_b")
       .eq("tournament_id", t.id),
   ]);
   if (e1 || e2) throw new Error("Impossibile leggere il torneo");
@@ -52,9 +52,9 @@ export async function getPublicTournament(publicCode: string) {
   for (const r of tp ?? []) names.set(r.player_id as string, (r.players as unknown as { full_name: string } | null)?.full_name ?? "?");
   return {
     tournament: t as PublicTournament,
-    members: (tp ?? []).filter((r) => r.group_no !== null).map((r) => ({ playerId: r.player_id as string, group: r.group_no as number })),
+    members: (tp ?? []).filter((r) => r.group_no !== null).map((r) => ({ playerId: r.player_id as string, group: r.group_no as number, seed: r.seed as number | null })),
     enrolledCount: (tp ?? []).length,
     names,
-    matches: (matches ?? []) as unknown as (import("./domain/tournament").MatchRow & { best_of: number; round: number })[],
+    matches: (matches ?? []) as unknown as (import("./domain/tournament").MatchRow & { best_of: number; round: number; set_points: number; golden_point: number | null; rated?: boolean })[],
   };
 }

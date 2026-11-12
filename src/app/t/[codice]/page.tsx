@@ -63,18 +63,20 @@ async function Tournament({ params }: { params: PageProps<"/t/[codice]">["params
 
       {"format" in parsed && (
         <details className="mt-4"><summary className="cursor-pointer">Formato del torneo</summary>
-          <ul className="mt-2 list-disc pl-5">{describeFormat(parsed.format).map((l) => <li key={l}>{l}</li>)}</ul>
+          <ul className="mt-2 list-disc pl-5">{describeFormat(parsed.format, enrolledCount || undefined).map((l) => <li key={l}>{l}</li>)}</ul>
         </details>
       )}
 
       {t.status === "draft" ? (
-        <p className="mt-8">Il torneo è in preparazione: {enrolledCount} iscritti. I gironi non sono ancora stati sorteggiati.</p>
+        <p className="mt-8">Il torneo è in preparazione: {enrolledCount} iscritti. Gironi e tabellone non sono ancora stati sorteggiati.</p>
       ) : (
         <>
-          <h2 className="mt-8 text-2xl font-semibold">Gironi</h2>
-          <div className="mt-3 grid gap-6 lg:grid-cols-2">
-            {groups.map((g) => <Group key={g.group} g={g} name={name} />)}
-          </div>
+          {groups.length > 0 && <>
+            <h2 className="mt-8 text-2xl font-semibold">{stages.length === 0 && groups.length === 1 ? "Classifica" : "Gironi"}</h2>
+            <div className={`mt-3 grid gap-6 ${groups.length > 1 ? "lg:grid-cols-2" : ""}`}>
+              {groups.map((g) => <Group key={g.group} g={g} name={name} single={stages.length === 0 && groups.length === 1} />)}
+            </div>
+          </>}
 
           {stages.length > 0 && (
             <>
@@ -110,10 +112,10 @@ async function Tournament({ params }: { params: PageProps<"/t/[codice]">["params
   );
 }
 
-function Group({ g, name }: { g: GroupView; name: (id: string | null) => string | null }) {
+function Group({ g, name, single = false }: { g: GroupView; name: (id: string | null) => string | null; single?: boolean }) {
   return (
     <section className="rounded-lg border p-4">
-      <h3 className="text-lg font-semibold">Girone {groupLabel(g.group)} {g.complete && <span className={`text-sm font-normal ${muted}`}>· concluso</span>}</h3>
+      <h3 className="text-lg font-semibold">{single ? "Girone unico" : `Girone ${groupLabel(g.group)}`} {g.complete && <span className={`text-sm font-normal ${muted}`}>· concluso</span>}</h3>
       <table className="mt-2 w-full text-left text-sm">
         <thead className={muted}><tr><th className="py-1">#</th><th>Giocatore</th><th className="text-right">V</th><th className="text-right">P</th><th className="text-right">Set</th><th className="text-right">Punti</th></tr></thead>
         <tbody>

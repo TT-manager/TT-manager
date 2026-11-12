@@ -62,7 +62,8 @@ export function roundRobinSchedule(players: string[]): [string, string][][] {
 
 /**
  * Classifica del girone. Spareggi, in ordine: punti classifica,
- * scontro diretto (se due soli a pari), differenza set, differenza punti.
+ * scontro diretto (se due soli a pari; con andata e ritorno contano entrambe),
+ * differenza set, differenza punti.
  */
 export function computeStandings(playerIds: string[], results: MatchResult[]): Standing[] {
   const table = new Map<string, Standing>(
@@ -104,14 +105,20 @@ export function computeStandings(playerIds: string[], results: MatchResult[]): S
     l.tablePoints += 1;
   }
 
+  // Scontro diretto: somma di tutte le partite tra i due (andata e ritorno),
+  // prima per vittorie, poi per differenza set.
   const headToHead = (x: string, y: string): number => {
-    const m = results.find(
-      (r) => (r.playerA === x && r.playerB === y) || (r.playerA === y && r.playerB === x),
-    );
-    if (!m) return 0;
-    const xIsA = m.playerA === x;
-    const diff = xIsA ? m.setsA - m.setsB : m.setsB - m.setsA;
-    return diff > 0 ? 1 : diff < 0 ? -1 : 0;
+    let wins = 0, sets = 0;
+    for (const r of results) {
+      const xIsA = r.playerA === x && r.playerB === y;
+      const xIsB = r.playerA === y && r.playerB === x;
+      if (!xIsA && !xIsB) continue;
+      const diff = xIsA ? r.setsA - r.setsB : r.setsB - r.setsA;
+      wins += diff > 0 ? 1 : -1;
+      sets += diff;
+    }
+    const v = wins !== 0 ? wins : sets;
+    return v > 0 ? 1 : v < 0 ? -1 : 0;
   };
 
   const rows = [...table.values()];

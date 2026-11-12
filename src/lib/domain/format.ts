@@ -1,3 +1,5 @@
+import { DEFAULT_SET_RULES, type SetRules } from "./score";
+
 /**
  * Formato di un torneo, completamente configurabile.
  *
@@ -18,15 +20,52 @@ export interface QualificationRule {
   positions: number[];
   /** Stadio in cui entrano nel tabellone (0 = finale, 1 = semifinali, 2 = quarti, ...). */
   stage: number;
+  /**
+   * Ripescaggio: se indicato, passano solo i migliori `best` tra i classificati
+   * nella posizione indicata (una sola) di tutti i gironi, es. «le 3 migliori seconde».
+   */
+  best?: number;
 }
 
+/** Criteri per confrontare giocatori di gironi diversi (medie per partita: gironi di dimensioni diverse). */
+export type CrossCriterion = "winPct" | "setDiffAvg" | "pointDiffAvg" | "setRatio" | "pointRatio";
+export const CROSS_CRITERIA: Record<CrossCriterion, string> = {
+  winPct: "Percentuale di vittorie",
+  setDiffAvg: "Differenza set media",
+  pointDiffAvg: "Differenza punti media",
+  setRatio: "Quoziente set (vinti/persi)",
+  pointRatio: "Quoziente punti (fatti/subiti)",
+};
+export const DEFAULT_CROSS_CRITERIA: CrossCriterion[] = ["winPct", "setDiffAvg", "pointDiffAvg"];
+
 export interface TournamentFormat {
+  /** "groups" = gironi + tabellone (default); "knockout" = solo eliminazione diretta; "league" = girone unico. */
+  mode?: TournamentMode;
   groupCount: number;
   groupBestOf: BestOf;
+  /** 1 = sola andata, 2 = andata e ritorno (default 1). */
+  groupLegs?: 1 | 2;
+  /** Punti del set e golden point nei gironi (default 11, senza golden point). */
+  groupSet?: SetRules;
   qualification: QualificationRule[];
   /** Set per stadio. Gli stadi non indicati usano `defaultKnockoutBestOf`. */
   knockoutBestOf: Record<number, BestOf>;
   defaultKnockoutBestOf: BestOf;
+  /** Punti del set e golden point per stadio (default 11, senza golden point). */
+  knockoutSet?: Record<number, SetRules>;
+  /** Ordine dei criteri per i ripescaggi (default: % vittorie, differenza set, differenza punti). */
+  crossCriteria?: CrossCriterion[];
+}
+
+export const groupSetRules = (f: TournamentFormat): SetRules => f.groupSet ?? DEFAULT_SET_RULES;
+export const stageSetRules = (f: TournamentFormat, stage: number): SetRules => f.knockoutSet?.[stage] ?? DEFAULT_SET_RULES;
+
+/** Errore delle regole del set, o null. */
+export function setRulesError(r: SetRules): string | null {
+  if (!Number.isInteger(r.points) || r.points < 3 || r.points > 50) return "I punti del set devono essere tra 3 e 50.";
+  if (r.golden !== null && (!Number.isInteger(r.golden) || r.golden < r.points - 1 || r.golden > 60))
+    return `Il golden point deve essere almeno sul ${r.points - 1} pari.`;
+  return null;
 }
 
 export const STAGE_NAMES: Record<number, string> = {
@@ -41,7 +80,9 @@ export function bestOfForStage(f: TournamentFormat, stage: number): BestOf {
 /** Sorgente di un posto nel tabellone. */
 export type SlotSource =
   | { kind: "group"; group: number; position: number } // gruppo 1-based, posizione 1-based
-  | { kind: "winner"; stage: number; match: number };
+  | { kind: "winner"; stage: number; match: number }
+  /** Ripescaggio: il `rank`-esimo migliore tra i classificati in `position`, con i criteri indicati. */
+  | { kind: "best"; position: number; rank: number; criteria: CrossCriterion[] };
 
 export interface PlannedMatch {
   stage: number;
@@ -50,6 +91,7 @@ export interface PlannedMatch {
   a: SlotSource;
   b: SlotSource;
   bestOf: BestOf;
+  set: SetRules;
 }
 
 export interface BracketPlan {
@@ -58,24 +100,90 @@ export interface BracketPlan {
 }
 
 /** Controlla il formato; restituisce l'elenco dei problemi in italiano (vuoto = valido). */
+export type TournamentMode = "groups" | "knockout" | "league";
+export const MODE_LABELS: Record<TournamentMode, string> = {
+  groups: "Gironi + eliminazione diretta",
+  knockout: "Solo eliminazione diretta",
+  league: "Girone unico",
+};
+export const isKnockoutOnly = (f: TournamentFormat) => f.mode === "knockout";
+export const isLeague = (f: TournamentFormat) => f.mode === "league";
+
+/** Numero di stadi del tabellone a eliminazione diretta con n giocatori (es. 8 → quarti = stadio 2). */
+export function knockoutFirstStage(n: number): number {
+  let size = 2, stage = 0;
+  while (size < n) { size *= 2; stage++; }
+  return stage;
+}
+
+/** Dimensioni dei gironi a serpentina con n iscritti e g gironi (i primi gironi hanno un giocatore in più). */
+export function groupSizes(n: number, g: number): number[] {
+  return Array.from({ length: g }, (_, i) => Math.floor(n / g) + (i < n % g ? 1 : 0));
+}
+
+/** Numeri di gironi sensati per n iscritti (da 3 a 6 giocatori per girone). */
+export function suggestGroupCounts(n: number): { groups: number; sizes: string }[] {
+  const out: { groups: number; sizes: string }[] = [];
+  for (let g = 1; g <= Math.floor(n / 3); g++) {
+    const sz = groupSizes(n, g);
+    const min = Math.min(...sz), max = Math.max(...sz);
+    if (min >= 3 && max <= 6) out.push({ groups: g, sizes: min === max ? `${min}` : `${min}-${max}` });
+  }
+  return out;
+}
+
 export function validateFormat(f: TournamentFormat, playersPerGroup?: number[]): string[] {
   const errors: string[] = [];
+  if (f.mode !== undefined && !(f.mode in MODE_LABELS)) errors.push("Modalità del torneo non valida.");
+  if (isLeague(f)) {
+    if (!VALID_BEST_OF.includes(f.groupBestOf)) errors.push("Set delle partite non valido (1, 3, 5 o 7).");
+    if (f.groupLegs !== undefined && f.groupLegs !== 1 && f.groupLegs !== 2) errors.push("Solo andata oppure andata e ritorno.");
+    const e = setRulesError(groupSetRules(f));
+    if (e) errors.push(e);
+    if (playersPerGroup && playersPerGroup[0] !== undefined && playersPerGroup[0] < 2) errors.push("Servono almeno 2 iscritti.");
+    return errors;
+  }
+  if (isKnockoutOnly(f)) {
+    if (!VALID_BEST_OF.includes(f.defaultKnockoutBestOf)) errors.push("Set del tabellone non valido (1, 3, 5 o 7).");
+    for (const [s, b] of Object.entries(f.knockoutBestOf))
+      if (!VALID_BEST_OF.includes(b)) errors.push(`Set non validi per il turno ${s}.`);
+    for (const [st, r] of Object.entries(f.knockoutSet ?? {})) {
+      const e = setRulesError(r);
+      if (e) errors.push(`${stageName(Number(st))}: ${e}`);
+    }
+    return errors;
+  }
   if (!Number.isInteger(f.groupCount) || f.groupCount < 1) errors.push("Serve almeno un girone.");
   if (!VALID_BEST_OF.includes(f.groupBestOf)) errors.push("Set dei gironi non valido (1, 3, 5 o 7).");
   if (!VALID_BEST_OF.includes(f.defaultKnockoutBestOf)) errors.push("Set del tabellone non valido (1, 3, 5 o 7).");
   for (const [s, b] of Object.entries(f.knockoutBestOf))
     if (!VALID_BEST_OF.includes(b)) errors.push(`Set non validi per il turno ${s}.`);
   if (f.qualification.length === 0) errors.push("Indica almeno una regola di qualificazione.");
+  if (f.groupLegs !== undefined && f.groupLegs !== 1 && f.groupLegs !== 2) errors.push("Gironi: solo andata oppure andata e ritorno.");
+  const gs = setRulesError(groupSetRules(f));
+  if (gs) errors.push(`Gironi: ${gs}`);
+  for (const [st, r] of Object.entries(f.knockoutSet ?? {})) {
+    const e = setRulesError(r);
+    if (e) errors.push(`${stageName(Number(st))}: ${e}`);
+  }
 
   const seen = new Set<number>();
+  for (const c of f.crossCriteria ?? []) if (!(c in CROSS_CRITERIA)) errors.push("Criterio di ripescaggio non valido.");
   for (const r of f.qualification) {
     if (!Number.isInteger(r.stage) || r.stage < 0 || r.stage > 6) errors.push("Turno di ingresso non valido.");
     if (r.positions.length === 0) errors.push("Una regola di qualificazione non ha posizioni.");
+    if (r.best !== undefined) {
+      if (r.positions.length !== 1) errors.push("Un ripescaggio riguarda una sola posizione (es. «2»).");
+      if (!Number.isInteger(r.best) || r.best < 1 || r.best > f.groupCount)
+        errors.push(`Ripescaggio: i migliori devono essere tra 1 e ${f.groupCount} (uno per girone al massimo).`);
+      if (playersPerGroup && r.positions[0] && playersPerGroup.filter((n) => n >= r.positions[0]).length < (r.best ?? 0))
+        errors.push(`Non ci sono abbastanza gironi con un ${r.positions[0]}° classificato per ripescarne ${r.best}.`);
+    }
     for (const p of r.positions) {
       if (!Number.isInteger(p) || p < 1) errors.push(`Posizione di girone non valida: ${p}.`);
       if (seen.has(p)) errors.push(`La posizione ${p} compare in più regole.`);
       seen.add(p);
-      if (playersPerGroup && playersPerGroup.some((n) => n < p))
+      if (r.best === undefined && playersPerGroup && playersPerGroup.some((n) => n < p))
         errors.push(`C'è un girone con meno di ${p} giocatori: la posizione ${p} non esiste.`);
     }
   }
@@ -90,8 +198,13 @@ function entrantsByStage(f: TournamentFormat): Map<number, SlotSource[]> {
   const byStage = new Map<number, SlotSource[]>();
   for (const rule of f.qualification) {
     const list = byStage.get(rule.stage) ?? [];
-    for (const position of rule.positions)
-      for (let g = 1; g <= f.groupCount; g++) list.push({ kind: "group", group: g, position });
+    if (rule.best !== undefined) {
+      const criteria = f.crossCriteria?.length ? f.crossCriteria : DEFAULT_CROSS_CRITERIA;
+      for (let rank = 1; rank <= rule.best; rank++) list.push({ kind: "best", position: rule.positions[0], rank, criteria });
+    } else {
+      for (const position of rule.positions)
+        for (let g = 1; g <= f.groupCount; g++) list.push({ kind: "group", group: g, position });
+    }
     byStage.set(rule.stage, list);
   }
   return byStage;
@@ -111,6 +224,8 @@ export function planBracket(f: TournamentFormat): BracketPlan {
   /** Gironi da cui può provenire chi occupa questo posto. */
   const groupsOf = (s: SlotSource): Set<number> => {
     if (s.kind === "group") return new Set([s.group]);
+    if (s.kind === "best") return new Set(); // girone noto solo a fine gironi
+
     const m = planned.get(`${s.stage}:${s.match}`);
     return m ? new Set([...groupsOf(m.a), ...groupsOf(m.b)]) : new Set();
   };
@@ -125,7 +240,7 @@ export function planBracket(f: TournamentFormat): BracketPlan {
       throw new Error(`La finale ha ${slots.length} giocatori invece di 2: le regole di qualificazione non tornano.`);
     const pairs = pairSlots(slots, groupsOf);
     const matches: PlannedMatch[] = pairs.map(([a, b], i) => ({
-      stage, match: i, a, b, bestOf: bestOfForStage(f, stage),
+      stage, match: i, a, b, bestOf: bestOfForStage(f, stage), set: stageSetRules(f, stage),
     }));
     for (const m of matches) planned.set(`${stage}:${m.match}`, m);
     rounds.push({ stage, matches });
@@ -139,7 +254,9 @@ export function planBracket(f: TournamentFormat): BracketPlan {
 
 /** Forza di un posto: più basso = più forte. I vincitori di turni precedenti sono i più deboli. */
 function strength(s: SlotSource): number {
-  return s.kind === "group" ? s.position * 1000 + s.group : 1_000_000 + s.match;
+  if (s.kind === "group") return s.position * 1000 + s.group;
+  if (s.kind === "best") return s.position * 1000 + 500 + s.rank; // dopo i pari posizione «diretti»
+  return 1_000_000 + s.match;
 }
 
 /**
@@ -186,10 +303,21 @@ export function parseFormat(raw: unknown): { format: TournamentFormat } | { erro
   const int = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? v : NaN);
   if (!Array.isArray(o.qualification)) return bad;
   const kb = (typeof o.knockoutBestOf === "object" && o.knockoutBestOf) || {};
+  const rules = (v: unknown): SetRules | undefined => {
+    if (v === undefined || v === null) return undefined;
+    const r = (typeof v === "object" ? v : {}) as Record<string, unknown>;
+    return { points: int(r.points), golden: r.golden === null || r.golden === undefined ? null : int(r.golden) };
+  };
+  const ks = (typeof o.knockoutSet === "object" && o.knockoutSet) || {};
   const format: TournamentFormat = {
-    groupCount: int(o.groupCount),
+    ...(o.mode === "knockout" || o.mode === "groups" || o.mode === "league" ? { mode: o.mode } : {}),
+    groupCount: o.mode === "league" ? 1 : o.mode === "knockout" && o.groupCount === undefined ? 0 : int(o.groupCount),
     groupBestOf: int(o.groupBestOf) as BestOf,
+    groupLegs: o.groupLegs === undefined ? 1 : (int(o.groupLegs) as 1 | 2),
+    groupSet: rules(o.groupSet),
+    knockoutSet: Object.fromEntries(Object.entries(ks as Record<string, unknown>).map(([k, v]) => [Number(k), rules(v)!])),
     defaultKnockoutBestOf: int(o.defaultKnockoutBestOf) as BestOf,
+    ...(Array.isArray(o.crossCriteria) ? { crossCriteria: o.crossCriteria.map(String) as CrossCriterion[] } : {}),
     knockoutBestOf: Object.fromEntries(
       Object.entries(kb as Record<string, unknown>).map(([k, v]) => [Number(k), int(v) as BestOf])),
     qualification: (o.qualification as unknown[]).map((r) => {
@@ -197,11 +325,13 @@ export function parseFormat(raw: unknown): { format: TournamentFormat } | { erro
       return {
         stage: int(rr.stage),
         positions: Array.isArray(rr.positions) ? rr.positions.map(int) : [],
+        ...(rr.best === undefined || rr.best === null ? {} : { best: int(rr.best) }),
       };
     }),
   };
   if (format.groupCount > 64) return { errors: ["Troppi gironi (massimo 64)."] };
-  if (Object.keys(format.knockoutBestOf).some((k) => !Number.isInteger(Number(k)) || Number(k) < 0 || Number(k) > 6))
+  if ([...Object.keys(format.knockoutBestOf), ...Object.keys(format.knockoutSet ?? {})]
+    .some((k) => !Number.isInteger(Number(k)) || Number(k) < 0 || Number(k) > 6))
     return bad;
   const errors = validateFormat(format);
   return errors.length ? { errors } : { format };
@@ -210,15 +340,41 @@ export function parseFormat(raw: unknown): { format: TournamentFormat } | { erro
 const ordinal = (n: number) => `${n}°`;
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} e ${xs.at(-1)}`);
 const sets = (b: number) => (b === 1 ? "a set unico" : `al meglio dei ${b} set`);
+/** "set a 11" / "set a 11, golden point sul 15 pari" */
+export const describeSetRules = (r: SetRules) =>
+  `set a ${r.points}${r.golden !== null ? `, golden point sul ${r.golden} pari` : ""}`;
 
 /** Descrizione in italiano del formato, una riga per punto. */
-export function describeFormat(f: TournamentFormat): string[] {
-  const lines = [`${f.groupCount} ${f.groupCount === 1 ? "girone" : "gironi"} all'italiana, partite ${sets(f.groupBestOf)}.`];
+export function describeFormat(f: TournamentFormat, players?: number): string[] {
+  if (isLeague(f)) {
+    const legs = f.groupLegs === 2 ? " con andata e ritorno" : "";
+    return [
+      `Girone unico all'italiana${legs}: tutti contro tutti, partite ${sets(f.groupBestOf)} (${describeSetRules(groupSetRules(f))}).`,
+      "Vince il primo in classifica (punti, scontro diretto, differenza set, differenza punti).",
+    ];
+  }
+  if (isKnockoutOnly(f)) {
+    const lines = ["Solo eliminazione diretta: teste di serie in base alla classifica generale; se i giocatori non sono 4, 8, 16…, i migliori saltano il primo turno."];
+    const first = players && players >= 2 ? knockoutFirstStage(players) : Math.max(0, ...Object.keys(f.knockoutBestOf).map(Number));
+    for (let st = first; st >= 0; st--)
+      lines.push(`${stageName(st)}: ${sets(bestOfForStage(f, st))} (${describeSetRules(stageSetRules(f, st))}).`);
+    return lines;
+  }
+  const legs = f.groupLegs === 2 ? " con andata e ritorno" : "";
+  const lines = [`${f.groupCount} ${f.groupCount === 1 ? "girone" : "gironi"} all'italiana${legs}, partite ${sets(f.groupBestOf)} (${describeSetRules(groupSetRules(f))}).`];
   for (const r of [...f.qualification].sort((a, b) => b.stage - a.stage)) {
+    if (r.best !== undefined) {
+      lines.push(`${r.best === 1 ? "Il miglior" : `I migliori ${r.best}`} tra i ${ordinal(r.positions[0])} classificati → ${stageName(r.stage).toLowerCase()} (ripescaggio).`);
+      continue;
+    }
     const pos = list([...r.positions].sort((a, b) => a - b).map(ordinal));
     lines.push(`${pos} di ogni girone → ${stageName(r.stage).toLowerCase()}.`);
   }
+  if (f.qualification.some((r) => r.best !== undefined)) {
+    const c = (f.crossCriteria?.length ? f.crossCriteria : DEFAULT_CROSS_CRITERIA).map((k) => CROSS_CRITERIA[k].toLowerCase());
+    lines.push(`Ripescaggi decisi da: ${c.join(", ")}; a parità, la testa di serie.`);
+  }
   for (const round of planBracket(f).rounds)
-    lines.push(`${stageName(round.stage)}: ${round.matches.length} ${round.matches.length === 1 ? "partita" : "partite"} ${sets(round.matches[0].bestOf)}.`);
+    lines.push(`${stageName(round.stage)}: ${round.matches.length} ${round.matches.length === 1 ? "partita" : "partite"} ${sets(round.matches[0].bestOf)} (${describeSetRules(round.matches[0].set)}).`);
   return lines;
 }

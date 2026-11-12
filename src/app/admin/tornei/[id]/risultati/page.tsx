@@ -44,7 +44,7 @@ export default async function AdminResultsPage({ params }: PageProps<"/admin/tor
               <span className="tabular-nums">{isPlayed(m) ? `${m.sets_a}-${m.sets_b}` : "da giocare"}</span>
             </div>
             {!closed && m.player_a && m.player_b && (
-              <MatchForm action={adminSubmitResult} hidden={{ tournament_id: id }} matchId={m.id} bestOf={m.best_of}
+              <MatchForm action={adminSubmitResult} hidden={{ tournament_id: id }} matchId={m.id} bestOf={m.best_of} rules={{ points: m.set_points, golden: m.golden_point }}
                 a={name(m.player_a)!} b={name(m.player_b)!} initial={m.set_scores} />
             )}
           </li>

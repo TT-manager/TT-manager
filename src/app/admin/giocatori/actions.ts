@@ -1,5 +1,5 @@
 "use server";
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 
@@ -24,6 +24,7 @@ export async function addPlayer(_prev: FormState, formData: FormData): Promise<F
   const { error } = await supabase.from("players").insert({ ...parsed.value, rating });
   if (error) return { error: "Non sono riuscito a salvare il giocatore." };
   revalidatePath("/admin/giocatori");
+  refresh(); // aggiorna subito la pagina aperta
   return { ok: `Aggiunto ${parsed.value.full_name}.` };
 }
 
@@ -37,6 +38,7 @@ export async function updatePlayer(_prev: FormState, formData: FormData): Promis
   const { error } = await supabase.from("players").update({ ...parsed.value, active }).eq("id", id);
   if (error) return { error: "Non sono riuscito a salvare le modifiche." };
   revalidatePath("/admin/giocatori");
+  refresh(); // aggiorna subito la pagina aperta
   return { ok: "Salvato." };
 }
 
@@ -48,5 +50,6 @@ export async function deletePlayer(_prev: FormState, formData: FormData): Promis
   if (error)
     return { error: "Questo giocatore ha già partite o iscrizioni: non si può eliminare. Disattivalo, così sparisce dalla classifica." };
   revalidatePath("/admin/giocatori");
+  refresh(); // aggiorna subito la pagina aperta
   return { ok: "Eliminato." };
 }
