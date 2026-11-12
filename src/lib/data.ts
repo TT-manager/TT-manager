@@ -41,6 +41,8 @@ export async function getChampionshipTournaments(championshipId: string) {
   const supabase = createPublicClient();
   const [{ data: tournaments }, { data: past }] = await Promise.all([
     supabase.from("tournaments_public").select("id, name, starts_on, status, public_code, closed_at, ranked, championship_id, registration_open, registration_deadline").eq("championship_id", championshipId)
+      // Storico: solo i tornei validi per i punti; gli amichevoli si vedono finché non sono chiusi.
+      .or("ranked.eq.true,status.neq.closed")
       .order("starts_on", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }),
     supabase.from("past_tournaments").select("id, name, held_on, past_results(position, players(full_name))")
       .eq("championship_id", championshipId).order("held_on", { ascending: false, nullsFirst: false }),

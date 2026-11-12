@@ -307,7 +307,7 @@ async function closeFriendly(tournamentId: string): Promise<CloseState> {
   const svc = createServiceClient();
   const { data } = await svc.from("tournaments").update({ status: "closed", closed_at: new Date().toISOString() })
     .eq("id", tournamentId).eq("ranked", false).in("status", ["groups", "knockout"]).select("id");
-  return data?.length ? { ok: "Torneo chiuso (amichevole: nessuna classifica cambia)." } : { error: "Il torneo è già chiuso oppure non è ancora iniziato." };
+  return data?.length ? { ok: "Torneo chiuso. È un amichevole: nessuna classifica cambia e non resta nello storico (la pagina pubblica resta raggiungibile con il codice)." } : { error: "Il torneo è già chiuso oppure non è ancora iniziato." };
 }
 
 async function reopenFriendly(tournamentId: string): Promise<CloseState> {

@@ -29,7 +29,7 @@ async function Profile() {
     svc.from("championship_requests").select("id, status, created_at, championships(name, slug)").eq("user_id", account.userId)
       .neq("status", "approved").order("created_at", { ascending: false }).limit(20),
     svc.from("championships").select("id, name, slug, kind").order("name"),
-    svc.from("tournaments").select("id, name, starts_on, status, public_code").eq("owner_user_id", account.userId)
+    svc.from("tournaments").select("id, name, starts_on, status, public_code").eq("owner_user_id", account.userId).neq("status", "closed")
       .order("created_at", { ascending: false }).limit(30),
     svc.from("friendships").select("user_a", { count: "exact", head: true })
       .or(`user_a.eq.${account.userId},user_b.eq.${account.userId}`).eq("status", "pending").neq("requested_by", account.userId),
@@ -103,7 +103,7 @@ async function Profile() {
           <h2 className="text-xl font-semibold">I miei tornei amichevoli</h2>
           <Link href="/amichevole/nuovo" className="btn-primary text-sm">Crea un amichevole</Link>
         </div>
-        {(friendlies ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>Organizza una sfida con i tuoi amici: non conta per nessuna classifica.</p> : (
+        {(friendlies ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>Organizza una sfida con i tuoi amici: non conta per nessuna classifica e, una volta chiusa, non resta nello storico.</p> : (
           <ul className="mt-2 divide-y">
             {friendlies!.map((t) => (
               <li key={t.id} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
