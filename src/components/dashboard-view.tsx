@@ -1,12 +1,27 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Avatar } from "./avatar";
-import type { loadDashboard } from "@/lib/dashboard";
+import type { loadDashboard, Side } from "@/lib/dashboard";
 import { timeAgo } from "@/lib/time";
 
 export type DashboardData = Awaited<ReturnType<typeof loadDashboard>>;
 
-export function DashboardView({ d, me, children }: { d: DashboardData; me: { full_name: string; avatar_path: string | null }; children: ReactNode }) {
+/** Un lato della sfida: una foto e un nome nel singolare, due foto sovrapposte e due nomi nel doppio. */
+function SideView({ side, meId, right = false }: { side: Side; meId?: string; right?: boolean }) {
+  const pair = side.length > 1;
+  const size = pair ? "h-9 w-9 text-xs sm:h-10 sm:w-10 sm:text-sm" : "h-12 w-12 text-base sm:h-14 sm:w-14 sm:text-lg";
+  return (
+    <div className={`flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 ${right ? "items-end text-right sm:flex-row-reverse" : "items-start"}`}>
+      <span className={`flex shrink-0 ${pair ? (right ? "-space-x-3 flex-row-reverse space-x-reverse" : "-space-x-3") : ""}`}>
+        {side.map((p) => <Avatar key={p.id} name={p.name} path={p.avatar} size={size} />)}
+      </span>
+      <span className={`min-w-0 max-w-full font-bold leading-tight [overflow-wrap:anywhere] ${pair ? "text-sm sm:text-base" : "text-base sm:text-lg"}`}>
+        {side.map((p) => <span key={p.id} className="block">{p.id === meId ? "Tu" : p.name}</span>)}
+      </span>
+    </div>);
+}
+
+export function DashboardView({ d, me, children }: { d: DashboardData; me: { id: string; full_name: string; avatar_path: string | null }; children: ReactNode }) {
   const pct = d.kpi.games ? Math.round((d.kpi.wins / d.kpi.games) * 100) : null;
   const kpis = [
     { label: "Leghe", value: String(d.kpi.championships).padStart(2, "0"), sub: d.kpi.championships ? "a cui partecipi" : "inizia a partecipare", icon: "🏆" },
@@ -42,12 +57,10 @@ export function DashboardView({ d, me, children }: { d: DashboardData; me: { ful
                 <span className="badge-live"><span className="live-dot" /> {d.next.tournament}</span>
                 <span className="text-xs uppercase tracking-wide text-muted">{d.next.phase}{d.next.ranked ? "" : " · amichevole"}</span>
               </div>
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3"><Avatar name={me.full_name} path={me.avatar_path} size="h-14 w-14 text-lg" />
-                  <span className="truncate text-lg font-bold">Tu</span></div>
+              <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+                <SideView side={d.next.me} meId={me.id} />
                 <span className="font-display text-2xl font-bold text-muted">VS</span>
-                <div className="flex min-w-0 items-center justify-end gap-3"><span className="truncate text-right text-lg font-bold">{d.next.opponent}</span>
-                  <Avatar name={d.next.opponent} size="h-14 w-14 text-lg" /></div>
+                <SideView side={d.next.opponent} right />
               </div>
               <p className="mt-4 border-t border-line pt-3 text-right text-sm font-semibold text-brand">Apri il torneo →</p>
             </Link>

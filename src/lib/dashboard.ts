@@ -19,6 +19,22 @@ async function entryNames(svc: Svc, entryIds: string[]) {
   return out;
 }
 
+export type Side = { id: string; name: string; avatar: string | null }[];
+
+/** Componenti delle voci (1 nel singolare, 2 nel doppio), con la foto. */
+async function entrySides(svc: Svc, entryIds: string[]) {
+  const out = new Map<string, Side>();
+  if (!entryIds.length) return out;
+  const { data } = await svc.from("entry_members").select("entry_id, players(id, full_name, avatar_path)").in("entry_id", entryIds);
+  for (const r of data ?? []) {
+    const p = r.players as unknown as { id: string; full_name: string; avatar_path: string | null } | null;
+    if (!p) continue;
+    out.set(r.entry_id as string, [...(out.get(r.entry_id as string) ?? []), { id: p.id, name: p.full_name, avatar: p.avatar_path }]);
+  }
+  for (const side of out.values()) side.sort((a, b) => a.name.localeCompare(b.name, "it"));
+  return out;
+}
+
 const won = (m: { player_a: string; sets_a: number; sets_b: number }, entry: string) =>
   (m.player_a === entry) === (m.sets_a > m.sets_b);
 
@@ -26,7 +42,7 @@ export type LiveTournament = {
   name: string; code: string; ranked: boolean; league: string | null; phase: string;
   played: number; total: number; playing: boolean;
 };
-export type NextMatch = { tournament: string; code: string; phase: string; opponent: string; ranked: boolean };
+export type NextMatch = { tournament: string; code: string; phase: string; me: Side; opponent: Side; ranked: boolean };
 export type Activity = { at: string; text: string; detail: string; href: string; who: string };
 
 export async function loadDashboard(account: Account) {
@@ -63,10 +79,14 @@ export async function loadDashboard(account: Account) {
     const m = todo?.[0];
     if (m) {
       const t = live.find((x) => x.id === m.tournament_id)!;
-      const opp = mine.has(m.player_a as string) ? m.player_b as string : m.player_a as string;
-      const names = await entryNames(svc, [opp]);
+      const myEntry = mine.has(m.player_a as string) ? m.player_a as string : m.player_b as string;
+      const opp = myEntry === m.player_a ? m.player_b as string : m.player_a as string;
+      const sides = await entrySides(svc, [myEntry, opp]);
+      // Tu per primo; il compagno (nel doppio) dopo.
+      const meSide = [...(sides.get(myEntry) ?? [])].sort((a, b) => Number(b.id === me) - Number(a.id === me));
       next = {
-        tournament: t.name as string, code: t.public_code as string, ranked: t.ranked as boolean, opponent: names.get(opp) ?? "?",
+        tournament: t.name as string, code: t.public_code as string, ranked: t.ranked as boolean,
+        me: meSide, opponent: sides.get(opp) ?? [{ id: opp, name: "?", avatar: null }],
         phase: m.phase === "group" ? `Girone ${groupLabel(m.group_no as number)} · turno ${m.round}` : stageName(m.stage as number),
       };
     }
