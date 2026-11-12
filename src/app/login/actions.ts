@@ -12,13 +12,12 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   const password = String(formData.get("password") ?? "");
   if (!email || !password) return { error: "Inserisci email e password." };
   const supabase = await createServerSupabase();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error?.code === "email_not_confirmed") return { error: "Devi prima confermare l'email: apri il link che ti abbiamo mandato." };
   if (error) return { error: "Email o password non corrette." };
   const next = formData.get("next");
   if (typeof next === "string" && next) redirect(safeNext(next));
-  const { data: admin } = await supabase.from("admins").select("role").eq("user_id", data.user.id).maybeSingle();
-  redirect(admin ? "/admin" : "/profilo");
+  redirect("/"); // la home mostra la dashboard; l'area admin è nella barra in alto
 }
 
 export async function signup(_prev: LoginState, formData: FormData): Promise<LoginState> {

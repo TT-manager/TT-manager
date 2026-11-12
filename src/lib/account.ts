@@ -68,7 +68,7 @@ async function ensurePlayer(userId: string, name: string, meta: { club_id?: unkn
 }
 
 /** Accetta solo percorsi interni (evita redirect verso altri siti). */
-export function safeNext(raw: unknown, fallback = "/profilo") {
+export function safeNext(raw: unknown, fallback = "/") {
   const s = typeof raw === "string" ? raw : "";
   return s.startsWith("/") && !s.startsWith("//") && !s.startsWith("/\\") ? s : fallback;
 }

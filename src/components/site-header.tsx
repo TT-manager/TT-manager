@@ -2,12 +2,14 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { SITE_NAME } from "./logo";
+import { BackButton } from "./back-button";
 
 /** Barra in alto, uguale su tutte le pagine. */
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-30 border-b-4 border-brand bg-ink text-white">
-      <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-2.5">
+      <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-2.5 sm:gap-4">
+        <BackButton />
         <Link href="/" className="flex items-center" aria-label={`${SITE_NAME}: home`}>
           {/* eslint-disable-next-line @next/next/no-img-element -- logo vettoriale, nessuna ottimizzazione necessaria */}
           <img src="/logo-scuro.svg" alt={SITE_NAME} width={151} height={40} className="h-10 w-auto" />
@@ -30,8 +32,9 @@ async function AccountNav() {
   </>;
   const { data: admin } = await supabase.from("admins").select("role").eq("user_id", data.claims.sub).maybeSingle();
   return <>
+    <Link href="/" className={`${item} hidden sm:inline`}>Home</Link>
     <Link href="/amici" className={`${item} hidden sm:inline`}>Amici</Link>
     {admin && <Link href="/admin" className={item}>Admin</Link>}
-    <Link href="/profilo" className="rounded-md bg-brand px-3 py-1.5 font-medium hover:bg-brand-dark">Il mio profilo</Link>
+    <Link href="/profilo" className="rounded-md bg-brand px-3 py-1.5 font-medium hover:bg-brand-dark"><span className="sm:hidden">Profilo</span><span className="hidden sm:inline">Il mio profilo</span></Link>
   </>;
 }
