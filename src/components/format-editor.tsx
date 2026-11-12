@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import {
   CROSS_CRITERIA, DEFAULT_CROSS_CRITERIA, describeFormat, groupSizes, knockoutFirstStage, MODE_LABELS, STAGE_NAMES, suggestGroupCounts,
   validateFormat, VALID_BEST_OF, type BestOf, type CrossCriterion, type TournamentFormat, type TournamentMode,
@@ -105,7 +105,12 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
   const suggestions = suggestGroupCounts(enrolled);
 
   return (
-    <form action={action} className="mt-6 space-y-8">
+    // Invio manuale: evita che React svuoti i campi dopo il salvataggio (le caselle apparirebbero vuote).
+    <form className="mt-6 space-y-8" onSubmit={(e) => {
+      e.preventDefault();
+      const data = new FormData(e.currentTarget);
+      startTransition(() => action(data));
+    }}>
       {Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       <input type="hidden" name="format" value={JSON.stringify(format)} />
 

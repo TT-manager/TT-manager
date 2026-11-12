@@ -1,12 +1,13 @@
 "use client";
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import { closeTournamentAction, generateGroups, regenerateOrganizerCode, reopenTournamentAction, resetGroups, setEnrollment, type CloseState, type EnrollState, type GenState, type RegenState } from "../actions";
 
 type P = { id: string; full_name: string; club: string | null; rating: number };
 
-export function EnrollmentForm({ tournamentId, players, enrolledIds, locked }:
-  { tournamentId: string; players: P[]; enrolledIds: string[]; locked: boolean }) {
-  const [state, action, pending] = useActionState<EnrollState, FormData>(setEnrollment, {});
+export function EnrollmentForm({ tournamentId, players, enrolledIds, locked, saveAction = setEnrollment }:
+  { tournamentId: string; players: P[]; enrolledIds: string[]; locked: boolean;
+    saveAction?: (prev: EnrollState, formData: FormData) => Promise<EnrollState> }) {
+  const [state, action, pending] = useActionState<EnrollState, FormData>(saveAction, {});
   const [filter, setFilter] = useState("");
   const [checked, setChecked] = useState(() => new Set(enrolledIds));
   // Il messaggio dell'ultimo salvataggio vale solo finché la selezione non cambia.
@@ -25,7 +26,17 @@ export function EnrollmentForm({ tournamentId, players, enrolledIds, locked }:
   };
   if (players.length === 0) return <p className="mt-2">Nessun giocatore attivo: aggiungili prima nella pagina Giocatori.</p>;
   return (
-    <form action={action} onSubmit={() => setChangedSinceSave(false)} className="mt-2 space-y-3">
+    // Invio manuale: l'invio con `action` farebbe svuotare a React le caselle (restano selezionate in memoria
+    // ma appaiono vuote). Così il modulo resta com'è e mostra la selezione salvata.
+    <form className="mt-2 space-y-3" onSubmit={(e) => {
+      e.preventDefault();
+      setChangedSinceSave(false);
+      // Gli iscritti si prendono dalla selezione in memoria, non dalle caselle a schermo.
+      const data = new FormData();
+      data.set("tournament_id", tournamentId);
+      for (const id of checked) data.append("player_id", id);
+      startTransition(() => action(data));
+    }}>
       <input type="hidden" name="tournament_id" value={tournamentId} />
       {/* Gli iscritti nascosti dal filtro restano nel modulo. */}
       {[...checked].filter((id) => !shown.some((p) => p.id === id)).map((id) => <input key={id} type="hidden" name="player_id" value={id} />)}
