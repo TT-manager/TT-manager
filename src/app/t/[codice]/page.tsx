@@ -10,6 +10,7 @@ import { groupLabel, groupViews, isPlayed, resolveKnockout, type GroupView, type
 import { STATUS_LABEL } from "@/lib/labels";
 import { SelfEnroll } from "./self-enroll";
 import { MyMatches } from "./my-matches";
+import { streamPlatform } from "@/lib/stream";
 
 export default function TournamentPage({ params, searchParams }: PageProps<"/t/[codice]">) {
   return (
@@ -76,6 +77,9 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
                 {championship && <><Link href={`/c/${championship.slug}`} className="underline decoration-brand underline-offset-2 hover:text-white">{championship.name}</Link>{t.ranked ? " · vale per la classifica" : " · non vale per la classifica"} · </>}
                 {t.starts_on && `${new Date(t.starts_on).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })} · `}codice <span className="font-mono">{t.public_code}</span>
               </p>
+              {t.stream_url && (
+                <a href={t.stream_url} target="_blank" rel="noopener noreferrer nofollow" className="btn-primary mt-4">
+                  <span aria-hidden="true">▶</span> {live ? "Guarda la diretta" : "Guarda il video"}{streamPlatform(t.stream_url) ? ` su ${streamPlatform(t.stream_url)}` : ""}</a>)}
             </div>
             {t.status !== "closed" && (
               <div className="text-right text-sm">

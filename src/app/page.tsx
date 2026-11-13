@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { Avatar } from "@/components/avatar";
-import { getChampionships, getRanking, type Championship, type RankingRow } from "@/lib/data";
+import { getChampionships, getFeaturedLive, getRanking, type Championship, type RankingRow } from "@/lib/data";
 import { getAccount } from "@/lib/account";
 import { formatDeadline, registrationIsOpen } from "@/lib/registration";
 import { createPublicClient } from "@/lib/supabase/public";
@@ -31,7 +31,7 @@ function CodeBox() {
 }
 
 async function HomeContent() {
-  const [account, all] = await Promise.all([getAccount(), getChampionships()]);
+  const [account, all, featured] = await Promise.all([getAccount(), getChampionships(), getFeaturedLive()]);
   let mine = new Set<string>();
   if (account) {
     const { data } = await createServiceClient().from("championship_players").select("championship_id").eq("player_id", account.player.id);
@@ -60,6 +60,24 @@ async function HomeContent() {
           </div>
         </div>
       </section>
+
+      {featured.length > 0 && (
+        <section className="mt-6">
+          <h2 className="flex items-center gap-2 text-2xl font-bold uppercase"><span className="live-dot text-brand" /> In diretta</h2>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+            {featured.map((t) => (
+              <li key={t.id} className="card flex flex-wrap items-center justify-between gap-3">
+                <Link href={`/t/${t.public_code}`} className="min-w-0 hover:text-brand">
+                  <span className="block truncate font-display text-xl font-bold uppercase">{t.name}</span>
+                  <span className="text-sm text-muted">{t.status === "groups" ? "Qualificazione" : "Fase finale"}{t.kind === "doubles" ? " · doppio" : ""}{t.ranked ? "" : " · amichevole"}</span>
+                </Link>
+                <span className="flex gap-2">
+                  {t.stream_url && <a href={t.stream_url} target="_blank" rel="noopener noreferrer nofollow" className="btn-primary py-1.5 text-sm"><span aria-hidden="true">▶</span> Diretta</a>}
+                  <Link href={`/t/${t.public_code}`} className="btn-outline py-1.5 text-sm">Risultati</Link>
+                </span>
+              </li>))}
+          </ul>
+        </section>)}
 
       {account ? (
         <Dashboard account={account}>

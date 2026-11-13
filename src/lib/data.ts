@@ -89,14 +89,14 @@ export async function getPlayer(id: string) {
 export type PublicTournament = {
   id: string; name: string; starts_on: string | null; status: string; public_code: string; format: unknown; championship_id: string | null;
   ranked: boolean; kind: "singles" | "doubles"; registration_open: boolean; registration_deadline: string | null;
-  player_results: boolean;
+  player_results: boolean; featured: boolean; stream_url: string | null;
 };
 
 /** Torneo pubblico con iscritti (giocatori o coppie) e partite (nessun dato riservato). */
 export async function getPublicTournament(publicCode: string) {
   const supabase = createPublicClient();
   const { data: t, error } = await supabase.from("tournaments_public")
-    .select("id, name, starts_on, status, public_code, format, championship_id, ranked, kind, registration_open, registration_deadline, player_results").eq("public_code", publicCode).maybeSingle();
+    .select("id, name, starts_on, status, public_code, format, championship_id, ranked, kind, registration_open, registration_deadline, player_results, featured, stream_url").eq("public_code", publicCode).maybeSingle();
   if (error) throw new Error("Impossibile leggere il torneo");
   if (!t) return null;
   const [entries, { data: matches, error: e2 }, { data: championship }] = await Promise.all([
@@ -123,4 +123,12 @@ export async function getPublicTournament(publicCode: string) {
     matches: ((matches ?? []) as unknown as (MatchRow & { best_of: number; round: number; set_points: number; golden_point: number | null; rated?: boolean; reported_by: string | null; disputed_at: string | null })[])
       .map((m) => ({ ...m, disputed: m.disputed_at !== null })),
   };
+}
+
+/** Tornei in corso segnalati dagli organizzatori per la home di tutti. */
+export async function getFeaturedLive() {
+  const { data } = await createPublicClient().from("tournaments_public")
+    .select("id, name, public_code, status, kind, ranked, stream_url, starts_on").eq("featured", true).in("status", ["groups", "knockout"])
+    .order("starts_on", { ascending: false, nullsFirst: false }).limit(6);
+  return (data ?? []) as { id: string; name: string; public_code: string; status: string; kind: string; ranked: boolean; stream_url: string | null; starts_on: string | null }[];
 }

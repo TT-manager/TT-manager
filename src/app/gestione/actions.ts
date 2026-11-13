@@ -6,6 +6,7 @@ import { requireAccount } from "@/lib/account";
 import { bestRatings, friendlyCandidates } from "@/lib/friends";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { romeToIso } from "@/lib/registration";
+import { parseStreamUrl } from "@/lib/stream";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { formatOrganizerCode, hashCode, newOrganizerCode, newPublicCode } from "@/lib/codes";
 import { parseFormat } from "@/lib/domain/format";
@@ -403,4 +404,18 @@ export async function deleteTournamentAction(_prev: CloseState, formData: FormDa
   revalidatePath("/");
   if (access.championshipId) { revalidatePath(`/admin/campionati/${access.championshipId}`); redirect(`/admin/campionati/${access.championshipId}`); }
   redirect("/profilo");
+}
+
+/** Torneo nella home di tutti (mentre è in corso) e link della diretta streaming. */
+export async function setPublicAndStream(_prev: ResultState, formData: FormData): Promise<ResultState> {
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  await requireTournamentManager(tournamentId);
+  const stream = parseStreamUrl(String(formData.get("stream_url") ?? ""));
+  if ("error" in stream) return { error: stream.error };
+  const featured = formData.get("featured") === "on";
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.from("tournaments").update({ featured, stream_url: stream.url }).eq("id", tournamentId);
+  if (error) return { error: "Non sono riuscito a salvare." };
+  revalidatePath(`/gestione/${tournamentId}`); revalidatePath("/"); refresh();
+  return { ok: "Salvato." };
 }

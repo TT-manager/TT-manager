@@ -10,7 +10,7 @@ import { hasServiceKey } from "@/lib/organizer";
 import { friendlyCandidates } from "@/lib/friends";
 import { ActionForm } from "@/components/action-form";
 import { formatDeadline, isoToRomeLocal, registrationIsOpen } from "@/lib/registration";
-import { setPlayerResults, setRegistration } from "@/app/gestione/actions";
+import { setPlayerResults, setPublicAndStream, setRegistration } from "@/app/gestione/actions";
 import { disputedCount } from "@/lib/results";
 import { ClosingControl, DeleteTournament, EnrollmentForm, GroupsControl, GuestForm, PairsForm, RegenerateCode } from "./tournament-forms";
 
@@ -23,7 +23,7 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
   const { championshipId } = access;
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments")
-    .select("id, name, starts_on, status, public_code, format, registration_open, registration_deadline, player_results").eq("id", id).maybeSingle();
+    .select("id, name, starts_on, status, public_code, format, registration_open, registration_deadline, player_results, featured, stream_url").eq("id", id).maybeSingle();
   if (!t) notFound();
   // Torneo di lega: si iscrivono i giocatori della lega, con i loro punti.
   // Amichevole di un utente: lui, i suoi amici e i suoi ospiti.
@@ -124,6 +124,22 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
                 <span className="block text-sm text-neutral-600 dark:text-neutral-400">Il risultato vale subito; l&apos;avversario può contestarlo e in quel caso decidi tu. Puoi sempre correggere tutto.</span></span></label>
           </ActionForm>)}
       </section>
+
+      {t.status !== "closed" && (
+        <section>
+          <h2 className="text-lg font-semibold">Pubblico e diretta</h2>
+          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">La pagina del torneo è già visibile a chiunque abbia il link o il codice <span className="font-mono">{t.public_code}</span>.</p>
+          <ActionForm action={setPublicAndStream} submitLabel="Salva" primary={false} className="mt-3 space-y-3">
+            <input type="hidden" name="tournament_id" value={t.id} />
+            <label className="flex items-start gap-2"><input type="checkbox" name="featured" defaultChecked={t.featured} className="mt-1" />
+              <span>Mostra nella home di tutti mentre è in corso
+                <span className="block text-sm text-neutral-600 dark:text-neutral-400">Compare nella sezione «In diretta» anche a chi non fa parte della lega o non ha un account. Il resto della lega resta privato.</span></span></label>
+            <label className="grid gap-1 text-sm">Link della diretta streaming (facoltativo)
+              <input name="stream_url" type="url" inputMode="url" defaultValue={t.stream_url ?? ""} placeholder="https://www.youtube.com/live/…" maxLength={300}
+                className="rounded border bg-transparent px-3 py-2" />
+              <span className="text-neutral-600 dark:text-neutral-400">YouTube, Twitch, Facebook, Instagram o qualsiasi altro sito. Lascia vuoto per toglierlo.</span></label>
+          </ActionForm>
+        </section>)}
 
       <section>
         <h2 className="text-lg font-semibold">Chiusura</h2>
