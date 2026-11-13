@@ -103,3 +103,46 @@ export async function attachToChampionship(cid: string, userId: string, linkPlay
     .upsert({ championship_id: cid, player_id: playerId }, { onConflict: "championship_id,player_id", ignoreDuplicates: true });
   return error ? { error: "Non sono riuscito a inserirti nella lega." } : {};
 }
+
+/**
+ * Unisce un doppione: l'account della scheda `fromPlayerId` (creata alla registrazione) passa alla
+ * scheda `toPlayerId` (creata dall'amministratore, con punti e storico), e la scheda vuota sparisce.
+ * Le leghe della scheda vuota passano a quella vecchia. Rifiuta se la scheda vuota ha già giocato.
+ * Da chiamare solo dopo i controlli di chi gestisce la lega.
+ */
+export async function mergeDuplicate(toPlayerId: string, fromPlayerId: string): Promise<{ error?: string; ok?: string }> {
+  if (toPlayerId === fromPlayerId) return { error: "Scegli due schede diverse." };
+  const svc = createServiceClient();
+  const [{ data: to }, { data: from }, { count: played }] = await Promise.all([
+    svc.from("players").select("id, full_name, user_id, guest_of, avatar_path, club_id").eq("id", toPlayerId).maybeSingle(),
+    svc.from("players").select("id, full_name, user_id, avatar_path, club_id").eq("id", fromPlayerId).maybeSingle(),
+    svc.from("entry_members").select("player_id", { count: "exact", head: true }).eq("player_id", fromPlayerId),
+  ]);
+  if (!to || !from) return { error: "Giocatore non trovato: ricarica la pagina." };
+  if (to.user_id) return { error: `${to.full_name} è già collegato a un account.` };
+  if (to.guest_of) return { error: "Non si può collegare un account a un ospite degli amichevoli." };
+  if (!from.user_id) return { error: `${from.full_name} non ha un account da collegare.` };
+  if (played) return { error: `${from.full_name} ha già giocato con la scheda nuova: non posso unirle senza perdere quelle partite.` };
+
+  // Leghe della scheda nuova → scheda vecchia (se non c'è già).
+  const { data: memberships } = await svc.from("championship_players").select("championship_id").eq("player_id", fromPlayerId);
+  const leagues = (memberships ?? []).map((m) => m.championship_id as string);
+  if (leagues.length) {
+    const { error } = await svc.from("championship_players")
+      .upsert(leagues.map((championship_id) => ({ championship_id, player_id: toPlayerId })), { onConflict: "championship_id,player_id", ignoreDuplicates: true });
+    if (error) return { error: "Non sono riuscito a spostare le leghe." };
+  }
+  // L'account può stare su una sola scheda: prima si libera quella nuova, poi si collega la vecchia.
+  const userId = from.user_id as string;
+  const { error: e1 } = await svc.from("players").update({ user_id: null }).eq("id", fromPlayerId);
+  if (e1) return { error: "Non sono riuscito a collegare l'account." };
+  const { error: e2 } = await svc.from("players").update({
+    user_id: userId,
+    ...(to.avatar_path ? {} : { avatar_path: from.avatar_path }),
+    ...(to.club_id ? {} : { club_id: from.club_id }),
+  }).eq("id", toPlayerId).is("user_id", null);
+  if (e2) { await svc.from("players").update({ user_id: userId }).eq("id", fromPlayerId); return { error: "Non sono riuscito a collegare l'account." }; }
+  await svc.from("championship_requests").update({ claim_player_id: null }).eq("claim_player_id", fromPlayerId);
+  await svc.from("players").delete().eq("id", fromPlayerId);
+  return { ok: `Fatto: l'account ora usa la scheda di ${to.full_name}, con punti e storico.` };
+}

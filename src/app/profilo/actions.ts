@@ -7,6 +7,7 @@ import { imageKind } from "@/lib/avatar";
 import { createServiceClient } from "@/lib/supabase/admin";
 import type { ActionState } from "@/components/action-form";
 import { parseClubChoice } from "@/lib/clubs";
+import { sameNameMatch } from "@/lib/names";
 import { createClubRequest } from "@/lib/clubs-server";
 
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -72,6 +73,14 @@ export async function requestJoin(_prev: ActionState, formData: FormData): Promi
     const { data: inv } = await svc.from("championship_invites").select("token").eq("championship_id", c.id).maybeSingle();
     if (!inv || inv.token !== token) return { error: "Il link d'invito non è più valido: chiedine uno nuovo, oppure invia una richiesta normale." };
     viaInvite = true;
+  }
+  // Invito senza «sono già in classifica», ma c'è un omonimo senza account: deve averlo visto e scartato.
+  if (viaInvite && !claimId && !str(formData, "seen_match")) {
+    const { data: free } = await svc.from("championship_players").select("player_id, players!inner(full_name, user_id)")
+      .eq("championship_id", c.id).is("players.user_id", null);
+    const match = sameNameMatch(account.player.full_name,
+      (free ?? []).map((f) => ({ id: f.player_id as string, name: (f.players as unknown as { full_name: string }).full_name })));
+    if (match) return { error: `In classifica c'è già «${match.name}»: ricarica la pagina e dicci se sei tu.` };
   }
   if (viaInvite && !claimId) {
     const r = await attachToChampionship(c.id, account.userId, null);

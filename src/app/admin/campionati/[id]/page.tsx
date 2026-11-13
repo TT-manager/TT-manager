@@ -8,7 +8,8 @@ import { listAdminUsers } from "@/lib/admins";
 import { STATUS_LABEL } from "@/lib/labels";
 import { clubLabel } from "@/lib/clubs";
 import { listClubs } from "@/lib/clubs-server";
-import { addChampionshipAdmin, addMembers, decideRequest, disableInvite, regenerateInvite, recomputeAction, removeChampionshipAdmin, removeMember, renameChampionship, setVisibility } from "../actions";
+import { normName } from "@/lib/names";
+import { addChampionshipAdmin, addMembers, mergeDuplicateAction, decideRequest, disableInvite, regenerateInvite, recomputeAction, removeChampionshipAdmin, removeMember, renameChampionship, setVisibility } from "../actions";
 import { ChampionshipHeader, input, loadManagedChampionship, muted } from "./shared";
 
 export const metadata = { title: "Lega" };
@@ -29,6 +30,13 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
   const assigned = new Set((admins ?? []).map((a) => a.user_id as string));
   const hidden = <input type="hidden" name="championship_id" value={id} />;
   const { requests, unclaimed, invite } = await loadJoinData(id);
+  // Possibili doppioni: schede senza account (create a mano) e giocatori registrati della lega.
+  const { data: withAccount } = hasServiceKey()
+    ? await createServiceClient().from("championship_players").select("player_id, players!inner(full_name, user_id)").eq("championship_id", id).not("players.user_id", "is", null)
+    : { data: [] };
+  const registered = (withAccount ?? []).map((r) => ({ id: r.player_id as string, name: (r.players as unknown as { full_name: string }).full_name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "it"));
+  const suggested = unclaimed.flatMap((u) => registered.filter((r) => normName(r.name) === normName(u.name)).map((r) => ({ to: u, from: r })));
   const inviteUrl = invite ? `${await siteOrigin()}/partecipa/${c.slug}?invito=${invite}` : null;
 
   return (
@@ -138,6 +146,35 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
           </div>
         </ActionForm>
       </section>
+
+      {unclaimed.length > 0 && registered.length > 0 && (
+        <section className="rounded-lg border p-4">
+          <h2 className="text-lg font-semibold">Collega account</h2>
+          <p className={`mt-1 ${muted}`}>Se un giocatore che avevi aggiunto a mano si è registrato ed è finito in classifica due volte,
+            unisci le due schede: l&apos;account passa alla scheda con punti e storico e quella nuova sparisce. Si può fare solo se con la scheda nuova non ha ancora giocato.</p>
+          {suggested.map((p) => (
+            <ActionForm key={p.to.id + p.from.id} action={mergeDuplicateAction} submitLabel="Unisci" primary={false} inline className="mt-3 block"
+              confirmText={`Unire le schede di ${p.to.name}? L'account registrato userà la scheda con lo storico.`}>
+              {hidden}<input type="hidden" name="to_player_id" value={p.to.id} /><input type="hidden" name="from_player_id" value={p.from.id} />
+              <span className="mr-2"><span className="badge-contested mr-2">Stesso nome</span>{p.to.name} (senza account) e {p.from.name} (registrato)</span>
+            </ActionForm>))}
+          <ActionForm action={mergeDuplicateAction} submitLabel="Unisci le schede" primary={false} className="mt-4"
+            confirmText="Unire le due schede? L'account registrato userà la scheda con lo storico.">
+            {hidden}
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm">Scheda con punti e storico (senza account)
+                <select name="to_player_id" required defaultValue="" className={`select-arrow ${input}`}>
+                  <option value="" disabled>Scegli…</option>
+                  {unclaimed.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select></label>
+              <label className="grid gap-1 text-sm">Account registrato da collegare
+                <select name="from_player_id" required defaultValue="" className={`select-arrow ${input}`}>
+                  <option value="" disabled>Scegli…</option>
+                  {registered.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select></label>
+            </div>
+          </ActionForm>
+        </section>)}
 
       <section>
         <h2 className="text-lg font-semibold">Visibilità</h2>

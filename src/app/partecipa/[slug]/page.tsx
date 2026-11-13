@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { sameNameMatch } from "@/lib/names";
 import { ActionForm } from "@/components/action-form";
 import { getAccount } from "@/lib/account";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -54,12 +55,25 @@ async function Join({ params, searchParams }: Pick<PageProps<"/partecipa/[slug]"
   if (pending) return <>{header}<p className="mt-6">La tua richiesta è in attesa di approvazione. <Link href="/profilo" className="underline">Il mio profilo</Link></p></>;
   const names = (unclaimed ?? []).map((u) => ({ id: u.player_id as string, name: (u.players as unknown as { full_name: string }).full_name }))
     .sort((a, b) => a.name.localeCompare(b.name, "it"));
+  // Stesso nome di un giocatore già in classifica senza account: chiediamo esplicitamente se è lui.
+  const match = sameNameMatch(account.player.full_name, names);
+  const others = names.filter((n) => n.id !== match?.id);
   return <>{header}
     <ActionForm action={requestJoin} submitLabel={validInvite ? "Entra nella lega" : "Invia la richiesta"} className="mt-6 space-y-3">
       <input type="hidden" name="slug" value={slug} />
       {validInvite && <input type="hidden" name="invito" value={token} />}
       <p>Entri come <strong>{account.player.full_name}</strong>.</p>
-      {names.length > 0 && (
+      {match ? (
+        <fieldset className="rounded-lg border-2 border-gold p-4">
+          <input type="hidden" name="seen_match" value={match.id} />
+          <legend className="px-1 font-semibold">In classifica c&apos;è già «{match.name}»: sei tu?</legend>
+          <label className="mt-1 flex items-start gap-2"><input type="radio" name="claim_player_id" value={match.id} required className="mt-1" />
+            <span>Sì, sono io<span className={`block ${muted}`}>Un amministratore controlla e collega il tuo account a quella posizione, con punti e storico.</span></span></label>
+          <label className="mt-2 flex items-start gap-2"><input type="radio" name="claim_player_id" value="" required className="mt-1" />
+            <span>No, è un&apos;altra persona{validInvite ? <span className={`block ${muted}`}>Entri subito come nuovo giocatore.</span> : null}</span></label>
+          {others.length > 0 && <p className={`mt-2 ${muted}`}>Sei un altro giocatore già in classifica? Scegli «No» e scrivilo all&apos;amministratore della lega.</p>}
+        </fieldset>
+      ) : names.length > 0 && (
         <label className="grid gap-1">Sei già in classifica (per esempio dai tornei passati)?
           <select name="claim_player_id" defaultValue="" className="select-arrow rounded border bg-transparent py-2 pl-3">
             <option value="">No, sono nuovo</option>

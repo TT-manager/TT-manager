@@ -3,7 +3,7 @@ import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireChampionshipManager, requireOwner } from "@/lib/auth";
 import { randomBytes } from "node:crypto";
-import { attachToChampionship } from "@/lib/account";
+import { attachToChampionship, mergeDuplicate } from "@/lib/account";
 import { recomputeChampionship } from "@/lib/closing";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { DEFAULT_RANKING, parseRankingSettings } from "@/lib/domain/ranking";
@@ -290,4 +290,22 @@ export async function disableInvite(_prev: ActionState, formData: FormData): Pro
   await createServiceClient().from("championship_invites").delete().eq("championship_id", cid);
   revalidatePath(`/admin/campionati/${cid}`); refresh();
   return { ok: "Link disattivato." };
+}
+
+/** Unisce un doppione: l'account registrato passa alla scheda creata dall'amministratore. */
+export async function mergeDuplicateAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const cid = str(formData, "championship_id");
+  await requireChampionshipManager(cid);
+  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  const to = str(formData, "to_player_id"), from = str(formData, "from_player_id");
+  if (!UUID.test(to) || !UUID.test(from)) return { error: "Scegli le due schede da unire." };
+  const svc = createServiceClient();
+  const { data: both } = await svc.from("championship_players").select("player_id").eq("championship_id", cid).in("player_id", [to, from]);
+  if ((both ?? []).length !== 2) return { error: "Le due schede devono essere entrambe in questa lega." };
+  const { data: leagues } = await svc.from("championship_players").select("championship_id").eq("player_id", from);
+  const r = await mergeDuplicate(to, from);
+  if (r.error) return r;
+  // Classifiche ricalcolate dove c'era la scheda tolta (la sua riga di partenza sparisce).
+  for (const l of leagues ?? []) if (l.championship_id !== cid) await recomputeChampionship(l.championship_id as string);
+  return done(cid, r.ok!);
 }
