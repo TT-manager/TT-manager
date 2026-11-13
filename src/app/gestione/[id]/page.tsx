@@ -12,7 +12,7 @@ import { ActionForm } from "@/components/action-form";
 import { formatDeadline, isoToRomeLocal, registrationIsOpen } from "@/lib/registration";
 import { setPlayerResults, setRegistration } from "@/app/gestione/actions";
 import { disputedCount } from "@/lib/results";
-import { ClosingControl, EnrollmentForm, GroupsControl, GuestForm, PairsForm, RegenerateCode } from "./tournament-forms";
+import { ClosingControl, DeleteTournament, EnrollmentForm, GroupsControl, GuestForm, PairsForm, RegenerateCode } from "./tournament-forms";
 
 export const metadata = { title: "Torneo" };
 
@@ -133,6 +133,12 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
       <section>
         <h2 className="text-lg font-semibold">Codice organizzatore</h2>
         <RegenerateCode tournamentId={t.id} />
+      </section>
+
+      <section className="rounded-lg border border-red-600/40 p-4">
+        <h2 className="text-lg font-semibold">Elimina torneo</h2>
+        <DeleteTournament tournamentId={t.id} name={t.name} played={summary?.toRate ?? 0}
+          blocked={t.status === "closed" && access.ranked && Boolean(championshipId)} />
       </section>
     </main>
   );

@@ -1,5 +1,6 @@
 "use server";
 import { refresh, revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireChampionshipManager, requireTournamentManager } from "@/lib/auth";
 import { requireAccount } from "@/lib/account";
 import { bestRatings, friendlyCandidates } from "@/lib/friends";
@@ -380,4 +381,26 @@ export async function setRegistration(_prev: EnrollState, formData: FormData): P
   revalidatePath(`/gestione/${tournamentId}`);
   refresh();
   return { ok: open ? "Iscrizioni aperte." : "Iscrizioni chiuse." };
+}
+
+/**
+ * Elimina un torneo con partite e iscrizioni. Un torneo chiuso e valido per la classifica va prima
+ * riaperto (così la classifica viene ricalcolata senza di lui); gli altri si eliminano direttamente.
+ */
+export async function deleteTournamentAction(_prev: CloseState, formData: FormData): Promise<CloseState> {
+  const tournamentId = String(formData.get("tournament_id") ?? "");
+  const access = await requireTournamentManager(tournamentId);
+  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  const svc = createServiceClient();
+  const { data: t } = await svc.from("tournaments").select("status, ranked, championship_id").eq("id", tournamentId).maybeSingle();
+  if (!t) return { error: "Torneo non trovato." };
+  if (t.status === "closed" && t.ranked && t.championship_id)
+    return { error: "Il torneo è chiuso e conta per la classifica: riaprilo prima (la classifica viene ricalcolata senza di lui), poi eliminalo." };
+  const { count: rated } = await svc.from("matches").select("id", { count: "exact", head: true }).eq("tournament_id", tournamentId).eq("rated", true);
+  if (rated) return { error: "Alcune partite risultano ancora conteggiate in classifica: riapri il torneo prima di eliminarlo." };
+  const { error } = await svc.from("tournaments").delete().eq("id", tournamentId);
+  if (error) return { error: "Non sono riuscito a eliminare il torneo." };
+  revalidatePath("/");
+  if (access.championshipId) { revalidatePath(`/admin/campionati/${access.championshipId}`); redirect(`/admin/campionati/${access.championshipId}`); }
+  redirect("/profilo");
 }

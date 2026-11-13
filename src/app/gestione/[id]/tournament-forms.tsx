@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useActionState, useState } from "react";
-import { addGuest, closeTournamentAction, generateGroups, regenerateOrganizerCode, reopenTournamentAction, resetGroups, setEnrollment, type CloseState, type EnrollState, type GenState, type RegenState } from "@/app/gestione/actions";
+import { addGuest, closeTournamentAction, deleteTournamentAction, generateGroups, regenerateOrganizerCode, reopenTournamentAction, resetGroups, setEnrollment, type CloseState, type EnrollState, type GenState, type RegenState } from "@/app/gestione/actions";
 
 type P = { id: string; full_name: string; club: string | null; rating: number };
 
@@ -245,6 +245,24 @@ export function GuestForm({ tournamentId }: { tournamentId: string }) {
       <button disabled={pending} className="rounded border px-3 py-1.5">Aggiungi ospite</button>
       {state.error && <span role="alert" className="text-red-700 dark:text-red-400">{state.error}</span>}
       {state.ok && <span className="text-green-700 dark:text-green-400">{state.ok}</span>}
+    </form>
+  );
+}
+
+/** «Elimina torneo», con conferma che dice quanti risultati si perdono. */
+export function DeleteTournament({ tournamentId, name, played, blocked }: { tournamentId: string; name: string; played: number; blocked: boolean }) {
+  const [state, action, pending] = useActionState<CloseState, FormData>(deleteTournamentAction, {});
+  if (blocked) return <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">Il torneo è chiuso e conta per la classifica: per eliminarlo riaprilo prima (sopra, in «Chiusura»).</p>;
+  return (
+    <form action={action} className="mt-2 space-y-2"
+      onSubmit={(e) => {
+        const lost = played ? `\n\n${played === 1 ? "1 risultato andrà perso" : `${played} risultati andranno persi`}.` : "";
+        if (!confirm(`Eliminare «${name}» con tutte le partite e le iscrizioni?${lost}\n\nNon si può annullare.`)) e.preventDefault();
+      }}>
+      <input type="hidden" name="tournament_id" value={tournamentId} />
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">Cancella il torneo, le sue partite e le iscrizioni. La classifica della lega non cambia: contano solo i tornei chiusi.</p>
+      <button disabled={pending} className="rounded border border-red-600 px-4 py-2 text-red-700 hover:bg-red-600 hover:text-white dark:text-red-400">{pending ? "Eliminazione…" : "Elimina torneo"}</button>
+      {state.error && <p role="alert" className="text-red-700 dark:text-red-400">{state.error}</p>}
     </form>
   );
 }
