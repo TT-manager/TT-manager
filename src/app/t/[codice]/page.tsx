@@ -11,6 +11,7 @@ import { STATUS_LABEL } from "@/lib/labels";
 import { SelfEnroll } from "./self-enroll";
 import { MyMatches } from "./my-matches";
 import { streamPlatform } from "@/lib/stream";
+import { createServerSupabase } from "@/lib/supabase/server";
 
 export default function TournamentPage({ params, searchParams }: PageProps<"/t/[codice]">) {
   return (
@@ -20,6 +21,16 @@ export default function TournamentPage({ params, searchParams }: PageProps<"/t/[
       </Suspense>
     </main>
   );
+}
+
+/** «Gestisci torneo» solo per chi lo gestisce: la riga è leggibile con la propria sessione solo in quel caso. */
+async function ManageLink({ id }: { id: string }) {
+  const supabase = await createServerSupabase();
+  const { data: claims } = await supabase.auth.getClaims();
+  if (!claims?.claims?.sub) return null;
+  const { data } = await supabase.from("tournaments").select("id").eq("id", id).maybeSingle();
+  if (!data) return null;
+  return <Link href={`/gestione/${id}`} className="btn border border-white/30 py-1.5 text-sm hover:bg-white/10">⚙ Gestisci torneo</Link>;
 }
 
 function score(m: MatchRow) {
@@ -81,12 +92,13 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
                 <a href={t.stream_url} target="_blank" rel="noopener noreferrer nofollow" className="btn-primary mt-4">
                   <span aria-hidden="true">▶</span> {live ? "Guarda la diretta" : "Guarda il video"}{streamPlatform(t.stream_url) ? ` su ${streamPlatform(t.stream_url)}` : ""}</a>)}
             </div>
-            {t.status !== "closed" && (
-              <div className="text-right text-sm">
+            <div className="flex flex-col items-end gap-2 text-right text-sm">
+              <Suspense fallback={null}><ManageLink id={t.id} /></Suspense>
+              {t.status !== "closed" && <>
                 <AutoRefresh />
-                <Link href={`/t/${t.public_code}/organizzatore`} className="mt-1 inline-block underline decoration-brand underline-offset-2">Inserisci risultati (organizzatore)</Link>
-              </div>
-            )}
+                <Link href={`/t/${t.public_code}/organizzatore`} className="inline-block underline decoration-brand underline-offset-2">Inserisci risultati (organizzatore)</Link>
+              </>}
+            </div>
           </div>
         </div>
       </header>
