@@ -5,6 +5,8 @@ import { groupLabel } from "./domain/tournament";
 import { friendUserIds } from "./friends";
 import { registrationIsOpen } from "./registration";
 import { createServiceClient } from "./supabase/admin";
+import { getLocale, tr } from "../i18n/server";
+import { compDashboard } from "../i18n/dict/comp-dashboard";
 
 type Svc = ReturnType<typeof createServiceClient>;
 
@@ -47,6 +49,7 @@ export type Activity = { at: string; text: string; detail: string; href: string;
 
 export async function loadDashboard(account: Account) {
   const svc = createServiceClient();
+  const [l, tx] = await Promise.all([getLocale(), tr(compDashboard)]);
   const me = account.player.id;
   const [{ data: memberships }, { data: myEntries }, friends, { count: friendRequests }] = await Promise.all([
     svc.from("championship_players").select("championship_id").eq("player_id", me),
@@ -87,7 +90,7 @@ export async function loadDashboard(account: Account) {
       next = {
         tournament: t.name as string, code: t.public_code as string, ranked: t.ranked as boolean,
         me: meSide, opponent: sides.get(opp) ?? [{ id: opp, name: "?", avatar: null }],
-        phase: m.phase === "group" ? `Girone ${groupLabel(m.group_no as number)} · turno ${m.round}` : stageName(m.stage as number),
+        phase: m.phase === "group" ? tx.groupRound(groupLabel(m.group_no as number), m.round as number) : stageName(m.stage as number, l),
       };
     }
   }
@@ -105,7 +108,7 @@ export async function loadDashboard(account: Account) {
     return {
       name: t.name as string, code: t.public_code as string, ranked: t.ranked as boolean,
       league: (t.championships as unknown as { name: string } | null)?.name ?? null,
-      phase: t.status === "groups" ? "Qualificazione" : "Fase finale",
+      phase: t.status === "groups" ? tx.qualification : tx.knockoutStage,
       played: ms.filter((m) => m.sets_a !== null).length, total: ms.length, playing: tids.includes(t.id as string),
     };
   });
@@ -127,7 +130,7 @@ export async function loadDashboard(account: Account) {
     const friendPlayer = new Map((fp ?? []).map((p) => [p.id as string, p.full_name as string]));
     const byUser = new Map((fp ?? []).map((p) => [p.user_id as string, p.full_name as string]));
     for (const t of created ?? []) activity.push({ at: t.created_at as string, who: byUser.get(t.owner_user_id as string) ?? "?",
-      text: "ha creato un torneo amichevole", detail: t.name as string, href: `/t/${t.public_code}` });
+      text: tx.createdFriendly, detail: t.name as string, href: `/t/${t.public_code}` });
     const { data: fe } = fp?.length ? await svc.from("entry_members").select("entry_id, player_id").in("player_id", [...friendPlayer.keys()]) : { data: [] };
     const friendEntry = new Map((fe ?? []).map((e) => [e.entry_id as string, e.player_id as string]));
     if (friendEntry.size) {
@@ -143,7 +146,7 @@ export async function loadDashboard(account: Account) {
         const w = won(m as never, side);
         const score = side === m.player_a ? `${m.sets_a}\u2011${m.sets_b}` : `${m.sets_b}\u2011${m.sets_a}`; // trattino che non va a capo
         activity.push({ at: m.played_at as string, who: friendPlayer.get(friendEntry.get(side)!) ?? "?",
-          text: `${w ? "ha vinto" : "ha perso"} contro ${names.get(other) ?? "?"} (${score})`, detail: t?.name ?? "", href: t ? `/t/${t.public_code}` : "#" });
+          text: tx.result(w, names.get(other) ?? "?", score), detail: t?.name ?? "", href: t ? `/t/${t.public_code}` : "#" });
       }
     }
     activity.sort((a, b) => b.at.localeCompare(a.at));

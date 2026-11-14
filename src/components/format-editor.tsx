@@ -1,10 +1,13 @@
 "use client";
 import { startTransition, useActionState, useState } from "react";
 import {
-  CROSS_CRITERIA, DEFAULT_CROSS_CRITERIA, describeFormat, groupSizes, knockoutFirstStage, MODE_LABELS, STAGE_NAMES, suggestGroupCounts,
+  crossCriteria, DEFAULT_CROSS_CRITERIA, describeFormat, groupSizes, knockoutFirstStage, modeLabels, stageName, suggestGroupCounts,
   validateFormat, VALID_BEST_OF, type BestOf, type CrossCriterion, type TournamentFormat, type TournamentMode,
 } from "@/lib/domain/format";
 import { DEFAULT_SET_RULES, type SetRules } from "@/lib/domain/score";
+import { useLocale, useTr } from "@/i18n/client";
+import { compFormat } from "@/i18n/dict/comp-format";
+import { translateDomainError } from "@/i18n/domain-errors";
 
 export type FormatState = { errors?: string[]; ok?: string };
 
@@ -32,9 +35,10 @@ function toFormat(mode: TournamentMode, groupCount: number, groupBestOf: BestOf,
 }
 
 function BestOfSelect({ value, onChange, label }: { value: BestOf; onChange: (b: BestOf) => void; label: string }) {
+  const t = useTr(compFormat);
   return (
     <select aria-label={label} value={value} onChange={(e) => onChange(Number(e.target.value) as BestOf)} className={select}>
-      {VALID_BEST_OF.map((b) => <option key={b} value={b}>{b === 1 ? "Set unico" : `Al meglio dei ${b}`}</option>)}
+      {VALID_BEST_OF.map((b) => <option key={b} value={b}>{t.bestOf(b)}</option>)}
     </select>
   );
 }
@@ -42,19 +46,20 @@ function BestOfSelect({ value, onChange, label }: { value: BestOf; onChange: (b:
 /** Una riga per fase: set della partita, punti del set, golden point facoltativo. */
 function PhaseRow({ label, bestOf, onBestOf, rules, onRules }:
   { label: string; bestOf: BestOf; onBestOf: (b: BestOf) => void; rules: SetRules; onRules: (r: SetRules) => void }) {
+  const t = useTr(compFormat);
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t py-3 first:border-t-0">
       <span className="w-40 font-medium">{label}</span>
-      <BestOfSelect label={`Set ${label}`} value={bestOf} onChange={onBestOf} />
-      <label className="flex items-center gap-2">Set a
-        <input type="number" min={3} max={50} value={rules.points} aria-label={`Punti per set ${label}`}
-          onChange={(e) => onRules({ ...rules, points: Number(e.target.value) })} className={`${input} w-20`} /> punti</label>
+      <BestOfSelect label={t.setsAria(label)} value={bestOf} onChange={onBestOf} />
+      <label className="flex items-center gap-2">{t.setTo}
+        <input type="number" min={3} max={50} value={rules.points} aria-label={t.pointsAria(label)}
+          onChange={(e) => onRules({ ...rules, points: Number(e.target.value) })} className={`${input} w-20`} /> {t.points}</label>
       <label className="flex items-center gap-2">
         <input type="checkbox" checked={rules.golden !== null}
           onChange={(e) => onRules({ ...rules, golden: e.target.checked ? rules.points + 4 : null })} />
-        Golden point
-        {rules.golden !== null && <>{" "}sul <input type="number" min={rules.points - 1} max={60} value={rules.golden} aria-label={`Golden point ${label}`}
-          onChange={(e) => onRules({ ...rules, golden: Number(e.target.value) })} className={`${input} w-20`} /> pari</>}
+        {t.golden}
+        {rules.golden !== null && <>{" "}{t.goldenAt} <input type="number" min={rules.points - 1} max={60} value={rules.golden} aria-label={t.goldenAria(label)}
+          onChange={(e) => onRules({ ...rules, golden: Number(e.target.value) })} className={`${input} w-20`} /> {t.allSquare}</>}
       </label>
     </div>
   );
@@ -69,6 +74,8 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
   action: (prev: FormatState, formData: FormData) => Promise<FormatState>;
   hidden: Record<string, string>; initial: TournamentFormat | null; enrolled: number;
 }) {
+  const t = useTr(compFormat);
+  const l = useLocale();
   const [state, action, pending] = useActionState<FormatState, FormData>(submit, {});
   const i0 = initial;
   const [mode, setMode] = useState<TournamentMode>(i0?.mode ?? "groups");
@@ -94,8 +101,8 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
   const sizes = enrolled > 0 && mode === "groups" ? groupSizes(enrolled, groupCount)
     : enrolled > 0 && mode === "league" ? [enrolled] : undefined;
   const problems = [
-    ...validateFormat(format, sizes),
-    ...(sizes && sizes.some((n) => n < 2) ? [`Con ${enrolled} iscritti non si possono fare ${groupCount} gironi.`] : []),
+    ...validateFormat(format, sizes).map((p) => translateDomainError(p, l)),
+    ...(sizes && sizes.some((n) => n < 2) ? [t.tooManyGroups(enrolled, groupCount)] : []),
   ];
   const usedStages = mode === "league" ? []
     : mode === "knockout"
@@ -115,101 +122,100 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
       <input type="hidden" name="format" value={JSON.stringify(format)} />
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Tipo di torneo</h2>
-        <select aria-label="Tipo di torneo" value={mode} onChange={(e) => setMode(e.target.value as TournamentMode)} className={select}>
-          {(Object.keys(MODE_LABELS) as TournamentMode[]).map((m) => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}
+        <h2 className="text-lg font-semibold">{t.typeTitle}</h2>
+        <select aria-label={t.typeTitle} value={mode} onChange={(e) => setMode(e.target.value as TournamentMode)} className={select}>
+          {(Object.keys(modeLabels(l)) as TournamentMode[]).map((m) => <option key={m} value={m}>{modeLabels(l)[m]}</option>)}
         </select>
         <p className="text-sm text-neutral-600 dark:text-neutral-400">
-          {enrolled > 0 ? `Iscritti adesso: ${enrolled}.` : "Nessun iscritto per ora: potrai modificare il formato finché non generi i gironi."}
-          {mode === "league" && enrolled >= 2 && ` Tutti contro tutti: ${(enrolled * (enrolled - 1)) / 2 * (groupLegs === 2 ? 2 : 1)} partite.`}
-          {mode === "knockout" && enrolled >= 2 && ` Tabellone da ${2 ** (knockoutFirstStage(enrolled) + 1)}: ${2 ** (knockoutFirstStage(enrolled) + 1) - enrolled} teste di serie saltano il primo turno.`}
+          {enrolled > 0 ? t.enrolledNow(enrolled) : t.noEnrolled}
+          {mode === "league" && enrolled >= 2 && t.roundRobin((enrolled * (enrolled - 1)) / 2 * (groupLegs === 2 ? 2 : 1))}
+          {mode === "knockout" && enrolled >= 2 && t.bracketSize(2 ** (knockoutFirstStage(enrolled) + 1), 2 ** (knockoutFirstStage(enrolled) + 1) - enrolled)}
         </p>
       </section>
 
       {mode === "league" && (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Girone unico</h2>
-          <select aria-label="Andata e ritorno" value={groupLegs} onChange={(e) => setGroupLegs(Number(e.target.value) as 1 | 2)} className={select}>
-            <option value={1}>Solo andata</option>
-            <option value={2}>Andata e ritorno</option>
+          <h2 className="text-lg font-semibold">{t.singleGroup}</h2>
+          <select aria-label={t.legsAria} value={groupLegs} onChange={(e) => setGroupLegs(Number(e.target.value) as 1 | 2)} className={select}>
+            <option value={1}>{t.oneLeg}</option>
+            <option value={2}>{t.twoLegs}</option>
           </select>
-          <PhaseRow label="Partite" bestOf={groupBestOf} onBestOf={setGroupBestOf} rules={groupSet} onRules={setGroupSet} />
+          <PhaseRow label={t.matches} bestOf={groupBestOf} onBestOf={setGroupBestOf} rules={groupSet} onRules={setGroupSet} />
         </section>
       )}
 
       {mode === "groups" && <>
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Gironi</h2>
+        <h2 className="text-lg font-semibold">{t.groups}</h2>
         <div className="flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2">Numero di gironi
+          <label className="flex items-center gap-2">{t.groupCount}
             <input type="number" min={1} max={64} value={groupCount} onChange={(e) => setGroupCount(Number(e.target.value))} className={`${input} w-20`} /></label>
-          <select aria-label="Andata e ritorno" value={groupLegs} onChange={(e) => setGroupLegs(Number(e.target.value) as 1 | 2)} className={select}>
-            <option value={1}>Solo andata</option>
-            <option value={2}>Andata e ritorno</option>
+          <select aria-label={t.legsAria} value={groupLegs} onChange={(e) => setGroupLegs(Number(e.target.value) as 1 | 2)} className={select}>
+            <option value={1}>{t.oneLeg}</option>
+            <option value={2}>{t.twoLegs}</option>
           </select>
         </div>
         {suggestions.length > 0 && (
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">Con {enrolled} iscritti:{" "}
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">{t.withEnrolled(enrolled)}{" "}
             {suggestions.map((s, i) => (
               <span key={s.groups}>{i > 0 && " · "}
-                <button type="button" onClick={() => setGroupCount(s.groups)} className="underline">{s.groups} {s.groups === 1 ? "girone" : "gironi"} da {s.sizes}</button>
+                <button type="button" onClick={() => setGroupCount(s.groups)} className="underline">{t.suggestion(s.groups, s.sizes)}</button>
               </span>
             ))}</p>
         )}
-        <PhaseRow label="Partite dei gironi" bestOf={groupBestOf} onBestOf={setGroupBestOf} rules={groupSet} onRules={setGroupSet} />
+        <PhaseRow label={t.groupMatches} bestOf={groupBestOf} onBestOf={setGroupBestOf} rules={groupSet} onRules={setGroupSet} />
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Chi passa e dove entra nel tabellone</h2>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">Per ogni regola scrivi le posizioni di girone (es. «1» oppure «2, 3») e il turno in cui iniziano.</p>
+        <h2 className="text-lg font-semibold">{t.qualTitle}</h2>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400">{t.qualHelp}</p>
         {rules.map((r, i) => (
           <div key={i} className="flex flex-wrap items-center gap-2">
-            <select aria-label="Tipo di regola" value={r.best === null ? "all" : "best"} className={select}
+            <select aria-label={t.ruleTypeAria} value={r.best === null ? "all" : "best"} className={select}
               onChange={(e) => setRule(i, e.target.value === "best"
                 ? { best: 1, positions: r.positions.split(/[\s,;]+/).filter(Boolean)[0] ?? "2" }
                 : { best: null })}>
-              <option value="all">Tutti i</option>
-              <option value="best">I migliori</option>
+              <option value="all">{t.ruleAll}</option>
+              <option value="best">{t.ruleBest}</option>
             </select>
             {r.best !== null && <>
-              <input type="number" min={1} max={64} aria-label="Quanti ripescati" value={r.best}
+              <input type="number" min={1} max={64} aria-label={t.howManyAria} value={r.best}
                 onChange={(e) => setRule(i, { best: Number(e.target.value) })} className={`${input} w-20`} />
-              <span>tra i</span>
+              <span>{t.among}</span>
             </>}
-            <input aria-label="Posizioni" value={r.positions} onChange={(e) => setRule(i, { positions: e.target.value })} className={`${input} w-24`} />
-            <span>{r.best === null ? "classificati di ogni girone entrano a" : "classificati (ripescaggio) entrano a"}</span>
-            <select aria-label="Turno di ingresso" value={r.stage} onChange={(e) => setRule(i, { stage: Number(e.target.value) })} className={select}>
-              {STAGES.map((s) => <option key={s} value={s}>{STAGE_NAMES[s]}</option>)}
+            <input aria-label={t.positionsAria} value={r.positions} onChange={(e) => setRule(i, { positions: e.target.value })} className={`${input} w-24`} />
+            <span>{r.best === null ? t.allEnter : t.bestEnter}</span>
+            <select aria-label={t.stageAria} value={r.stage} onChange={(e) => setRule(i, { stage: Number(e.target.value) })} className={select}>
+              {STAGES.map((s) => <option key={s} value={s}>{stageName(s, l)}</option>)}
             </select>
-            {rules.length > 1 && <button type="button" onClick={() => setRules(rules.filter((_, j) => j !== i))} className="text-sm underline">Togli</button>}
+            {rules.length > 1 && <button type="button" onClick={() => setRules(rules.filter((_, j) => j !== i))} className="text-sm underline">{t.remove}</button>}
           </div>
         ))}
-        <button type="button" onClick={() => setRules([...rules, { positions: "", stage: 3, best: null }])} className="rounded border px-3 py-1 text-sm">+ Aggiungi regola</button>
+        <button type="button" onClick={() => setRules([...rules, { positions: "", stage: 3, best: null }])} className="rounded border px-3 py-1 text-sm">{t.addRule}</button>
       </section>
 
       {hasBest && (
         <section className="space-y-2">
-          <h2 className="text-lg font-semibold">Criteri per i ripescaggi</h2>
+          <h2 className="text-lg font-semibold">{t.criteriaTitle}</h2>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            Si confrontano giocatori di gironi diversi, quindi niente scontro diretto. Si usano medie per partita,
-            perché i gironi possono avere un numero diverso di giocatori. Ordine di applicazione; a parità, la testa di serie.</p>
+            {t.criteriaHelp}</p>
           <ol className="space-y-1">
             {criteria.map((c, i) => (
               <li key={c} className="flex items-center gap-2">
                 <span className="w-6 tabular-nums">{i + 1}.</span>
-                <span className="flex-1">{CROSS_CRITERIA[c]}</span>
-                <button type="button" aria-label="Su" disabled={i === 0} onClick={() => moveCriterion(i, -1)} className="rounded border px-2 disabled:opacity-30">↑</button>
-                <button type="button" aria-label="Giù" disabled={i === criteria.length - 1} onClick={() => moveCriterion(i, 1)} className="rounded border px-2 disabled:opacity-30">↓</button>
-                <button type="button" onClick={() => setCriteria(criteria.filter((x) => x !== c))} disabled={criteria.length === 1} className="text-sm underline disabled:opacity-30">Togli</button>
+                <span className="flex-1">{crossCriteria(l)[c]}</span>
+                <button type="button" aria-label={t.up} disabled={i === 0} onClick={() => moveCriterion(i, -1)} className="rounded border px-2 disabled:opacity-30">↑</button>
+                <button type="button" aria-label={t.down} disabled={i === criteria.length - 1} onClick={() => moveCriterion(i, 1)} className="rounded border px-2 disabled:opacity-30">↓</button>
+                <button type="button" onClick={() => setCriteria(criteria.filter((x) => x !== c))} disabled={criteria.length === 1} className="text-sm underline disabled:opacity-30">{t.remove}</button>
               </li>
             ))}
           </ol>
-          {criteria.length < Object.keys(CROSS_CRITERIA).length && (
-            <select aria-label="Aggiungi criterio" value="" className={select}
+          {criteria.length < Object.keys(crossCriteria(l)).length && (
+            <select aria-label={t.addCriterionAria} value="" className={select}
               onChange={(e) => e.target.value && setCriteria([...criteria, e.target.value as CrossCriterion])}>
-              <option value="">+ Aggiungi criterio…</option>
-              {(Object.keys(CROSS_CRITERIA) as CrossCriterion[]).filter((c) => !criteria.includes(c))
-                .map((c) => <option key={c} value={c}>{CROSS_CRITERIA[c]}</option>)}
+              <option value="">{t.addCriterion}</option>
+              {(Object.keys(crossCriteria(l)) as CrossCriterion[]).filter((c) => !criteria.includes(c))
+                .map((c) => <option key={c} value={c}>{crossCriteria(l)[c]}</option>)}
             </select>
           )}
         </section>
@@ -218,28 +224,28 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
       </>}
 
       {mode !== "league" && <section className="space-y-1">
-        <h2 className="text-lg font-semibold">Partite del tabellone</h2>
+        <h2 className="text-lg font-semibold">{t.koTitle}</h2>
         {usedStages.length === 0
-          ? <p className="text-sm text-neutral-600 dark:text-neutral-400">Completa le regole di qualificazione per impostare i turni.</p>
+          ? <p className="text-sm text-neutral-600 dark:text-neutral-400">{t.koHelp}</p>
           : <div>{usedStages.map((s) => (
-              <PhaseRow key={s} label={STAGE_NAMES[s]} bestOf={ko[s] ?? def} onBestOf={(b) => setKo({ ...ko, [s]: b })}
+              <PhaseRow key={s} label={stageName(s, l)} bestOf={ko[s] ?? def} onBestOf={(b) => setKo({ ...ko, [s]: b })}
                 rules={koSet[s] ?? DEFAULT_SET_RULES} onRules={(r) => setKoSet({ ...koSet, [s]: r })} />
             ))}</div>}
       </section>}
 
       <section className="rounded-lg border p-4">
-        <h2 className="font-semibold">Riepilogo</h2>
+        <h2 className="font-semibold">{t.summary}</h2>
         {problems.length ? (
           <ul className="mt-2 list-disc pl-5 text-red-700 dark:text-red-400">{problems.map((p) => <li key={p}>{p}</li>)}</ul>
         ) : (
-          <ul className="mt-2 list-disc pl-5">{describeFormat(format, enrolled || undefined).map((l) => <li key={l}>{l}</li>)}</ul>
+          <ul className="mt-2 list-disc pl-5">{describeFormat(format, enrolled || undefined, l).map((line) => <li key={line}>{line}</li>)}</ul>
         )}
       </section>
 
-      {state.errors && <ul role="alert" className="list-disc pl-5 text-red-700 dark:text-red-400">{state.errors.map((e) => <li key={e}>{e}</li>)}</ul>}
+      {state.errors && <ul role="alert" className="list-disc pl-5 text-red-700 dark:text-red-400">{state.errors.map((e) => <li key={e}>{translateDomainError(e, l)}</li>)}</ul>}
       {state.ok && <p className="text-green-700 dark:text-green-400">{state.ok}</p>}
       <button disabled={pending || problems.length > 0} className="btn-primary">
-        {pending ? "Salvataggio…" : "Salva formato"}</button>
+        {pending ? t.saving : t.saveFormat}</button>
     </form>
   );
 }

@@ -1,16 +1,21 @@
 import { stageName } from "@/lib/domain/format";
 import { isPlayed, sourceLabel, type MatchRow } from "@/lib/domain/tournament";
+import type { Locale } from "@/i18n/locale";
+import { getLocale, tr } from "@/i18n/server";
+import { compTournament } from "@/i18n/dict/comp-tournament";
 
 type Resolved = { player_a: string | null; player_b: string | null };
+type Text = (typeof compTournament)[Locale];
 
 /**
  * Tabellone a eliminazione disegnato a colonne, con le linee che uniscono i turni.
  * Turno `s` ha 2^s posti; la partita (s, p) è alimentata da (s+1, 2p) e (s+1, 2p+1).
  * I posti senza partita nel primo turno sono «passaggi diretti» (bye).
  */
-export function Bracket({ knockout, resolved, name }: {
+export async function Bracket({ knockout, resolved, name }: {
   knockout: MatchRow[]; resolved: Map<string, Resolved>; name: (id: string | null) => string | null;
 }) {
+  const [t, l] = await Promise.all([tr(compTournament), getLocale()]);
   const stages = [...new Set(knockout.map((k) => k.stage as number))].sort((a, b) => b - a);
   if (!stages.length) return null;
   const first = stages[0];
@@ -26,7 +31,7 @@ export function Bracket({ knockout, resolved, name }: {
       {champion && (
         <div className="mb-6 flex items-center gap-4 rounded-2xl border-4 border-gold bg-ink p-4 text-white shadow-lg">
           <span className="text-4xl" aria-hidden="true">🏆</span>
-          <div><p className="text-xs uppercase tracking-widest text-gold">Vincitore del torneo</p>
+          <div><p className="text-xs uppercase tracking-widest text-gold">{t.winner}</p>
             <p className="font-display text-3xl font-bold uppercase">{champion}</p></div>
         </div>
       )}
@@ -38,13 +43,13 @@ export function Bracket({ knockout, resolved, name }: {
             return (
               <div key={s} className="w-52 shrink-0">
                 <p className={`mb-3 text-center font-display text-sm font-bold uppercase tracking-wider ${s === 0 ? "text-brand" : "text-muted"}`}>
-                  {s === 0 ? "🏆 " : ""}{stageName(s)}</p>
+                  {s === 0 ? "🏆 " : ""}{stageName(s, l)}</p>
                 <div className="flex flex-col" style={{ height: 2 ** first * unit }}>
                   {pairs.map((pair) => (
                     <div key={pair[0]} className={`relative flex flex-1 flex-col ${s > 0 ? "after:absolute after:left-full after:top-1/4 after:h-1/2 after:w-3 after:rounded-r after:border-y-2 after:border-r-2 after:border-neutral-400 after:content-[''] dark:after:border-neutral-600" : ""}`}>
                       {pair.map((p) => (
                         <div key={p} className="flex flex-1 items-center">
-                          <Slot m={at(s, p)} s={s} p={p} first={s === first} at={at} resolved={resolved} name={name} />
+                          <Slot m={at(s, p)} s={s} p={p} first={s === first} at={at} resolved={resolved} name={name} t={t} l={l} />
                         </div>
                       ))}
                     </div>
@@ -59,9 +64,10 @@ export function Bracket({ knockout, resolved, name }: {
   );
 }
 
-function Slot({ m, s, p, first, at, resolved, name }: {
+function Slot({ m, s, p, first, at, resolved, name, t, l }: {
   m: MatchRow | undefined; s: number; p: number; first: boolean;
   at: (s: number, p: number) => MatchRow | undefined; resolved: Map<string, Resolved>; name: (id: string | null) => string | null;
+  t: Text; l: Locale;
 }) {
   const stub = first ? "" : "before:absolute before:right-full before:top-1/2 before:w-3 before:border-t-2 before:border-neutral-400 before:content-[''] dark:before:border-neutral-600";
   if (!m) {
@@ -70,7 +76,7 @@ function Slot({ m, s, p, first, at, resolved, name }: {
     const who = next ? (p % 2 === 0 ? next.player_a : next.player_b) : null;
     return (
       <div className="relative w-full rounded-lg border-2 border-dashed border-line px-3 py-2 text-sm text-muted">
-        <span className="font-medium">{name(who) ?? "—"}</span><span className="block text-xs">passa il turno</span>
+        <span className="font-medium">{name(who) ?? "—"}</span><span className="block text-xs">{t.bye}</span>
       </div>);
   }
   const r = resolved.get(m.id);
@@ -79,13 +85,13 @@ function Slot({ m, s, p, first, at, resolved, name }: {
   const winA = played && (m.sets_a as number) > (m.sets_b as number);
   const row = (id: string | null, src: MatchRow["source_a"], sets: number | null, win: boolean) => (
     <div className={`flex items-center justify-between gap-2 px-3 py-1.5 ${win ? "border-l-4 border-gold bg-gold/20 font-semibold" : played ? "border-l-4 border-transparent text-muted" : "border-l-4 border-transparent"}`}>
-      <span className="truncate">{name(id) ?? <span className="text-xs italic text-muted">{src ? sourceLabel(src) : "da definire"}</span>}</span>
+      <span className="truncate">{name(id) ?? <span className="text-xs italic text-muted">{src ? sourceLabel(src, l) : t.tbd}</span>}</span>
       {played && <span className={`font-display text-lg font-bold tabular-nums ${win ? "text-gold-dark dark:text-gold" : ""}`}>{sets}</span>}
     </div>
   );
   return (
     <div className={`relative w-full ${stub}`}>
-      {m.disputed && <span className="badge-contested absolute -top-2.5 right-2 z-10 !px-1.5 !text-[0.6rem]">Contestato</span>}
+      {m.disputed && <span className="badge-contested absolute -top-2.5 right-2 z-10 !px-1.5 !text-[0.6rem]">{t.disputed}</span>}
       <div className={`overflow-hidden rounded-lg border bg-surface text-sm shadow-sm ${m.disputed ? "border-2 border-amber-400" : s === 0 ? "border-2 border-gold" : "border-line"}`}>
         {row(a, m.source_a, m.sets_a, winA)}
         <div className="border-t border-line" />

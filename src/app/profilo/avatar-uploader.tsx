@@ -2,6 +2,8 @@
 import { startTransition, useActionState, useRef, useState } from "react";
 import type { ActionState } from "@/components/action-form";
 import { removeAvatar, uploadAvatar } from "./actions";
+import { useTr } from "@/i18n/client";
+import { compCommon } from "@/i18n/dict/comp-common";
 
 const SIZE = 400;
 
@@ -24,6 +26,7 @@ export async function prepare(file: File): Promise<Blob> {
 }
 
 export function AvatarUploader({ hasPhoto }: { hasPhoto: boolean }) {
+  const t = useTr(compCommon);
   const [state, action, pending] = useActionState<ActionState, FormData>(uploadAvatar, {});
   const [removeState, remove, removing] = useActionState<ActionState, FormData>(removeAvatar, {});
   const [localError, setLocalError] = useState<string | null>(null);
@@ -42,13 +45,13 @@ export function AvatarUploader({ hasPhoto }: { hasPhoto: boolean }) {
           data.set("photo", new File([blob], blob.type === "image/webp" ? "foto.webp" : "foto.jpg", { type: blob.type }));
           startTransition(() => action(data));
         } catch {
-          setLocalError("Non riesco a leggere questa immagine: prova con un'altra foto.");
+          setLocalError(t.badImage);
         }
       }} />
       <button type="button" disabled={pending} onClick={() => input.current?.click()} className="btn-outline px-3 py-1.5 text-sm">
-        {pending ? "Caricamento…" : hasPhoto ? "Cambia foto" : "Aggiungi una foto"}</button>
+        {pending ? t.uploading : hasPhoto ? t.changePhoto : t.addPhoto}</button>
       {hasPhoto && <button type="button" disabled={removing} className="text-muted underline hover:text-brand"
-        onClick={() => { if (confirm("Togliere la foto?")) startTransition(() => remove(new FormData())); }}>Togli</button>}
+        onClick={() => { if (confirm(t.confirmRemovePhoto)) startTransition(() => remove(new FormData())); }}>{t.remove}</button>}
       {msg.error && <span role="alert" className="text-red-700 dark:text-red-400">{msg.error}</span>}
       {msg.ok && <span className="text-green-700 dark:text-green-400">{msg.ok}</span>}
     </div>

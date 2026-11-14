@@ -1,18 +1,21 @@
 import Link from "next/link";
 import type { RankingRow } from "@/lib/data";
 import { Avatar } from "./avatar";
+import { tr } from "@/i18n/server";
+import { compCommon } from "@/i18n/dict/comp-common";
 
 const MEDAL = ["bg-gold", "bg-silver", "bg-bronze"];
 
-export function RankingTable({ rows, label, limit, highlight }: { rows: RankingRow[]; label: string; limit?: number; highlight?: string }) {
-  if (rows.length === 0) return <p className="mt-3 text-muted">Nessun giocatore in classifica.</p>;
+export async function RankingTable({ rows, label, limit, highlight }: { rows: RankingRow[]; label: string; limit?: number; highlight?: string }) {
+  const t = await tr(compCommon);
+  if (rows.length === 0) return <p className="mt-3 text-muted">{t.noPlayers}</p>;
   const shown = limit ? rows.slice(0, limit) : rows;
   return (
     <div className="card mt-3 overflow-x-auto !p-0">
       <table className="w-full text-left">
         <thead className="bg-ink text-xs uppercase tracking-wide text-white">
-          <tr><th className="py-2.5 pl-4">#</th><th>Giocatore</th><th className="hidden sm:table-cell">Circolo</th>
-            <th className="text-right">Partite</th><th className="pr-4 text-right">{label}</th></tr>
+          <tr><th className="py-2.5 pl-4">#</th><th>{t.player}</th><th className="hidden sm:table-cell">{t.club}</th>
+            <th className="text-right">{t.matches}</th><th className="pr-4 text-right">{label}</th></tr>
         </thead>
         <tbody>
           {shown.map((r) => (

@@ -1,6 +1,9 @@
 "use client";
 import { useActionState, useRef, useState } from "react";
 import { setError, type SetRules } from "@/lib/domain/score";
+import { useLocale, useTr } from "@/i18n/client";
+import { compTournament } from "@/i18n/dict/comp-tournament";
+import { translateDomainError } from "@/i18n/domain-errors";
 
 const btn = "btn-primary";
 const Msg = ({ s }: { s: ResultState }) =>
@@ -14,6 +17,8 @@ export function MatchForm({ action: submit, hidden, matchId, bestOf, rules, a, b
   action: (prev: ResultState, formData: FormData) => Promise<ResultState>;
   hidden: Record<string, string>; matchId: string; bestOf: number; rules: SetRules; a: string; b: string; initial: [number, number][] | null;
 }) {
+  const t = useTr(compTournament);
+  const l = useLocale();
   const [state, action, pending] = useActionState<ResultState, FormData>(submit, {});
   const [open, setOpen] = useState(false);
   // Valori controllati: restano nel modulo anche dopo un errore (React svuota solo i campi non controllati).
@@ -38,21 +43,21 @@ export function MatchForm({ action: submit, hidden, matchId, bestOf, rules, a, b
   /** Errore del set, mostrato solo dopo essere usciti dal campo e con entrambi i punteggi compilati. */
   const liveError = (i: number) => {
     const [x, y] = values[i];
-    return checked.has(i) && x !== "" && y !== "" ? setError([Number(x), Number(y)], rules) : null;
+    const err = checked.has(i) && x !== "" && y !== "" ? setError([Number(x), Number(y)], rules) : null;
+    return err && translateDomainError(err, l);
   };
   // Dopo un errore del server la riga resta evidenziata finché non si salva di nuovo.
   const serverRow = state.error ? state.set : undefined;
   if (!open) return (
     <button type="button" onClick={() => setOpen(true)} className="rounded border px-3 py-1 text-sm">
-      {initial ? "Correggi" : "Inserisci risultato"}</button>
+      {initial ? t.correct : t.enterResult}</button>
   );
   return (
     <form action={action} className="mt-2 space-y-2 rounded border p-3">
       {Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       <input type="hidden" name="match_id" value={matchId} />
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
-        {bestOf === 1 ? "Set unico" : `Al meglio dei ${bestOf}: vince chi arriva a ${toWin} set`}, set a {rules.points}
-        {rules.golden !== null ? `, golden point sul ${rules.golden} pari` : ""}. Lascia vuoti i set non giocati.</p>
+        {t.rulesIntro(bestOf, toWin, rules.points, rules.golden)}</p>
       <table className="text-sm"><thead><tr><th></th><th className="px-1 text-left">{a}</th><th className="px-1 text-left">{b}</th></tr></thead>
         <tbody>
           {Array.from({ length: bestOf }, (_, i) => {
@@ -69,10 +74,10 @@ export function MatchForm({ action: submit, hidden, matchId, bestOf, rules, a, b
           })}
         </tbody></table>
       <div className="flex flex-wrap items-center gap-3">
-        <button disabled={pending} className={btn}>{pending ? "Salvataggio…" : "Salva"}</button>
+        <button disabled={pending} className={btn}>{pending ? t.saving : t.save}</button>
         {initial && <button name="intent" value="clear" disabled={pending} className="text-sm underline"
-          onClick={(e) => { if (!confirm("Cancellare questo risultato?")) e.preventDefault(); }}>Cancella risultato</button>}
-        <button type="button" onClick={() => setOpen(false)} className="text-sm underline">Chiudi</button>
+          onClick={(e) => { if (!confirm(t.confirmClear)) e.preventDefault(); }}>{t.clear}</button>}
+        <button type="button" onClick={() => setOpen(false)} className="text-sm underline">{t.close}</button>
       </div>
       <Msg s={state} />
     </form>

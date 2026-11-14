@@ -1,8 +1,13 @@
+"use client";
+import { useTr } from "@/i18n/client";
+import { compDashboard } from "@/i18n/dict/comp-dashboard";
+
 /** Sagoma della home mentre arrivano i dati: stessa forma della pagina, senza la scritta «Caricamento». */
 export function HomeSkeleton() {
+  const t = useTr(compDashboard);
   const bar = "rounded-md bg-line";
   return (
-    <div aria-busy="true" aria-label="Caricamento" className="animate-pulse">
+    <div aria-busy="true" aria-label={t.loading} className="animate-pulse">
       <section className="relative overflow-hidden rounded-2xl bg-ink p-6 shadow-lg sm:p-8">
         <div aria-hidden="true" className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-brand/90" />
         <div aria-hidden="true" className="absolute -right-4 top-24 h-24 w-24 rounded-full bg-brand/40" />
