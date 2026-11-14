@@ -48,6 +48,9 @@ body {
 @layer base { *, ::before, ::after { border-color: var(--line); } }
 
 @layer base {
+  /* Al tocco i pulsanti «si abbassano» un poco: sul telefono si capisce che il tocco è stato preso. */
+  button:not(:disabled), a.btn, .btn-primary, .btn-dark, .btn-outline { transition: transform 80ms ease, background-color 150ms, color 150ms, border-color 150ms; }
+  button:not(:disabled):active, a.btn:active, a.btn-primary:active, a.btn-dark:active, a.btn-outline:active { transform: scale(0.96); }
   h1, h2, h3 { font-family: var(--font-display), var(--font-geist-sans), sans-serif; letter-spacing: 0.01em; }
   h1 { text-transform: uppercase; }
 }
@@ -67,6 +70,14 @@ body {
 @utility link { @apply font-medium underline decoration-brand/40 underline-offset-2 hover:text-brand hover:decoration-brand; }
 
 /* Puntino che pulsa per le cose in corso. */
+/* Barra di avanzamento in cima alla pagina (es. mentre si cambia lingua). */
+@keyframes top-progress { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+.top-progress { position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 60; overflow: hidden; pointer-events: none; }
+.top-progress::after { content: ""; position: absolute; inset: 0; width: 40%; background: var(--color-brand, #d6181f); animation: top-progress 0.9s ease-in-out infinite; }
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+.spinner { width: 0.8rem; height: 0.8rem; border-radius: 9999px; border: 2px solid currentColor; border-right-color: transparent; animation: spin-slow 0.7s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .top-progress::after, .spinner { animation-duration: 2.5s; } }
+
 @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .live-dot { width: 0.5rem; height: 0.5rem; border-radius: 9999px; background: currentColor; animation: live-pulse 1.4s ease-in-out infinite; }
 
