@@ -1,3 +1,4 @@
+import type { Locale } from "../../i18n/locale";
 import { DEFAULT_SET_RULES, type SetRules } from "./score";
 
 /**
@@ -36,6 +37,14 @@ export const CROSS_CRITERIA: Record<CrossCriterion, string> = {
   setRatio: "Quoziente set (vinti/persi)",
   pointRatio: "Quoziente punti (fatti/subiti)",
 };
+const CROSS_CRITERIA_EN: Record<CrossCriterion, string> = {
+  winPct: "Win percentage",
+  setDiffAvg: "Average set difference",
+  pointDiffAvg: "Average point difference",
+  setRatio: "Set ratio (won/lost)",
+  pointRatio: "Point ratio (scored/conceded)",
+};
+export const crossCriteria = (l: Locale = "it") => (l === "en" ? CROSS_CRITERIA_EN : CROSS_CRITERIA);
 export const DEFAULT_CROSS_CRITERIA: CrossCriterion[] = ["winPct", "setDiffAvg", "pointDiffAvg"];
 
 export interface TournamentFormat {
@@ -71,7 +80,11 @@ export function setRulesError(r: SetRules): string | null {
 export const STAGE_NAMES: Record<number, string> = {
   0: "Finale", 1: "Semifinali", 2: "Quarti di finale", 3: "Ottavi di finale", 4: "Sedicesimi di finale",
 };
-export const stageName = (stage: number) => STAGE_NAMES[stage] ?? `Turno ${stage}`;
+const STAGE_NAMES_EN: Record<number, string> = {
+  0: "Final", 1: "Semi-finals", 2: "Quarter-finals", 3: "Round of 16", 4: "Round of 32",
+};
+export const stageName = (stage: number, l: Locale = "it") =>
+  (l === "en" ? STAGE_NAMES_EN[stage] ?? `Round ${stage}` : STAGE_NAMES[stage] ?? `Turno ${stage}`);
 
 export function bestOfForStage(f: TournamentFormat, stage: number): BestOf {
   return f.knockoutBestOf[stage] ?? f.defaultKnockoutBestOf;
@@ -106,6 +119,12 @@ export const MODE_LABELS: Record<TournamentMode, string> = {
   knockout: "Solo eliminazione diretta",
   league: "Girone unico",
 };
+const MODE_LABELS_EN: Record<TournamentMode, string> = {
+  groups: "Groups + knockout",
+  knockout: "Knockout only",
+  league: "Single round robin",
+};
+export const modeLabels = (l: Locale = "it") => (l === "en" ? MODE_LABELS_EN : MODE_LABELS);
 export const isKnockoutOnly = (f: TournamentFormat) => f.mode === "knockout";
 export const isLeague = (f: TournamentFormat) => f.mode === "league";
 
@@ -341,11 +360,13 @@ const ordinal = (n: number) => `${n}°`;
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} e ${xs.at(-1)}`);
 const sets = (b: number) => (b === 1 ? "a set unico" : `al meglio dei ${b} set`);
 /** "set a 11" / "set a 11, golden point sul 15 pari" */
-export const describeSetRules = (r: SetRules) =>
-  `set a ${r.points}${r.golden !== null ? `, golden point sul ${r.golden} pari` : ""}`;
+export const describeSetRules = (r: SetRules, l: Locale = "it") => l === "en"
+  ? `sets to ${r.points}${r.golden !== null ? `, golden point at ${r.golden}-all` : ""}`
+  : `set a ${r.points}${r.golden !== null ? `, golden point sul ${r.golden} pari` : ""}`;
 
-/** Descrizione in italiano del formato, una riga per punto. */
-export function describeFormat(f: TournamentFormat, players?: number): string[] {
+/** Descrizione del formato, una riga per punto (italiano o inglese). */
+export function describeFormat(f: TournamentFormat, players?: number, l: Locale = "it"): string[] {
+  if (l === "en") return describeFormatEn(f, players);
   if (isLeague(f)) {
     const legs = f.groupLegs === 2 ? " con andata e ritorno" : "";
     return [
@@ -376,5 +397,44 @@ export function describeFormat(f: TournamentFormat, players?: number): string[] 
   }
   for (const round of planBracket(f).rounds)
     lines.push(`${stageName(round.stage)}: ${round.matches.length} ${round.matches.length === 1 ? "partita" : "partite"} ${sets(round.matches[0].bestOf)} (${describeSetRules(round.matches[0].set)}).`);
+  return lines;
+}
+
+const ordinalEn = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+const listEn = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+const setsEn = (b: number) => (b === 1 ? "single set" : `best of ${b}`);
+
+function describeFormatEn(f: TournamentFormat, players?: number): string[] {
+  const rules = (r: SetRules) => describeSetRules(r, "en");
+  if (isLeague(f)) {
+    const legs = f.groupLegs === 2 ? ", home and away" : "";
+    return [
+      `Single round robin${legs}: everyone plays everyone, matches ${setsEn(f.groupBestOf)} (${rules(groupSetRules(f))}).`,
+      "The top of the table wins (points, head-to-head, set difference, point difference).",
+    ];
+  }
+  if (isKnockoutOnly(f)) {
+    const lines = ["Knockout only: seeded by the overall ranking; if there aren't 4, 8, 16… players, the best get a bye in the first round."];
+    const first = players && players >= 2 ? knockoutFirstStage(players) : Math.max(0, ...Object.keys(f.knockoutBestOf).map(Number));
+    for (let st = first; st >= 0; st--)
+      lines.push(`${stageName(st, "en")}: ${setsEn(bestOfForStage(f, st))} (${rules(stageSetRules(f, st))}).`);
+    return lines;
+  }
+  const legs = f.groupLegs === 2 ? ", home and away" : "";
+  const lines = [`${f.groupCount} round-robin ${f.groupCount === 1 ? "group" : "groups"}${legs}, matches ${setsEn(f.groupBestOf)} (${rules(groupSetRules(f))}).`];
+  for (const r of [...f.qualification].sort((a, b) => b.stage - a.stage)) {
+    if (r.best !== undefined) {
+      lines.push(`${r.best === 1 ? "The best" : `The best ${r.best}`} ${ordinalEn(r.positions[0])}-placed ${r.best === 1 ? "player" : "players"} → ${stageName(r.stage, "en").toLowerCase()} (lucky losers).`);
+      continue;
+    }
+    const pos = listEn([...r.positions].sort((a, b) => a - b).map(ordinalEn));
+    lines.push(`${pos} of each group → ${stageName(r.stage, "en").toLowerCase()}.`);
+  }
+  if (f.qualification.some((r) => r.best !== undefined)) {
+    const c = (f.crossCriteria?.length ? f.crossCriteria : DEFAULT_CROSS_CRITERIA).map((k) => CROSS_CRITERIA_EN[k].toLowerCase());
+    lines.push(`Lucky losers decided by: ${c.join(", ")}; if still tied, the seeding.`);
+  }
+  for (const round of planBracket(f).rounds)
+    lines.push(`${stageName(round.stage, "en")}: ${round.matches.length} ${round.matches.length === 1 ? "match" : "matches"}, ${setsEn(round.matches[0].bestOf)} (${rules(round.matches[0].set)}).`);
   return lines;
 }

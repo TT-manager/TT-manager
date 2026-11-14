@@ -1,3 +1,4 @@
+import type { Locale } from "../../i18n/locale";
 /**
  * Logica del torneo che lega formato, gironi e tabellone.
  * Funzioni pure: nessun accesso al database.
@@ -200,7 +201,11 @@ export function resolveSource(src: SlotSource, groups: GroupView[], knockout: Ma
 }
 
 /** Etichetta leggibile di un posto ancora da definire. */
-export function sourceLabel(src: SlotSource): string {
+export function sourceLabel(src: SlotSource, l: Locale = "it"): string {
+  if (l === "en") {
+    if (src.kind === "best") return `Lucky loser: ${src.rank}. best ${src.position}. place`;
+    return src.kind === "group" ? `Group ${groupLabel(src.group)} #${src.position}` : `Winner ${stageName(src.stage, "en").toLowerCase()} ${src.match + 1}`;
+  }
   if (src.kind === "best") return `Ripescato: ${src.rank}° miglior ${src.position}° classificato`;
   return src.kind === "group"
     ? `${src.position}° girone ${groupLabel(src.group)}`

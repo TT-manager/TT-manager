@@ -1,11 +1,14 @@
+import { intlTag, type Locale } from "../i18n/locale";
+
 /** Le iscrizioni autonome sono possibili ora? */
 export function registrationIsOpen(t: { status: string; registration_open: boolean; registration_deadline: string | null; championship_id: string | null }, now = new Date()) {
   return Boolean(t.championship_id) && t.status === "draft" && t.registration_open &&
     (!t.registration_deadline || now < new Date(t.registration_deadline));
 }
 
-export const formatDeadline = (iso: string) =>
-  new Date(iso).toLocaleString("it-IT", { timeZone: "Europe/Rome", weekday: "short", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+/** Scadenza in ora italiana (le leghe sono in Italia), con nomi di giorni e mesi nella lingua indicata. */
+export const formatDeadline = (iso: string, l: Locale = "it") =>
+  new Date(iso).toLocaleString(intlTag(l), { timeZone: "Europe/Rome", weekday: "short", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 
 /** Istante → «2026-11-20T20:00» in ora italiana (per i campi data e ora). */
 export function isoToRomeLocal(iso: string) {
