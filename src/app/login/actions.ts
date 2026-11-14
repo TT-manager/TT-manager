@@ -44,7 +44,7 @@ export async function signup(_prev: LoginState, formData: FormData): Promise<Log
   if (error?.code === "over_email_send_rate_limit") return { error: "Troppe registrazioni in poco tempo: riprova tra un'ora." };
   if (error) return { error: "Registrazione non riuscita. Riprova più tardi." };
   if (data.session) redirect(next); // conferma email disattivata: si entra subito
-  return { ok: "Ti abbiamo mandato un'email: apri il link per confermare l'indirizzo e completare la registrazione. (Se l'indirizzo era già registrato, accedi o usa «Password dimenticata».)" };
+  return { ok: "Ti abbiamo mandato un'email: apri il link per confermare l'indirizzo e completare la registrazione. Può impiegare qualche minuto ad arrivare: controlla anche spam e promozioni. (Se l'indirizzo era già registrato, accedi o usa «Password dimenticata».)" };
 }
 
 export async function forgotPassword(_prev: LoginState, formData: FormData): Promise<LoginState> {
