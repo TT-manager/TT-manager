@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { requireChampionshipManager } from "@/lib/auth";
 import { DEFAULT_RANKING, parseRankingSettings } from "@/lib/domain/ranking";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { tr } from "@/i18n/server";
+import { adminLeaguesText } from "@/i18n/dict/admin-leagues";
 
 /** Carica la lega verificando che l'admin possa gestirlo. */
 export async function loadManagedChampionship(id: string) {
@@ -20,20 +22,21 @@ export async function loadManagedChampionship(id: string) {
 }
 
 const TABS = [
-  ["", "Panoramica"], ["/partenza", "Classifica di partenza"], ["/assenze", "Assenze giustificate"], ["/impostazioni", "Regole della classifica"],
+  ["", "tabOverview"], ["/partenza", "tabStart"], ["/assenze", "tabAbsences"], ["/impostazioni", "tabRules"],
 ] as const;
 
-export function ChampionshipHeader({ c, current }: { c: { id: string; name: string; slug: string; kind: string }; current: string }) {
+export async function ChampionshipHeader({ c, current }: { c: { id: string; name: string; slug: string; kind: string }; current: string }) {
+  const t = await tr(adminLeaguesText);
   return (
     <div>
-      <Link href="/admin/campionati" className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← Leghe</Link>
+      <Link href="/admin/campionati" className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">{t.backToLeagues}</Link>
       <h1 className="mt-2 text-2xl font-bold">{c.name}</h1>
-      <p className="text-sm text-neutral-600 dark:text-neutral-400">{c.kind === "doubles" ? "Doppio" : "Singolare"} ·{" "}
-        <Link href={`/c/${c.slug}`} className="underline">pagina pubblica</Link></p>
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">{c.kind === "doubles" ? t.doubles : t.singles} ·{" "}
+        <Link href={`/c/${c.slug}`} className="underline">{t.publicPage}</Link></p>
       <nav className="mt-4 flex flex-wrap gap-2 border-b pb-2 text-sm">
         {TABS.map(([path, label]) => (
           <Link key={path} href={`/admin/campionati/${c.id}${path}`}
-            className={`rounded px-3 py-1 ${current === path ? "bg-brand text-white" : "hover:text-brand"}`}>{label}</Link>
+            className={`rounded px-3 py-1 ${current === path ? "bg-brand text-white" : "hover:text-brand"}`}>{t[label]}</Link>
         ))}
       </nav>
     </div>

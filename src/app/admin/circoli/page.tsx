@@ -4,13 +4,19 @@ import { clubLabel, type Club } from "@/lib/clubs";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { timeAgo } from "@/lib/time";
 import { addClub, decideClubRequest, deleteClub, updateClub } from "./actions";
+import { getLocale, tr } from "@/i18n/server";
+import { adminShellText } from "@/i18n/dict/admin-shell";
 
-export const metadata = { title: "Circoli" };
+export async function generateMetadata() {
+  return { title: (await tr(adminShellText)).clubsTitle };
+}
 const input = "rounded border bg-transparent px-3 py-2";
 const muted = "text-sm text-muted";
 
 export default async function ClubsPage() {
   await requireOwner();
+  const t = await tr(adminShellText);
+  const l = await getLocale();
   const svc = createServiceClient();
   const [{ data: clubRows }, { data: requests }, { data: members }] = await Promise.all([
     svc.from("clubs").select("id, name, city").order("name"),
@@ -28,39 +34,39 @@ export default async function ClubsPage() {
   return (
     <main className="space-y-10">
       <div>
-        <h1 className="text-2xl font-bold">Circoli</h1>
-        <p className={`mt-1 ${muted}`}>I giocatori scelgono il circolo da questo elenco. Se il loro non c&apos;è, ti mandano una richiesta.</p>
+        <h1 className="text-2xl font-bold">{t.clubsTitle}</h1>
+        <p className={`mt-1 ${muted}`}>{t.clubsIntro}</p>
       </div>
 
       <section>
-        <h2 className="text-xl font-semibold">Richieste in attesa{requests?.length ? ` (${requests.length})` : ""}</h2>
-        {!requests?.length ? <p className={`mt-2 ${muted}`}>Nessuna richiesta.</p> : (
+        <h2 className="text-xl font-semibold">{t.pendingRequests}{requests?.length ? ` (${requests.length})` : ""}</h2>
+        {!requests?.length ? <p className={`mt-2 ${muted}`}>{t.noRequests}</p> : (
           <ul className="mt-2 space-y-4">
             {requests.map((r) => (
               <li key={r.id} className="card space-y-3">
-                <p><strong>{who.get(r.user_id as string) ?? "Un utente"}</strong> chiede di aggiungere
-                  {" "}<strong>{r.name}</strong>{r.city ? ` (${r.city})` : ""} <span className={muted}>· {timeAgo(r.created_at as string)}</span></p>
-                <ActionForm action={decideClubRequest} submitLabel="Approva e crea il circolo">
+                <p><strong>{who.get(r.user_id as string) ?? t.aUser}</strong> {t.asksToAdd}
+                  {" "}<strong>{r.name}</strong>{r.city ? ` (${r.city})` : ""} <span className={muted}>· {timeAgo(r.created_at as string, undefined, l)}</span></p>
+                <ActionForm action={decideClubRequest} submitLabel={t.approveCreate}>
                   <input type="hidden" name="request_id" value={r.id} />
                   <input type="hidden" name="decision" value="approve" />
-                  <p className={muted}>Puoi correggere nome e città prima di approvare.</p>
+                  <p className={muted}>{t.canFixBeforeApprove}</p>
                   <div className="mt-1 grid gap-2 sm:grid-cols-2">
-                    <input name="name" defaultValue={r.name} required maxLength={80} className={input} aria-label="Nome del circolo" />
-                    <input name="city" defaultValue={r.city ?? ""} maxLength={60} placeholder="Città" className={input} aria-label="Città" />
+                    <input name="name" defaultValue={r.name} required maxLength={80} className={input} aria-label={t.clubName} />
+                    <input name="city" defaultValue={r.city ?? ""} maxLength={60} placeholder={t.city} className={input} aria-label={t.city} />
                   </div>
                 </ActionForm>
                 {clubs.length > 0 && (
-                  <ActionForm action={decideClubRequest} submitLabel="Assegna" primary={false}>
+                  <ActionForm action={decideClubRequest} submitLabel={t.assign} primary={false}>
                     <input type="hidden" name="request_id" value={r.id} />
                     <input type="hidden" name="decision" value="assign" />
-                    <label className={`block ${muted}`}>Oppure è uno già in elenco (scritto diversamente):
+                    <label className={`block ${muted}`}>{t.orExisting}
                       <select name="club_id" required defaultValue="" className={`select-arrow ${input} mt-1 block w-full`}>
-                        <option value="" disabled>Scegli il circolo…</option>
+                        <option value="" disabled>{t.chooseClub}</option>
                         {clubs.map((c) => <option key={c.id} value={c.id}>{clubLabel(c)}</option>)}
                       </select>
                     </label>
                   </ActionForm>)}
-                <ActionForm action={decideClubRequest} submitLabel="Rifiuta" primary={false} inline confirmText="Rifiutare la richiesta?">
+                <ActionForm action={decideClubRequest} submitLabel={t.reject} primary={false} inline confirmText={t.confirmReject}>
                   <input type="hidden" name="request_id" value={r.id} />
                   <input type="hidden" name="decision" value="reject" />
                 </ActionForm>
@@ -69,34 +75,34 @@ export default async function ClubsPage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold">Aggiungi un circolo</h2>
-        <ActionForm action={addClub} submitLabel="Aggiungi" className="mt-2">
+        <h2 className="text-xl font-semibold">{t.addClub}</h2>
+        <ActionForm action={addClub} submitLabel={t.add} className="mt-2">
           <div className="grid gap-2 sm:grid-cols-2">
-            <input name="name" required maxLength={80} placeholder="Nome del circolo" className={input} aria-label="Nome del circolo" />
-            <input name="city" maxLength={60} placeholder="Città (facoltativa)" className={input} aria-label="Città" />
+            <input name="name" required maxLength={80} placeholder={t.clubName} className={input} aria-label={t.clubName} />
+            <input name="city" maxLength={60} placeholder={t.cityOptional} className={input} aria-label={t.city} />
           </div>
         </ActionForm>
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold">Elenco ({clubs.length})</h2>
-        {!clubs.length ? <p className={`mt-2 ${muted}`}>Ancora nessun circolo.</p> : (
+        <h2 className="text-xl font-semibold">{t.clubList(clubs.length)}</h2>
+        {!clubs.length ? <p className={`mt-2 ${muted}`}>{t.noClubs}</p> : (
           <ul className="mt-2 divide-y divide-line">
             {clubs.map((c) => {
               const n = count.get(c.id) ?? 0;
               return (
                 <li key={c.id} className="py-3">
-                  <ActionForm action={updateClub} submitLabel="Salva" primary={false}>
+                  <ActionForm action={updateClub} submitLabel={t.save} primary={false}>
                     <input type="hidden" name="id" value={c.id} />
                     <div className="grid gap-2 sm:grid-cols-2">
-                      <input name="name" defaultValue={c.name} required maxLength={80} className={input} aria-label="Nome del circolo" />
-                      <input name="city" defaultValue={c.city ?? ""} maxLength={60} placeholder="Città" className={input} aria-label="Città" />
+                      <input name="name" defaultValue={c.name} required maxLength={80} className={input} aria-label={t.clubName} />
+                      <input name="city" defaultValue={c.city ?? ""} maxLength={60} placeholder={t.city} className={input} aria-label={t.city} />
                     </div>
                   </ActionForm>
                   <div className={`mt-1 flex flex-wrap items-center gap-3 ${muted}`}>
-                    <span>{n === 1 ? "1 giocatore" : `${n} giocatori`}</span>
-                    <ActionForm action={deleteClub} submitLabel="Elimina" primary={false} inline
-                      confirmText={n ? `Eliminare ${c.name}? I suoi ${n} giocatori resteranno senza circolo.` : `Eliminare ${c.name}?`}>
+                    <span>{t.playersCount(n)}</span>
+                    <ActionForm action={deleteClub} submitLabel={t.delete} primary={false} inline
+                      confirmText={t.confirmDeleteClub(c.name, n)}>
                       <input type="hidden" name="id" value={c.id} />
                     </ActionForm>
                   </div>

@@ -2,6 +2,8 @@ import { createPublicClient } from "./supabase/public";
 import { entryName, loadEntries } from "./entries";
 import { DEFAULT_RANKING, parseRankingSettings, type RankingSettings } from "./domain/ranking";
 import type { MatchRow } from "./domain/tournament";
+import { pointsLabel } from "./labels";
+import { getLocale } from "@/i18n/server";
 
 // Lettura a ogni richiesta (nessuna cache): i risultati devono comparire subito.
 
@@ -11,16 +13,18 @@ export type RankingRow = {
   rating: number; games_played: number; position: number; avatar_path: string | null;
 };
 
-const toChampionship = (c: Record<string, unknown>): Championship => {
+/** Lega pronta da mostrare: il nome dei punti di base è tradotto nella lingua di chi guarda. */
+const toChampionship = async (c: Record<string, unknown>): Promise<Championship> => {
   const p = parseRankingSettings(c.settings);
+  const settings = "settings" in p ? p.settings : DEFAULT_RANKING;
   return { id: c.id as string, name: c.name as string, slug: c.slug as string, kind: c.kind as "singles" | "doubles", isPublic: Boolean(c.is_public),
-    settings: "settings" in p ? p.settings : DEFAULT_RANKING };
+    settings: { ...settings, label: pointsLabel(settings.label, await getLocale()) } };
 };
 
 export async function getChampionships(): Promise<Championship[]> {
   const { data, error } = await createPublicClient().from("championships").select("id, name, slug, kind, settings, is_public").order("name");
   if (error) throw new Error("Impossibile leggere le leghe");
-  return (data ?? []).map(toChampionship);
+  return Promise.all((data ?? []).map(toChampionship));
 }
 
 export async function getChampionshipBySlug(slug: string): Promise<Championship | null> {
@@ -73,12 +77,13 @@ export async function getPlayer(id: string) {
       .select("id, championship_id, kind, rating_before, rating_after, created_at, tournament:tournaments_public(name)")
       .eq("player_id", id).order("id", { ascending: true }),
   ]);
+  const locale = await getLocale();
   const championships = (memberships ?? []).map((m) => {
     const c = m.championships as unknown as { name: string; slug: string; settings: unknown } | null;
     const p = parseRankingSettings(c?.settings);
     return {
       id: m.championship_id as string, name: c?.name ?? "?", slug: c?.slug ?? "",
-      label: ("settings" in p ? p.settings : DEFAULT_RANKING).label,
+      label: pointsLabel(("settings" in p ? p.settings : DEFAULT_RANKING).label, locale),
       rating: m.rating as number, games: m.games_played as number,
       history: ((history ?? []) as unknown as (HistoryRow & { championship_id: string })[]).filter((h) => h.championship_id === m.championship_id),
     };

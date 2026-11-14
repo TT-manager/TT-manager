@@ -8,13 +8,19 @@ import { groupLabel, isPlayed } from "@/lib/domain/tournament";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { adminSubmitResult, confirmDisputedAction } from "@/app/gestione/actions";
 import { ActionForm } from "@/components/action-form";
+import { getLocale, tr } from "@/i18n/server";
+import { adminManageText } from "@/i18n/dict/admin-manage";
 
-export const metadata = { title: "Risultati torneo" };
+export async function generateMetadata() {
+  return { title: (await tr(adminManageText)).resultsTitle };
+}
 
 export default async function AdminResultsPage({ params }: PageProps<"/gestione/[id]/risultati">) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   await requireTournamentManager(id);
+  const tx = await tr(adminManageText);
+  const l = await getLocale();
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments").select("public_code").eq("id", id).maybeSingle();
   if (!t) notFound();
@@ -31,26 +37,26 @@ export default async function AdminResultsPage({ params }: PageProps<"/gestione/
   return (
     <main>
       <Link href={`/gestione/${id}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {tournament.name}</Link>
-      <h1 className="mt-2 text-2xl font-bold">Risultati</h1>
-      {closed && <p className="mt-2 text-amber-700 dark:text-amber-400">Torneo chiuso: per correggere un risultato riaprilo dalla pagina del torneo.</p>}
+      <h1 className="mt-2 text-2xl font-bold">{tx.results}</h1>
+      {closed && <p className="mt-2 text-amber-700 dark:text-amber-400">{tx.closedFixHint}</p>}
       {disputed > 0 && <p className="mt-3 rounded-lg bg-amber-400/15 px-4 py-2 text-sm"><span className="badge-contested mr-2">{disputed}</span>
-        {disputed === 1 ? "Un risultato è contestato" : `${disputed} risultati sono contestati`}: confermalo così com&apos;è oppure correggilo. Finché non decidi, quel girone non si chiude, chi ha vinto non passa al turno dopo e il torneo non si può chiudere.</p>}
+        {tx.disputedCount(disputed)}{tx.disputedHint}</p>}
       <ul className="mt-4">
         {sorted.map((m) => (
           <li key={m.id} className="border-t py-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span>
                 <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                  {m.phase === "group" ? `Girone ${groupLabel(m.group_no ?? 0)} · turno ${m.round}` : `${stageName(m.stage ?? 0)} ${m.position + 1}`}
+                  {m.phase === "group" ? tx.groupRound(groupLabel(m.group_no ?? 0), m.round) : `${stageName(m.stage ?? 0, l)} ${m.position + 1}`}
                 </span><br />
-                {name(m.player_a) ?? "da definire"} – {name(m.player_b) ?? "da definire"}
+                {name(m.player_a) ?? tx.tbd} – {name(m.player_b) ?? tx.tbd}
               </span>
-              <span className="text-right tabular-nums">{isPlayed(m) ? `${m.sets_a}-${m.sets_b}` : "da giocare"}
-                {m.disputed && <span className="badge-contested ml-2">Contestato</span>}
-                {isPlayed(m) && m.reported_by && <span className="block text-xs text-muted">inserito da {playerNames.get(m.reported_by) ?? "un giocatore"}</span>}</span>
+              <span className="text-right tabular-nums">{isPlayed(m) ? `${m.sets_a}-${m.sets_b}` : tx.toPlay}
+                {m.disputed && <span className="badge-contested ml-2">{tx.disputed}</span>}
+                {isPlayed(m) && m.reported_by && <span className="block text-xs text-muted">{tx.enteredBy(playerNames.get(m.reported_by) ?? tx.aPlayer)}</span>}</span>
             </div>
             {!closed && m.disputed && (
-              <ActionForm action={confirmDisputedAction} submitLabel="Conferma il risultato così com'è" primary={false} className="mt-2">
+              <ActionForm action={confirmDisputedAction} submitLabel={tx.confirmAsIs} primary={false} className="mt-2">
                 <input type="hidden" name="tournament_id" value={id} />
                 <input type="hidden" name="match_id" value={m.id} />
               </ActionForm>)}

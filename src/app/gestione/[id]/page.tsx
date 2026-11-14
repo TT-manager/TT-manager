@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTournamentManager } from "@/lib/auth";
 import { loadEntries } from "@/lib/entries";
-import { STATUS_LABEL } from "@/lib/labels";
+import { statusLabel } from "@/lib/labels";
+import { getLocale, tr } from "@/i18n/server";
+import { intlTag } from "@/i18n/locale";
+import { adminManageText } from "@/i18n/dict/admin-manage";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { describeFormat, parseFormat } from "@/lib/domain/format";
 import { closingSummary } from "@/lib/closing";
@@ -14,13 +17,17 @@ import { setPlayerResults, setPublicAndStream, setRegistration } from "@/app/ges
 import { disputedCount } from "@/lib/results";
 import { ClosingControl, DeleteTournament, EnrollmentForm, GroupsControl, GuestForm, PairsForm, RegenerateCode } from "./tournament-forms";
 
-export const metadata = { title: "Torneo" };
+export async function generateMetadata() {
+  return { title: (await tr(adminManageText)).tournamentTitle };
+}
 
 export default async function TournamentAdminPage({ params }: PageProps<"/gestione/[id]">) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const access = await requireTournamentManager(id);
   const { championshipId } = access;
+  const tx = await tr(adminManageText);
+  const l = await getLocale();
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments")
     .select("id, name, starts_on, status, public_code, format, registration_open, registration_deadline, player_results, featured, stream_url").eq("id", id).maybeSingle();
@@ -50,109 +57,109 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
     <main className="space-y-8">
       <div>
         {championshipId
-          ? <Link href={`/admin/campionati/${championshipId}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {championship?.name ?? "Lega"}</Link>
-          : <Link href="/profilo" className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← Il mio profilo</Link>}
+          ? <Link href={`/admin/campionati/${championshipId}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {championship?.name ?? tx.league}</Link>
+          : <Link href="/profilo" className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">{tx.myProfile}</Link>}
         <h1 className="mt-2 text-2xl font-bold">{t.name}
-          {friendly && <span className="ml-3 rounded bg-sky-100 px-2 py-0.5 align-middle text-sm font-normal text-sky-900 dark:bg-sky-900 dark:text-sky-100">Amichevole</span>}</h1>
-        {friendly && <p className="text-sm text-neutral-600 dark:text-neutral-400">Non conta per nessuna classifica.</p>}
+          {friendly && <span className="ml-3 rounded bg-sky-100 px-2 py-0.5 align-middle text-sm font-normal text-sky-900 dark:bg-sky-900 dark:text-sky-100">{tx.friendly}</span>}</h1>
+        {friendly && <p className="text-sm text-neutral-600 dark:text-neutral-400">{tx.noRanking}</p>}
         <p className="text-neutral-600 dark:text-neutral-400">
-          {t.starts_on ? new Date(t.starts_on).toLocaleDateString("it-IT") : "Senza data"} · {STATUS_LABEL[t.status]}
+          {t.starts_on ? new Date(t.starts_on).toLocaleDateString(intlTag(l)) : tx.noDate} · {statusLabel(t.status, l)}
         </p>
-        <p className="mt-2">Codice pubblico: <span className="font-mono text-lg">{t.public_code}</span>{" "}
-          <span className="text-sm text-neutral-600 dark:text-neutral-400">(pagina pubblica: /t/{t.public_code})</span></p>
+        <p className="mt-2">{tx.publicCode} <span className="font-mono text-lg">{t.public_code}</span>{" "}
+          <span className="text-sm text-neutral-600 dark:text-neutral-400">{tx.publicPagePath(t.public_code)}</span></p>
       </div>
 
       <section>
-        <h2 className="text-lg font-semibold">Formato</h2>
+        <h2 className="text-lg font-semibold">{tx.format}</h2>
         {t.format === null
-          ? <p className="mt-2">Formato non ancora impostato. Puoi farlo anche dopo le iscrizioni, quando sai quanti siete.</p>
+          ? <p className="mt-2">{tx.formatNotSet}</p>
           : "format" in parsed
-            ? <ul className="mt-2 list-disc pl-5">{describeFormat(parsed.format, entries.length || undefined).map((l) => <li key={l}>{l}</li>)}</ul>
-            : <p className="mt-2 text-red-700 dark:text-red-400">Formato non valido: correggilo.</p>}
+            ? <ul className="mt-2 list-disc pl-5">{describeFormat(parsed.format, entries.length || undefined, l).map((l) => <li key={l}>{l}</li>)}</ul>
+            : <p className="mt-2 text-red-700 dark:text-red-400">{tx.formatInvalid}</p>}
         {t.status === "draft" && (
           <Link href={`/gestione/${t.id}/formato`} className="mt-3 inline-block rounded border px-4 py-2">
-            {t.format === null ? "Imposta il formato" : "Modifica il formato"}</Link>
+            {t.format === null ? tx.setFormat : tx.editFormat}</Link>
         )}
       </section>
 
       {championshipId && t.status === "draft" && (
         <section className="rounded-lg border p-4">
-          <h2 className="text-lg font-semibold">Iscrizioni dei giocatori</h2>
+          <h2 className="text-lg font-semibold">{tx.registrationTitle}</h2>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
             {registrationIsOpen({ ...t, championship_id: championshipId })
-              ? <>Aperte{t.registration_deadline ? ` fino a ${formatDeadline(t.registration_deadline)}` : ""}: i giocatori della lega si iscrivono dalla <a href={`/t/${t.public_code}`} className="underline">pagina pubblica del torneo</a>{doubles ? " (scegliendo il compagno, oppure da soli)" : ""}.</>
-              : t.registration_open ? "Scadenza superata: nessuno può più iscriversi da solo." : "Chiuse: solo tu puoi iscrivere i giocatori."}
-            {" "}Si chiudono comunque quando generi {knockoutOnly ? "il tabellone" : mode === "league" ? "il calendario" : "i gironi"}.</p>
-          <ActionForm action={setRegistration} submitLabel="Salva" primary={false} className="mt-3 flex flex-wrap items-end gap-4">
+              ? <>{tx.regOpenA}{t.registration_deadline ? tx.regOpenUntil(formatDeadline(t.registration_deadline, l)) : ""}{tx.regOpenB} <a href={`/t/${t.public_code}`} className="underline">{tx.regPublicPage}</a>{doubles ? tx.regDoublesNote : ""}.</>
+              : t.registration_open ? tx.regExpired : tx.regClosed}
+            {" "}{tx.regClosesOnGenerate(knockoutOnly ? "knockout" : mode === "league" ? "league" : "groups")}</p>
+          <ActionForm action={setRegistration} submitLabel={tx.save} primary={false} className="mt-3 flex flex-wrap items-end gap-4">
             <input type="hidden" name="tournament_id" value={t.id} />
-            <label className="flex items-center gap-2"><input type="checkbox" name="open" defaultChecked={t.registration_open} /> Iscrizioni aperte</label>
-            <label className="grid gap-1 text-sm">Chiusura (facoltativa)
+            <label className="flex items-center gap-2"><input type="checkbox" name="open" defaultChecked={t.registration_open} /> {tx.regOpenCheckbox}</label>
+            <label className="grid gap-1 text-sm">{tx.regDeadline}
               <input type="datetime-local" name="deadline" defaultValue={t.registration_deadline ? isoToRomeLocal(t.registration_deadline) : ""}
                 className="rounded border bg-transparent px-3 py-1.5" /></label>
           </ActionForm>
-          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">Ricarica la pagina per vedere chi si è iscritto nel frattempo.</p>
+          <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{tx.reloadToSee}</p>
         </section>)}
 
       <section>
-        <h2 className="text-lg font-semibold">{doubles ? `Coppie iscritte (${entries.length})` : `Iscritti (${entries.length})`}</h2>
+        <h2 className="text-lg font-semibold">{doubles ? tx.pairsEntered(entries.length) : tx.entries(entries.length)}</h2>
         {doubles
           ? <PairsForm tournamentId={t.id} players={players} initialPairs={pairs} locked={t.status !== "draft"} closed={t.status === "closed"} />
           : <EnrollmentForm tournamentId={t.id} players={players} enrolledIds={enrolledIds} locked={t.status !== "draft"} closed={t.status === "closed"} />}
         {userFriendly && t.status === "draft" && (
           <div className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-            <p>Puoi iscrivere te stesso e i tuoi <a href="/amici" className="underline">amici</a>. Per chi non ha un account aggiungi un ospite:</p>
+            <p>{tx.friendlyEnrollA} <a href="/amici" className="underline">{tx.friends}</a>{tx.friendlyEnrollB}</p>
             <GuestForm tournamentId={t.id} />
           </div>)}
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">{knockoutOnly ? "Tabellone" : mode === "league" ? "Calendario" : "Gironi"}</h2>
-        {t.status !== "draft" && <p className="mt-2">{knockoutOnly ? "Tabellone generato." : mode === "league" ? "Calendario generato." : "Gironi generati."} <Link href={`/t/${t.public_code}`} className="underline">Apri la pagina pubblica</Link></p>}
+        <h2 className="text-lg font-semibold">{knockoutOnly ? tx.bracket : mode === "league" ? tx.schedule : tx.groups}</h2>
+        {t.status !== "draft" && <p className="mt-2">{knockoutOnly ? tx.bracketGenerated : mode === "league" ? tx.scheduleGenerated : tx.groupsGenerated} <Link href={`/t/${t.public_code}`} className="underline">{tx.openPublicPage}</Link></p>}
         <GroupsControl tournamentId={t.id} status={t.status} mode={mode} hasFormat={t.format !== null} />
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">Risultati</h2>
+        <h2 className="text-lg font-semibold">{tx.results}</h2>
         {disputed > 0 && <p className="mt-2 rounded-lg bg-amber-400/15 px-4 py-2 text-sm"><span className="badge-contested mr-2">{disputed}</span>
-          {disputed === 1 ? "Un risultato è contestato" : `${disputed} risultati sono contestati`}: <Link href={`/gestione/${t.id}/risultati`} className="underline">decidi</Link>.</p>}
-        {t.status !== "draft" && <p className="mt-2"><Link href={`/gestione/${t.id}/risultati`} className="underline">Vedi e correggi tutti i risultati</Link></p>}
+          {tx.disputedCount(disputed)}: <Link href={`/gestione/${t.id}/risultati`} className="underline">{tx.decide}</Link>.</p>}
+        {t.status !== "draft" && <p className="mt-2"><Link href={`/gestione/${t.id}/risultati`} className="underline">{tx.seeAllResults}</Link></p>}
         {t.status !== "closed" && (
-          <ActionForm action={setPlayerResults} submitLabel="Salva" primary={false} className="mt-3">
+          <ActionForm action={setPlayerResults} submitLabel={tx.save} primary={false} className="mt-3">
             <input type="hidden" name="tournament_id" value={t.id} />
             <label className="flex items-start gap-2"><input type="checkbox" name="player_results" defaultChecked={t.player_results} className="mt-1" />
-              <span>Anche i giocatori inseriscono i risultati delle loro partite
-                <span className="block text-sm text-neutral-600 dark:text-neutral-400">Il risultato vale subito; l&apos;avversario può contestarlo e in quel caso decidi tu. Puoi sempre correggere tutto.</span></span></label>
+              <span>{tx.playersEnterResults}
+                <span className="block text-sm text-neutral-600 dark:text-neutral-400">{tx.playersEnterResultsNote}</span></span></label>
           </ActionForm>)}
       </section>
 
       {t.status !== "closed" && (
         <section>
-          <h2 className="text-lg font-semibold">Pubblico e diretta</h2>
-          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">La pagina del torneo è già visibile a chiunque abbia il link o il codice <span className="font-mono">{t.public_code}</span>.</p>
-          <ActionForm action={setPublicAndStream} submitLabel="Salva" primary={false} className="mt-3 space-y-3">
+          <h2 className="text-lg font-semibold">{tx.publicAndStream}</h2>
+          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{tx.alreadyVisible} <span className="font-mono">{t.public_code}</span>.</p>
+          <ActionForm action={setPublicAndStream} submitLabel={tx.save} primary={false} className="mt-3 space-y-3">
             <input type="hidden" name="tournament_id" value={t.id} />
             <label className="flex items-start gap-2"><input type="checkbox" name="featured" defaultChecked={t.featured} className="mt-1" />
-              <span>Mostra nella home di tutti mentre è in corso
-                <span className="block text-sm text-neutral-600 dark:text-neutral-400">Compare nella sezione «In diretta» anche a chi non fa parte della lega o non ha un account. Il resto della lega resta privato.</span></span></label>
-            <label className="grid gap-1 text-sm">Link della diretta streaming (facoltativo)
+              <span>{tx.featured}
+                <span className="block text-sm text-neutral-600 dark:text-neutral-400">{tx.featuredNote}</span></span></label>
+            <label className="grid gap-1 text-sm">{tx.streamLink}
               <input name="stream_url" type="url" inputMode="url" defaultValue={t.stream_url ?? ""} placeholder="https://www.youtube.com/live/…" maxLength={300}
                 className="rounded border bg-transparent px-3 py-2" />
-              <span className="text-neutral-600 dark:text-neutral-400">YouTube, Twitch, Facebook, Instagram o qualsiasi altro sito. Lascia vuoto per toglierlo.</span></label>
+              <span className="text-neutral-600 dark:text-neutral-400">{tx.streamNote}</span></label>
           </ActionForm>
         </section>)}
 
       <section>
-        <h2 className="text-lg font-semibold">Chiusura</h2>
+        <h2 className="text-lg font-semibold">{tx.closing}</h2>
         <ClosingControl tournamentId={t.id} status={t.status} summary={summary} ranked={access.ranked} />
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">Codice organizzatore</h2>
+        <h2 className="text-lg font-semibold">{tx.organizerCode}</h2>
         <RegenerateCode tournamentId={t.id} />
       </section>
 
       <section className="rounded-lg border border-red-600/40 p-4">
-        <h2 className="text-lg font-semibold">Elimina torneo</h2>
+        <h2 className="text-lg font-semibold">{tx.deleteTournament}</h2>
         <DeleteTournament tournamentId={t.id} name={t.name} played={summary?.toRate ?? 0}
           blocked={t.status === "closed" && access.ranked && Boolean(championshipId)} />
       </section>

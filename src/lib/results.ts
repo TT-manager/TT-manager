@@ -3,6 +3,9 @@ import { createServiceClient } from "./supabase/admin";
 import { validateMatch, type SetScore } from "./domain/score";
 export { setsFromForm } from "./domain/score";
 import { applyResult, groupViews, resolveKnockout, isPlayed, type MatchRow } from "./domain/tournament";
+import { getLocale, tr } from "@/i18n/server";
+import { adminManageText } from "@/i18n/dict/admin-manage";
+import { translateDomainError } from "@/i18n/domain-errors";
 
 const MATCH_COLUMNS = "id, phase, group_no, stage, position, player_a, player_b, sets_a, sets_b, set_scores, best_of, set_points, golden_point, source_a, source_b, rated, reported_by, disputed_at";
 
@@ -16,10 +19,11 @@ const toRows = (rows: unknown[] | null) =>
  * Da chiamare SOLO dopo aver verificato chi scrive (organizzatore del torneo o admin).
  */
 export async function saveResult(tournamentId: string, matchId: string, sets: SetScore[] | null, reporterPlayerId: string | null = null): Promise<{ error?: string; ok?: string; set?: number }> {
+  const tx = await tr(adminManageText);
   const svc = createServiceClient();
   const { data: t } = await svc.from("tournaments").select("status").eq("id", tournamentId).maybeSingle();
-  if (!t) return { error: "Torneo non trovato." };
-  if (t.status !== "groups" && t.status !== "knockout") return { error: "In questa fase del torneo non si inseriscono risultati." };
+  if (!t) return { error: tx.tournamentNotFound };
+  if (t.status !== "groups" && t.status !== "knockout") return { error: tx.noResultsInPhase };
 
   const [{ data: matches }, { data: tp }] = await Promise.all([
     svc.from("matches").select(MATCH_COLUMNS).eq("tournament_id", tournamentId),
@@ -27,7 +31,7 @@ export async function saveResult(tournamentId: string, matchId: string, sets: Se
   ]);
   const all = toRows(matches);
   const match = all.find((m) => m.id === matchId); // solo partite di QUESTO torneo
-  if (!match) return { error: "Partita non trovata." };
+  if (!match) return { error: tx.matchNotFound };
   const members = (tp ?? []).filter((r) => r.group_no !== null).map((r) => ({ playerId: r.id as string, group: r.group_no as number, seed: r.seed as number | null }));
 
   // Chi salva risolve anche un'eventuale contestazione (l'organizzatore decide; un giocatore
@@ -36,11 +40,11 @@ export async function saveResult(tournamentId: string, matchId: string, sets: Se
   if (sets === null) change = { sets_a: null, sets_b: null, set_scores: null, disputed: false };
   else {
     const v = validateMatch(sets, match.best_of, { points: match.set_points, golden: match.golden_point });
-    if ("error" in v) return { error: v.error, set: v.set };
+    if ("error" in v) return { error: translateDomainError(v.error, await getLocale()), set: v.set };
     change = { sets_a: v.result.setsA, sets_b: v.result.setsB, set_scores: v.result.sets, disputed: false };
   }
   const outcome = applyResult(all, members, matchId, change);
-  if ("error" in outcome) return { error: outcome.error };
+  if ("error" in outcome) return { error: translateDomainError(outcome.error, await getLocale()) };
 
   // Scrittura condizionata: non si tocca una partita già conteggiata in classifica
   // (il database lo impedisce comunque anche per i tornei chiusi).
@@ -48,10 +52,10 @@ export async function saveResult(tournamentId: string, matchId: string, sets: Se
     .update({ sets_a: change.sets_a, sets_b: change.sets_b, set_scores: change.set_scores, played_at: sets ? new Date().toISOString() : null,
       reported_by: sets ? reporterPlayerId : null, disputed_at: null, disputed_by: null })
     .eq("id", matchId).eq("tournament_id", tournamentId).eq("rated", false).select("id");
-  if (error?.message?.includes("PARTITA_BLOCCATA")) return { error: "Il torneo è chiuso: questo risultato non si può più modificare." };
-  if (error || !written?.length) return { error: "Salvataggio non riuscito, riprova." };
+  if (error?.message?.includes("PARTITA_BLOCCATA")) return { error: tx.resultLocked };
+  if (error || !written?.length) return { error: tx.saveFailed };
   await reconcileBracket(tournamentId);
-  return { ok: sets ? "Risultato salvato." : "Risultato cancellato." };
+  return { ok: sets ? tx.resultSaved : tx.resultCleared };
 }
 
 /**
@@ -100,20 +104,21 @@ type Who = { error: string } | { side: string; match: DbMatch & { disputed: bool
 
 /** Verifica che il giocatore giochi questa partita (anche in coppia) e ne restituisce il lato. */
 async function playerSide(tournamentId: string, matchId: string, playerId: string): Promise<Who> {
+  const tx = await tr(adminManageText);
   const svc = createServiceClient();
   const [{ data: t }, { data: matches }, { data: mine }] = await Promise.all([
     svc.from("tournaments").select("status, player_results").eq("id", tournamentId).maybeSingle(),
     svc.from("matches").select(MATCH_COLUMNS).eq("tournament_id", tournamentId),
     svc.from("entry_members").select("entry_id").eq("tournament_id", tournamentId).eq("player_id", playerId),
   ]);
-  if (!t) return { error: "Torneo non trovato." };
-  if (t.status !== "groups" && t.status !== "knockout") return { error: "In questa fase del torneo non si inseriscono risultati." };
+  if (!t) return { error: tx.tournamentNotFound };
+  if (t.status !== "groups" && t.status !== "knockout") return { error: tx.noResultsInPhase };
   const all = toRows(matches);
   const match = all.find((m) => m.id === matchId);
-  if (!match || !match.player_a || !match.player_b) return { error: "Partita non trovata." };
+  if (!match || !match.player_a || !match.player_b) return { error: tx.matchNotFound };
   const entries = new Set((mine ?? []).map((e) => e.entry_id as string));
   const side = entries.has(match.player_a) ? match.player_a : entries.has(match.player_b) ? match.player_b : null;
-  if (!side) return { error: "Puoi inserire solo i risultati delle partite che giochi." };
+  if (!side) return { error: tx.onlyYourMatches };
   return { side, match, all, status: t.status as string };
 }
 
@@ -128,17 +133,18 @@ async function sideMembers(tournamentId: string, entryId: string) {
  * Non può toccare un risultato contestato, né uno inserito dall'organizzatore o dagli avversari.
  */
 export async function playerSaveResult(tournamentId: string, matchId: string, sets: SetScore[] | null, playerId: string): Promise<{ error?: string; ok?: string; set?: number }> {
+  const tx = await tr(adminManageText);
   const { data: t } = await createServiceClient().from("tournaments").select("player_results").eq("id", tournamentId).maybeSingle();
-  if (!t?.player_results) return { error: "In questo torneo i risultati li inserisce l'organizzatore." };
+  if (!t?.player_results) return { error: tx.organizerEntersResults };
   const who = await playerSide(tournamentId, matchId, playerId);
   if ("error" in who) return who;
   const { match, side } = who;
-  if (match.disputed) return { error: "Il risultato è contestato: decide l'organizzatore." };
+  if (match.disputed) return { error: tx.disputedOrganizerDecides };
   if (isPlayed(match)) {
-    if (!match.reported_by) return { error: "Il risultato l'ha inserito l'organizzatore: per correggerlo rivolgiti a lui." };
+    if (!match.reported_by) return { error: tx.enteredByOrganizer };
     if (!(await sideMembers(tournamentId, side)).has(match.reported_by))
-      return { error: "Il risultato l'hanno già inserito i tuoi avversari: se non è giusto, contestalo." };
-  } else if (sets === null) return { ok: "Nessun risultato da cancellare." };
+      return { error: tx.enteredByOpponents };
+  } else if (sets === null) return { ok: tx.nothingToClear };
   return saveResult(tournamentId, matchId, sets, playerId);
 }
 
@@ -147,37 +153,39 @@ export async function playerSaveResult(tournamentId: string, matchId: string, se
  * ma il girone non si chiude e il vincitore non avanza finché l'organizzatore non decide.
  */
 export async function contestResult(tournamentId: string, matchId: string, playerId: string): Promise<{ error?: string; ok?: string }> {
+  const tx = await tr(adminManageText);
   const who = await playerSide(tournamentId, matchId, playerId);
   if ("error" in who) return who;
   const { match, side, all, status } = who;
-  if (!isPlayed(match)) return { error: "Questa partita non ha ancora un risultato." };
-  if (match.disputed) return { ok: "Il risultato è già contestato: l'organizzatore lo controllerà." };
-  if (!match.reported_by) return { error: "Il risultato l'ha inserito l'organizzatore: per correggerlo rivolgiti a lui." };
+  if (!isPlayed(match)) return { error: tx.noResultYet };
+  if (match.disputed) return { ok: tx.alreadyDisputed };
+  if (!match.reported_by) return { error: tx.enteredByOrganizer };
   if ((await sideMembers(tournamentId, side)).has(match.reported_by))
-    return { error: "Il risultato l'avete inserito voi: potete correggerlo direttamente." };
+    return { error: tx.enteredByYou };
   if (match.phase === "group" && status !== "groups")
-    return { error: "La fase a gironi è già finita: per correggere questo risultato rivolgiti all'organizzatore." };
+    return { error: tx.groupStageOver };
   if (match.phase === "knockout") {
     const nextPlayed = all.some((m) => isPlayed(m) && [m.source_a, m.source_b].some((src) =>
       src?.kind === "winner" && src.stage === match.stage && src.match === match.position));
-    if (nextPlayed) return { error: "Il turno successivo è già stato giocato: per correggere questo risultato rivolgiti all'organizzatore." };
+    if (nextPlayed) return { error: tx.nextRoundPlayed };
   }
   const { data, error } = await createServiceClient().from("matches")
     .update({ disputed_at: new Date().toISOString(), disputed_by: playerId })
     .eq("id", matchId).eq("tournament_id", tournamentId).is("disputed_at", null).eq("rated", false).select("id");
-  if (error || !data?.length) return { error: "Non sono riuscito a registrare la contestazione, riprova." };
+  if (error || !data?.length) return { error: tx.cantDispute };
   await reconcileBracket(tournamentId);
-  return { ok: "Risultato contestato: l'organizzatore deciderà. Intanto il turno successivo resta in attesa." };
+  return { ok: tx.disputedOk };
 }
 
 /** L'organizzatore conferma un risultato contestato così com'è. Solo dopo i controlli di chi gestisce. */
 export async function confirmDisputed(tournamentId: string, matchId: string): Promise<{ error?: string; ok?: string }> {
+  const tx = await tr(adminManageText);
   const { data, error } = await createServiceClient().from("matches")
     .update({ disputed_at: null, disputed_by: null })
     .eq("id", matchId).eq("tournament_id", tournamentId).not("disputed_at", "is", null).select("id");
-  if (error || !data?.length) return { error: "La partita non è più contestata." };
+  if (error || !data?.length) return { error: tx.noLongerDisputed };
   await reconcileBracket(tournamentId);
-  return { ok: "Risultato confermato." };
+  return { ok: tx.resultConfirmed };
 }
 
 /** Numero di partite contestate ancora da decidere. */

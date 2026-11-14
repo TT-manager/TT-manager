@@ -11,6 +11,10 @@ import { hasServiceKey } from "@/lib/organizer";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { ActionState } from "@/components/action-form";
 import { parseClubChoice } from "@/lib/clubs";
+import { getLocale, tr } from "@/i18n/server";
+import { adminLeaguesText } from "@/i18n/dict/admin-leagues";
+import { clubErrorText } from "@/i18n/dict/account-clubs";
+import { translateDomainError } from "@/i18n/domain-errors";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -21,7 +25,7 @@ async function done(cid: string, ok: string): Promise<ActionState> {
   revalidatePath(`/admin/campionati/${cid}`);
   if (hasServiceKey()) {
     const r = await recomputeChampionship(cid);
-    if (r.error) { refresh(); return { error: `${ok} Classifica non ricalcolata: ${r.error}` }; }
+    if (r.error) { refresh(); return { error: (await tr(adminLeaguesText)).notRecomputed(ok, r.error) }; }
   }
   refresh(); // aggiorna subito la pagina aperta
   return { ok };
@@ -34,9 +38,10 @@ function slugify(name: string) {
 
 export async function createChampionship(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const owner = await requireOwner();
+  const t = await tr(adminLeaguesText);
   const name = str(formData, "name");
   const kind = str(formData, "kind") === "doubles" ? "doubles" : "singles";
-  if (name.length < 2 || name.length > 100) return { error: "Il nome è obbligatorio (2-100 caratteri)." };
+  if (name.length < 2 || name.length > 100) return { error: t.nameRequired };
   const supabase = await createServerSupabase();
   const base = slugify(name);
   for (let i = 0; i < 20; i++) {
@@ -44,118 +49,125 @@ export async function createChampionship(_prev: ActionState, formData: FormData)
     const { data, error } = await supabase.from("championships")
       .insert({ name, slug, kind, settings: DEFAULT_RANKING, created_by: owner.userId }).select("id").single();
     if (!error) redirect(`/admin/campionati/${data.id}`);
-    if (error.code !== "23505") return { error: "Non sono riuscito a creare la lega." };
+    if (error.code !== "23505") return { error: t.cantCreateLeague };
   }
-  return { error: "Nome già usato da troppe leghe: scegline un altro." };
+  return { error: t.nameTaken };
 }
 
 export async function setVisibility(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
+  const t = await tr(adminLeaguesText);
   const isPublic = formData.get("is_public") === "on";
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("championships").update({ is_public: isPublic }).eq("id", cid);
-  if (error) return { error: "Non sono riuscito a salvare." };
+  if (error) return { error: t.cantSave };
   revalidatePath(`/admin/campionati/${cid}`); revalidatePath("/"); refresh();
-  return { ok: isPublic ? "Ora la lega è visibile a tutti nella home." : "Ora la lega compare nella home solo a chi ne fa parte." };
+  return { ok: isPublic ? t.nowPublic : t.nowPrivate };
 }
 
 export async function renameChampionship(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
+  const t = await tr(adminLeaguesText);
   const name = str(formData, "name");
-  if (name.length < 2 || name.length > 100) return { error: "Il nome è obbligatorio (2-100 caratteri)." };
+  if (name.length < 2 || name.length > 100) return { error: t.nameRequired };
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("championships").update({ name }).eq("id", cid);
-  if (error) return { error: "Non sono riuscito a rinominare." };
+  if (error) return { error: t.cantRename };
   revalidatePath(`/admin/campionati/${cid}`); refresh();
-  return { ok: "Nome salvato." };
+  return { ok: t.nameSaved };
 }
 
 // ── Giocatori della lega ──────────────────────────────────────────────
 export async function addMembers(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
+  const t = await tr(adminLeaguesText);
   const ids = formData.getAll("player_id").map(String).filter((x) => UUID.test(x));
   const name = str(formData, "new_name");
   const club = parseClubChoice((k) => formData.get(k), false);
   const supabase = await createServerSupabase();
   if (name) {
-    if (name.length < 2 || name.length > 80) return { error: "Il nome deve avere 2-80 caratteri." };
-    if ("error" in club) return { error: club.error };
+    if (name.length < 2 || name.length > 80) return { error: t.nameLength };
+    if ("error" in club) return { error: clubErrorText(club.error, await getLocale()) };
     const { data, error } = await supabase.from("players")
       .insert({ full_name: name, club_id: club.kind === "existing" ? club.clubId : null }).select("id").single();
-    if (error) return { error: "Non sono riuscito a creare il giocatore." };
+    if (error) return { error: t.cantCreatePlayer };
     ids.push(data.id as string);
   }
-  if (ids.length === 0) return { error: "Scegli almeno un giocatore o scrivi il nome di uno nuovo." };
+  if (ids.length === 0) return { error: t.choosePlayers };
   const { error } = await supabase.from("championship_players")
     .upsert(ids.map((player_id) => ({ championship_id: cid, player_id })), { onConflict: "championship_id,player_id", ignoreDuplicates: true });
-  if (error) return { error: "Non sono riuscito ad aggiungere i giocatori." };
-  return done(cid, ids.length === 1 ? "Giocatore aggiunto." : `Aggiunti ${ids.length} giocatori.`);
+  if (error) return { error: t.cantAddPlayers };
+  return done(cid, t.playersAdded(ids.length));
 }
 
 export async function removeMember(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
+  const t = await tr(adminLeaguesText);
   const pid = str(formData, "player_id");
   const supabase = await createServerSupabase();
   // Chi ha già giocato tornei della lega resta: toglierlo cambierebbe la storia della classifica.
   const { count } = await supabase.from("entry_members").select("player_id, tournaments!inner(championship_id)", { count: "exact", head: true })
     .eq("player_id", pid).eq("tournaments.championship_id", cid);
-  if (count) return { error: "Ha già giocato tornei di questo campionato: non si può togliere (puoi disattivarlo dalla pagina Giocatori)." };
+  if (count) return { error: t.alreadyPlayed };
   const { error } = await supabase.from("championship_players").delete().eq("championship_id", cid).eq("player_id", pid);
-  if (error) return { error: "Non sono riuscito a togliere il giocatore." };
-  return done(cid, "Giocatore tolto dalla lega.");
+  if (error) return { error: t.cantRemovePlayer };
+  return done(cid, t.playerRemoved);
 }
 
 // ── Classifica di partenza ────────────────────────────────────────────────
 export async function savePastTournament(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
+  const t = await tr(adminLeaguesText);
   const id = str(formData, "past_id");
   const name = str(formData, "name");
   const heldOn = str(formData, "held_on");
-  if (name.length < 1 || name.length > 100) return { error: "Scrivi il nome del torneo." };
-  if (heldOn && !DATE.test(heldOn)) return { error: "Data non valida." };
+  if (name.length < 1 || name.length > 100) return { error: t.writeTournamentName };
+  if (heldOn && !DATE.test(heldOn)) return { error: t.invalidDate };
   const podium: { position: number; player_id: string }[] = [];
   for (const pos of [1, 2, 3, 4]) {
     const pid = str(formData, `pos${pos}`);
     if (!pid) continue;
-    if (!UUID.test(pid)) return { error: "Giocatore non valido." };
-    if (podium.some((p) => p.player_id === pid)) return { error: "Lo stesso giocatore compare in due posizioni." };
+    if (!UUID.test(pid)) return { error: t.invalidPlayer };
+    if (podium.some((p) => p.player_id === pid)) return { error: t.samePlayerTwice };
     podium.push({ position: pos, player_id: pid });
   }
-  if (!podium.some((p) => p.position === 1)) return { error: "Indica almeno il vincitore." };
+  if (!podium.some((p) => p.position === 1)) return { error: t.winnerRequired };
   const supabase = await createServerSupabase();
   let pastId = id;
   if (pastId) {
     const { error } = await supabase.from("past_tournaments").update({ name, held_on: heldOn || null }).eq("id", pastId).eq("championship_id", cid);
-    if (error) return { error: "Non sono riuscito a salvare." };
+    if (error) return { error: t.cantSave };
     await supabase.from("past_results").delete().eq("past_tournament_id", pastId);
   } else {
     const { data, error } = await supabase.from("past_tournaments").insert({ championship_id: cid, name, held_on: heldOn || null }).select("id").single();
-    if (error) return { error: "Non sono riuscito a salvare." };
+    if (error) return { error: t.cantSave };
     pastId = data.id as string;
   }
   const { error } = await supabase.from("past_results").insert(podium.map((p) => ({ ...p, past_tournament_id: pastId })));
-  if (error) return { error: "Non sono riuscito a salvare il podio." };
-  return done(cid, "Torneo passato salvato.");
+  if (error) return { error: t.cantSavePodium };
+  return done(cid, t.pastSaved);
 }
 
 export async function deletePastTournament(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
+  const t = await tr(adminLeaguesText);
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("past_tournaments").delete().eq("id", str(formData, "past_id")).eq("championship_id", cid);
-  if (error) return { error: "Non sono riuscito a eliminare." };
-  return done(cid, "Torneo passato eliminato.");
+  if (error) return { error: t.cantDelete };
+  return done(cid, t.pastDeleted);
 }
 
 /** Correzioni manuali della classifica di partenza: campo start_<id> (vuoto = calcolata dai podi). */
 export async function saveStartOverrides(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
+  const t = await tr(adminLeaguesText);
   const supabase = await createServerSupabase();
   for (const [k, v] of formData.entries()) {
     if (!k.startsWith("start_")) continue;
@@ -163,40 +175,43 @@ export async function saveStartOverrides(_prev: ActionState, formData: FormData)
     if (!UUID.test(pid)) continue;
     const raw = String(v).trim();
     const value = raw === "" ? null : Number(raw);
-    if (value !== null && (!Number.isInteger(value) || value < 0 || value > 5000)) return { error: "I punti di partenza vanno da 0 a 5000." };
+    if (value !== null && (!Number.isInteger(value) || value < 0 || value > 5000)) return { error: t.startRange };
     const { error } = await supabase.from("championship_players").update({ start_override: value }).eq("championship_id", cid).eq("player_id", pid);
-    if (error) return { error: "Non sono riuscito a salvare le correzioni." };
+    if (error) return { error: t.cantSaveCorrections };
   }
-  return done(cid, "Classifica di partenza salvata.");
+  return done(cid, t.startSaved);
 }
 
 // ── Assenze giustificate ──────────────────────────────────────────────────
 export async function addAbsence(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
+  const t = await tr(adminLeaguesText);
   const pid = str(formData, "player_id"), from = str(formData, "from_date"), to = str(formData, "to_date"), note = str(formData, "note");
-  if (!UUID.test(pid)) return { error: "Scegli il giocatore." };
-  if (!DATE.test(from) || (to && !DATE.test(to))) return { error: "Date non valide." };
-  if (to && to < from) return { error: "La fine non può essere prima dell'inizio." };
+  if (!UUID.test(pid)) return { error: t.choosePlayer };
+  if (!DATE.test(from) || (to && !DATE.test(to))) return { error: t.invalidDates };
+  if (to && to < from) return { error: t.endBeforeStart };
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("player_absences").insert({ championship_id: cid, player_id: pid, from_date: from, to_date: to || null, note: note.slice(0, 200) || null });
-  if (error) return { error: "Non sono riuscito a salvare l'assenza." };
-  return done(cid, "Assenza registrata.");
+  if (error) return { error: t.cantSaveAbsence };
+  return done(cid, t.absenceRecorded);
 }
 
 export async function deleteAbsence(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
+  const t = await tr(adminLeaguesText);
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("player_absences").delete().eq("id", Number(str(formData, "absence_id"))).eq("championship_id", cid);
-  if (error) return { error: "Non sono riuscito a eliminare." };
-  return done(cid, "Assenza eliminata.");
+  if (error) return { error: t.cantDelete };
+  return done(cid, t.absenceDeleted);
 }
 
 // ── Impostazioni del ranking ──────────────────────────────────────────────
 export async function saveSettings(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
+  const t = await tr(adminLeaguesText);
   const n = (k: string) => (str(formData, k) === "" ? NaN : Number(str(formData, k)));
   const parsed = parseRankingSettings({
     label: str(formData, "label"),
@@ -207,40 +222,43 @@ export async function saveSettings(_prev: ActionState, formData: FormData): Prom
     comeback: { enabled: formData.get("comeback_enabled") === "on", afterMissed: n("comeback_after"), matches: n("comeback_matches") },
     podium: { 1: n("podium1"), 2: n("podium2"), 3: n("podium3"), 4: n("podium4") },
   });
-  if ("errors" in parsed) return { error: parsed.errors.join(" ") };
+  if ("errors" in parsed) { const l = await getLocale(); return { error: parsed.errors.map((e) => translateDomainError(e, l)).join(" ") }; }
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("championships").update({ settings: parsed.settings }).eq("id", cid);
-  if (error) return { error: "Non sono riuscito a salvare le impostazioni." };
-  return done(cid, "Impostazioni salvate e classifica ricalcolata.");
+  if (error) return { error: t.cantSaveSettings };
+  return done(cid, t.settingsSaved);
 }
 
 export async function recomputeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
-  return done(cid, "Classifica ricalcolata.");
+  const t = await tr(adminLeaguesText);
+  return done(cid, t.recomputed);
 }
 
 // ── Admin della lega (solo proprietario) ──────────────────────────────
 export async function addChampionshipAdmin(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireOwner();
+  const t = await tr(adminLeaguesText);
   const cid = str(formData, "championship_id"), uid = str(formData, "user_id");
-  if (!UUID.test(cid) || !UUID.test(uid)) return { error: "Scegli un amministratore." };
+  if (!UUID.test(cid) || !UUID.test(uid)) return { error: t.chooseAdmin };
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("championship_admins").insert({ championship_id: cid, user_id: uid });
-  if (error?.code === "23505") return { error: "Gestisce già questa lega." };
-  if (error) return { error: "Non sono riuscito ad aggiungerlo." };
+  if (error?.code === "23505") return { error: t.alreadyManages };
+  if (error) return { error: t.cantAddHim };
   revalidatePath(`/admin/campionati/${cid}`); refresh();
-  return { ok: "Amministratore aggiunto alla lega." };
+  return { ok: t.adminAdded };
 }
 
 export async function removeChampionshipAdmin(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireOwner();
+  const t = await tr(adminLeaguesText);
   const cid = str(formData, "championship_id");
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("championship_admins").delete().eq("championship_id", cid).eq("user_id", str(formData, "user_id"));
-  if (error) return { error: "Non sono riuscito a toglierlo." };
+  if (error) return { error: t.cantRemoveHim };
   revalidatePath(`/admin/campionati/${cid}`); refresh();
-  return { ok: "Tolto dalla lega." };
+  return { ok: t.removedFromLeague };
 }
 
 
@@ -248,60 +266,64 @@ export async function removeChampionshipAdmin(_prev: ActionState, formData: Form
 export async function decideRequest(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
-  if (!hasServiceKey()) return { error: "Chiave segreta non configurata." };
+  const t = await tr(adminLeaguesText);
+  if (!hasServiceKey()) return { error: t.serviceKeyNotSet };
   const svc = createServiceClient();
   const { data: req } = await svc.from("championship_requests").select("id, user_id, status")
     .eq("id", Number(str(formData, "request_id"))).eq("championship_id", cid).maybeSingle();
-  if (!req || req.status !== "pending") return { error: "Richiesta non più in attesa." };
+  if (!req || req.status !== "pending") return { error: t.requestNotPending };
   const decided = { decided_at: new Date().toISOString() };
   if (str(formData, "decision") === "reject") {
     await svc.from("championship_requests").update({ status: "rejected", ...decided }).eq("id", req.id);
     revalidatePath(`/admin/campionati/${cid}`); refresh();
-    return { ok: "Richiesta rifiutata." };
+    return { ok: t.requestRejected };
   }
   const link = str(formData, "link_player_id");
-  if (link && !UUID.test(link)) return { error: "Scelta non valida." };
+  if (link && !UUID.test(link)) return { error: t.invalidChoice };
   if (link) {
     const { data: m } = await svc.from("championship_players").select("player_id").eq("championship_id", cid).eq("player_id", link).maybeSingle();
-    if (!m) return { error: "Quel giocatore non è nella lega." };
+    if (!m) return { error: t.playerNotInLeague };
   }
   const r = await attachToChampionship(cid, req.user_id as string, link || null);
   if (r.error) return { error: r.error };
   await svc.from("championship_requests").update({ status: "approved", ...decided }).eq("id", req.id);
-  return done(cid, "Richiesta approvata.");
+  return done(cid, t.requestApproved);
 }
 
 export async function regenerateInvite(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
-  if (!hasServiceKey()) return { error: "Chiave segreta non configurata." };
+  const t = await tr(adminLeaguesText);
+  if (!hasServiceKey()) return { error: t.serviceKeyNotSet };
   const token = randomBytes(18).toString("base64url");
   const { error } = await createServiceClient().from("championship_invites")
     .upsert({ championship_id: cid, token, created_at: new Date().toISOString() }, { onConflict: "championship_id" });
-  if (error) return { error: "Non sono riuscito a creare il link." };
+  if (error) return { error: t.cantCreateLink };
   revalidatePath(`/admin/campionati/${cid}`); refresh();
-  return { ok: "Nuovo link creato: quello vecchio non funziona più." };
+  return { ok: t.newLinkCreated };
 }
 
 export async function disableInvite(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
-  if (!hasServiceKey()) return { error: "Chiave segreta non configurata." };
+  const t = await tr(adminLeaguesText);
+  if (!hasServiceKey()) return { error: t.serviceKeyNotSet };
   await createServiceClient().from("championship_invites").delete().eq("championship_id", cid);
   revalidatePath(`/admin/campionati/${cid}`); refresh();
-  return { ok: "Link disattivato." };
+  return { ok: t.linkDisabled };
 }
 
 /** Unisce un doppione: l'account registrato passa alla scheda creata dall'amministratore. */
 export async function mergeDuplicateAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
   await requireChampionshipManager(cid);
-  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  const t = await tr(adminLeaguesText);
+  if (!hasServiceKey()) return { error: t.missingServiceKey };
   const to = str(formData, "to_player_id"), from = str(formData, "from_player_id");
-  if (!UUID.test(to) || !UUID.test(from)) return { error: "Scegli le due schede da unire." };
+  if (!UUID.test(to) || !UUID.test(from)) return { error: t.chooseTwoRecords };
   const svc = createServiceClient();
   const { data: both } = await svc.from("championship_players").select("player_id").eq("championship_id", cid).in("player_id", [to, from]);
-  if ((both ?? []).length !== 2) return { error: "Le due schede devono essere entrambe in questa lega." };
+  if ((both ?? []).length !== 2) return { error: t.bothInLeague };
   const { data: leagues } = await svc.from("championship_players").select("championship_id").eq("player_id", from);
   const r = await mergeDuplicate(to, from);
   if (r.error) return r;

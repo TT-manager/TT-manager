@@ -15,6 +15,9 @@ import { hasServiceKey, revokeOrganizerSessions } from "@/lib/organizer";
 import { confirmDisputed, disputedCount, saveResult, setsFromForm } from "@/lib/results";
 import { closeTournament, reopenTournament } from "@/lib/closing";
 import type { ResultState } from "@/components/match-form";
+import { getLocale, tr } from "@/i18n/server";
+import { adminManageText } from "@/i18n/dict/admin-manage";
+import { translateDomainError } from "@/i18n/domain-errors";
 
 export type CreateState = {
   errors?: string[];
@@ -22,41 +25,44 @@ export type CreateState = {
 };
 
 export async function createTournament(_prev: CreateState, formData: FormData): Promise<CreateState> {
+  const tx = await tr(adminManageText);
   const championshipId = String(formData.get("championship_id") ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(championshipId)) return { errors: ["Scegli la lega."] };
+  if (!/^[0-9a-f-]{36}$/i.test(championshipId)) return { errors: [tx.chooseLeague] };
   const admin = await requireChampionshipManager(championshipId);
   const ranked = formData.get("ranked") !== "friendly";
   const name = String(formData.get("name") ?? "").trim();
   const startsOn = String(formData.get("starts_on") ?? "").trim();
   const errors: string[] = [];
-  if (name.length < 2 || name.length > 100) errors.push("Il nome del torneo è obbligatorio (2-100 caratteri).");
-  if (startsOn && !/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) errors.push("Data non valida.");
+  if (name.length < 2 || name.length > 100) errors.push(tx.tournamentNameRequired);
+  if (startsOn && !/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) errors.push(tx.invalidDate);
   if (errors.length) return { errors };
 
   const supabase = await createServerSupabase();
   const { data: ch } = await supabase.from("championships").select("kind").eq("id", championshipId).maybeSingle();
-  if (!ch) return { errors: ["Lega non trovata."] };
+  if (!ch) return { errors: [tx.leagueNotFound] };
   return insertTournament(supabase, { name, starts_on: startsOn || null, championship_id: championshipId, ranked, kind: ch.kind, created_by: admin.userId });
 }
 
 /** Torneo amichevole creato da un utente: non conta per nessuna classifica. */
 export async function createFriendlyTournament(_prev: CreateState, formData: FormData): Promise<CreateState> {
+  const tx = await tr(adminManageText);
   const account = await requireAccount("/amichevole/nuovo");
   const name = String(formData.get("name") ?? "").trim();
   const startsOn = String(formData.get("starts_on") ?? "").trim();
   const kind = formData.get("kind") === "doubles" ? "doubles" : "singles";
   const errors: string[] = [];
-  if (name.length < 2 || name.length > 100) errors.push("Il nome del torneo è obbligatorio (2-100 caratteri).");
-  if (startsOn && !/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) errors.push("Data non valida.");
+  if (name.length < 2 || name.length > 100) errors.push(tx.tournamentNameRequired);
+  if (startsOn && !/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) errors.push(tx.invalidDate);
   if (errors.length) return { errors };
   const supabase = await createServerSupabase();
   const { count } = await supabase.from("tournaments").select("id", { count: "exact", head: true })
     .eq("owner_user_id", account.userId).neq("status", "closed");
-  if ((count ?? 0) >= 10) return { errors: ["Hai già 10 amichevoli non chiusi: chiudine qualcuno prima di crearne altri."] };
+  if ((count ?? 0) >= 10) return { errors: [tx.tooManyFriendlies] };
   return insertTournament(supabase, { name, starts_on: startsOn || null, championship_id: null, owner_user_id: account.userId, ranked: false, kind, created_by: account.userId });
 }
 
 async function insertTournament(supabase: Awaited<ReturnType<typeof createServerSupabase>>, row: Record<string, unknown>): Promise<CreateState> {
+  const tx = await tr(adminManageText);
   const name = row.name as string;
   const organizerCode = newOrganizerCode();
   const organizerHash = await hashCode(organizerCode);
@@ -72,31 +78,32 @@ async function insertTournament(supabase: Awaited<ReturnType<typeof createServer
       // Il codice in chiaro esce SOLO in questa risposta: non è salvato da nessuna parte.
       return { created: { id: data.id, name, publicCode, organizerCode: formatOrganizerCode(organizerCode) } };
     }
-    if (error.code !== "23505") return { errors: ["Non sono riuscito a creare il torneo."] };
+    if (error.code !== "23505") return { errors: [tx.cantCreateTournament] };
   }
-  return { errors: ["Non sono riuscito a generare un codice unico, riprova."] };
+  return { errors: [tx.cantGenerateCode] };
 }
 
 export type FormatState = { errors?: string[]; ok?: string };
 
 /** Imposta o modifica il formato: possibile finché il torneo è in preparazione. */
 export async function updateFormat(_prev: FormatState, formData: FormData): Promise<FormatState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   await requireTournamentManager(tournamentId);
   let raw: unknown = null;
   try { raw = JSON.parse(String(formData.get("format") ?? "")); } catch { /* gestito sotto */ }
   const parsed = parseFormat(raw);
-  if ("errors" in parsed) return { errors: parsed.errors };
+  if ("errors" in parsed) { const l = await getLocale(); return { errors: parsed.errors.map((e) => translateDomainError(e, l)) }; }
   const f = parsed.format;
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.from("tournaments")
     .update({ format: f, group_count: Math.max(f.groupCount, 1), best_of: f.defaultKnockoutBestOf })
     .eq("id", tournamentId).eq("status", "draft").select("id");
-  if (error) return { errors: ["Non sono riuscito a salvare il formato."] };
-  if (!data?.length) return { errors: ["Il formato si può cambiare solo prima di generare gironi o tabellone."] };
+  if (error) return { errors: [tx.cantSaveFormat] };
+  if (!data?.length) return { errors: [tx.formatOnlyDraft] };
   revalidatePath(`/gestione/${tournamentId}`);
   refresh(); // aggiorna subito la pagina aperta
-  return { ok: "Formato salvato." };
+  return { ok: tx.formatSaved };
 }
 
 export type EnrollState = { error?: string; ok?: string };
@@ -107,12 +114,13 @@ export type EnrollState = { error?: string; ok?: string };
  * Si possono iscrivere solo giocatori della lega; un giocatore una sola volta.
  */
 export async function setEnrollment(_prev: EnrollState, formData: FormData): Promise<EnrollState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   const access = await requireTournamentManager(tournamentId);
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments").select("status").eq("id", tournamentId).maybeSingle();
-  if (!t) return { error: "Torneo non trovato." };
-  if (t.status !== "draft") return { error: "Gironi, tabellone o calendario sono già stati generati: le iscrizioni sono chiuse." };
+  if (!t) return { error: tx.tournamentNotFound };
+  if (t.status !== "draft") return { error: tx.entriesClosedGenerated };
   const ch = { kind: access.kind };
   const allowed = new Set(await enrollablePlayerIds(access));
 
@@ -131,43 +139,44 @@ export async function setEnrollment(_prev: EnrollState, formData: FormData): Pro
   }
   const seen = new Set<string>();
   for (const g of groups) {
-    if (ch.kind === "doubles" && (g.length < 1 || g.length > 2)) return { error: "Ogni coppia deve avere due giocatori." };
+    if (ch.kind === "doubles" && (g.length < 1 || g.length > 2)) return { error: tx.pairNeedsTwo };
     for (const id of g) {
-      if (!allowed.has(id)) return { error: access.championshipId ? "Si possono iscrivere solo giocatori della lega." : "Si possono iscrivere solo te stesso, i tuoi amici e i tuoi ospiti." };
-      if (seen.has(id)) return { error: "Un giocatore compare in più di una coppia." };
+      if (!allowed.has(id)) return { error: access.championshipId ? tx.onlyLeaguePlayers : tx.onlyFriends };
+      if (seen.has(id)) return { error: tx.playerTwice };
       seen.add(id);
     }
   }
   // In preparazione non ci sono partite: si ricrea l'elenco da zero.
   const { error: delError } = await supabase.from("tournament_entries").delete().eq("tournament_id", tournamentId);
-  if (delError) return { error: "Non sono riuscito ad aggiornare le iscrizioni." };
+  if (delError) return { error: tx.cantUpdateEntries };
   if (groups.length) {
     const { data: created, error } = await supabase.from("tournament_entries")
       .insert(groups.map(() => ({ tournament_id: tournamentId }))).select("id");
-    if (error || !created || created.length !== groups.length) return { error: "Non sono riuscito ad aggiornare le iscrizioni." };
+    if (error || !created || created.length !== groups.length) return { error: tx.cantUpdateEntries };
     const { error: e2 } = await supabase.from("entry_members").insert(groups.flatMap((g, i) =>
       g.map((player_id) => ({ entry_id: created[i].id, tournament_id: tournamentId, player_id }))));
     if (e2) {
       await supabase.from("tournament_entries").delete().eq("tournament_id", tournamentId);
-      return { error: "Non sono riuscito ad aggiornare le iscrizioni: riprova." };
+      return { error: tx.cantUpdateEntriesRetry };
     }
   }
   revalidatePath(`/gestione/${tournamentId}`);
   refresh(); // aggiorna subito la pagina aperta
-  return { ok: ch.kind === "doubles" ? `Coppie iscritte: ${groups.length}.` : `Iscritti: ${groups.length}.` };
+  return { ok: ch.kind === "doubles" ? tx.pairsSaved(groups.length) : tx.entriesSaved(groups.length) };
 }
 
 export type RegenState = { error?: string; organizerCode?: string };
 
 /** Genera un nuovo codice organizzatore: quello vecchio smette subito di funzionare. */
 export async function regenerateOrganizerCode(_prev: RegenState, formData: FormData): Promise<RegenState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   await requireTournamentManager(tournamentId);
   const code = newOrganizerCode();
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.from("tournaments")
     .update({ organizer_code_hash: await hashCode(code) }).eq("id", tournamentId).select("id");
-  if (error || !data?.length) return { error: "Non sono riuscito a generare il nuovo codice." };
+  if (error || !data?.length) return { error: tx.cantGenerateNewCode };
   await revokeOrganizerSessions(tournamentId); // chi era entrato col vecchio codice deve rientrare
   return { organizerCode: formatOrganizerCode(code) };
 }
@@ -176,15 +185,16 @@ export type GenState = { error?: string };
 
 /** Compone i gironi, crea il calendario e lo scheletro del tabellone. Il torneo passa a "gironi in corso". */
 export async function generateGroups(_prev: GenState, formData: FormData): Promise<GenState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   const { championshipId } = await requireTournamentManager(tournamentId);
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments").select("status, format").eq("id", tournamentId).maybeSingle();
-  if (!t) return { error: "Torneo non trovato." };
-  if (t.status !== "draft") return { error: "Gironi, tabellone o calendario sono già stati generati." };
+  if (!t) return { error: tx.tournamentNotFound };
+  if (t.status !== "draft") return { error: tx.alreadyGenerated };
   const parsed = parseFormat(t.format);
-  if (t.format === null) return { error: "Imposta prima il formato del torneo." };
-  if ("errors" in parsed) return { error: parsed.errors.join(" ") };
+  if (t.format === null) return { error: tx.setFormatFirst };
+  if ("errors" in parsed) { const l = await getLocale(); return { error: parsed.errors.map((e) => translateDomainError(e, l)).join(" ") }; }
   const knockoutOnly = parsed.format.mode === "knockout";
   const { data: entryRows } = await supabase.from("entry_members").select("entry_id").eq("tournament_id", tournamentId);
   const sizes = new Map<string, number>();
@@ -192,7 +202,7 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
   const { data: allEntries } = await supabase.from("tournament_entries").select("id").eq("tournament_id", tournamentId);
   const expected = (await supabase.from("tournaments").select("kind").eq("id", tournamentId).maybeSingle()).data?.kind === "doubles" ? 2 : 1;
   if ((allEntries ?? []).some((e) => (sizes.get(e.id as string) ?? 0) !== expected))
-    return { error: expected === 2 ? "Ci sono giocatori senza compagno: abbinali o toglili prima di generare." : "Ci sono iscrizioni non valide: salva di nuovo gli iscritti." };
+    return { error: expected === 2 ? tx.playersWithoutPartner : tx.invalidEntries };
 
   // Teste di serie dai punti della lega (coppia = media dei due giocatori);
   // negli amichevoli senza lega, dal miglior punteggio di ognuno nelle leghe.
@@ -208,12 +218,12 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
   for (const m of members ?? []) byEntry.set(m.entry_id as string, [...(byEntry.get(m.entry_id as string) ?? []), ratingOf.get(m.player_id as string) ?? 1000]);
   const players = [...byEntry].map(([id, rs]) => ({ id, rating: rs.reduce((a, b) => a + b, 0) / rs.length }));
   let plan;
-  try { plan = buildTournament(players, parsed.format); } catch (e) { return { error: (e as Error).message }; }
+  try { plan = buildTournament(players, parsed.format); } catch (e) { return { error: translateDomainError((e as Error).message, await getLocale()) }; }
 
   // "Prenota" il passaggio di stato: se due richieste arrivano insieme, solo una passa.
   const { data: claimed } = await supabase.from("tournaments").update({ status: knockoutOnly ? "knockout" : "groups" })
     .eq("id", tournamentId).eq("status", "draft").select("id");
-  if (!claimed?.length) return { error: "Gironi, tabellone o calendario sono già stati generati." };
+  if (!claimed?.length) return { error: tx.alreadyGenerated };
 
   const rollback = async () => {
     await supabase.from("matches").delete().eq("tournament_id", tournamentId);
@@ -233,7 +243,7 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
       best_of: k.bestOf, set_points: k.set.points, golden_point: k.set.golden,
     })),
   ]);
-  if (e2) { await rollback(); return { error: "Non sono riuscito a creare le partite. Nulla è stato modificato." }; }
+  if (e2) { await rollback(); return { error: tx.cantCreateMatches }; }
   revalidatePath(`/gestione/${tournamentId}`);
   refresh(); // aggiorna subito la pagina aperta
   return {};
@@ -241,16 +251,17 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
 
 /** Torna in preparazione cancellando gironi e partite, solo se nessun risultato è stato inserito. */
 export async function resetGroups(_prev: GenState, formData: FormData): Promise<GenState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   await requireTournamentManager(tournamentId);
   const supabase = await createServerSupabase();
   const { data: t } = await supabase.from("tournaments").select("status").eq("id", tournamentId).maybeSingle();
-  if (!t || t.status === "draft" || t.status === "closed") return { error: "Operazione non disponibile." };
+  if (!t || t.status === "draft" || t.status === "closed") return { error: tx.notAvailable };
   const { count } = await supabase.from("matches").select("id", { count: "exact", head: true })
     .eq("tournament_id", tournamentId).not("sets_a", "is", null);
-  if (count) return { error: `Ci sono già ${count} risultati inseriti: non posso annullare i gironi.` };
+  if (count) return { error: tx.resultsAlreadyIn(count) };
   const { error } = await supabase.from("matches").delete().eq("tournament_id", tournamentId);
-  if (error) return { error: "Non sono riuscito ad annullare." };
+  if (error) return { error: tx.cantReset };
   await supabase.from("tournament_entries").update({ group_no: null, seed: null }).eq("tournament_id", tournamentId);
   await supabase.from("tournaments").update({ status: "draft" }).eq("id", tournamentId);
   revalidatePath(`/gestione/${tournamentId}`);
@@ -260,12 +271,13 @@ export async function resetGroups(_prev: GenState, formData: FormData): Promise<
 
 /** Correzione di un risultato da parte di un admin (prima della chiusura del torneo). */
 export async function adminSubmitResult(_prev: ResultState, formData: FormData): Promise<ResultState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   await requireTournamentManager(tournamentId); // prima della scrittura con la chiave segreta
-  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  if (!hasServiceKey()) return { error: tx.missingServiceKey };
   const clear = formData.get("intent") === "clear";
   const sets = clear ? null : setsFromForm(formData);
-  if (sets && "error" in sets) return { error: sets.error, set: sets.set };
+  if (sets && "error" in sets) return { error: translateDomainError(sets.error, await getLocale()), set: sets.set };
   const r = await saveResult(tournamentId, String(formData.get("match_id") ?? ""), sets);
   if (r.ok) { revalidatePath(`/gestione/${tournamentId}/risultati`); refresh(); }
   return r;
@@ -273,9 +285,10 @@ export async function adminSubmitResult(_prev: ResultState, formData: FormData):
 
 /** L'organizzatore conferma così com'è un risultato contestato. */
 export async function confirmDisputedAction(_prev: ResultState, formData: FormData): Promise<ResultState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   await requireTournamentManager(tournamentId);
-  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  if (!hasServiceKey()) return { error: tx.missingServiceKey };
   const r = await confirmDisputed(tournamentId, String(formData.get("match_id") ?? ""));
   if (r.ok) { revalidatePath(`/gestione/${tournamentId}/risultati`); refresh(); }
   return r;
@@ -283,33 +296,36 @@ export async function confirmDisputedAction(_prev: ResultState, formData: FormDa
 
 /** Attiva o disattiva l'inserimento dei risultati da parte dei giocatori. */
 export async function setPlayerResults(_prev: ResultState, formData: FormData): Promise<ResultState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   await requireTournamentManager(tournamentId);
   const on = formData.get("player_results") === "on";
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("tournaments").update({ player_results: on }).eq("id", tournamentId);
-  if (error) return { error: "Non sono riuscito a salvare." };
+  if (error) return { error: tx.cantSave };
   revalidatePath(`/gestione/${tournamentId}`); refresh();
-  return { ok: on ? "Ora anche i giocatori inseriscono i risultati delle loro partite." : "Ora i risultati li inserisce solo l'organizzatore." };
+  return { ok: on ? tx.playersResultsOn : tx.playersResultsOff };
 }
 
 export type CloseState = { error?: string; ok?: string };
 
 export async function closeTournamentAction(_prev: CloseState, formData: FormData): Promise<CloseState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   const { championshipId, ranked } = await requireTournamentManager(tournamentId);
-  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  if (!hasServiceKey()) return { error: tx.missingServiceKey };
   const disputed = await disputedCount(tournamentId);
-  if (disputed) return { error: disputed === 1 ? "C'è un risultato contestato: decidilo prima di chiudere il torneo." : `Ci sono ${disputed} risultati contestati: decidili prima di chiudere il torneo.` };
+  if (disputed) return { error: tx.disputedBeforeClose(disputed) };
   const r = ranked && championshipId ? await closeTournament(championshipId, tournamentId) : await closeFriendly(tournamentId);
   if (r.ok) { await revokeOrganizerSessions(tournamentId); revalidatePath(`/gestione/${tournamentId}`); revalidatePath("/"); refresh(); }
   return r;
 }
 
 export async function reopenTournamentAction(_prev: CloseState, formData: FormData): Promise<CloseState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   const { championshipId, ranked } = await requireTournamentManager(tournamentId);
-  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  if (!hasServiceKey()) return { error: tx.missingServiceKey };
   const r = ranked && championshipId ? await reopenTournament(championshipId, tournamentId) : await reopenFriendly(tournamentId);
   if (r.ok) { revalidatePath(`/gestione/${tournamentId}`); revalidatePath("/"); refresh(); }
   return r;
@@ -330,58 +346,62 @@ async function enrollablePlayerIds(access: Awaited<ReturnType<typeof requireTour
 
 /** Chiusura di un amichevole: nessuna classifica da aggiornare. */
 async function closeFriendly(tournamentId: string): Promise<CloseState> {
+  const tx = await tr(adminManageText);
   const svc = createServiceClient();
   const { data } = await svc.from("tournaments").update({ status: "closed", closed_at: new Date().toISOString() })
     .eq("id", tournamentId).eq("ranked", false).in("status", ["groups", "knockout"]).select("id");
-  return data?.length ? { ok: "Torneo chiuso. È un amichevole: nessuna classifica cambia e non resta nello storico (la pagina pubblica resta raggiungibile con il codice)." } : { error: "Il torneo è già chiuso oppure non è ancora iniziato." };
+  return data?.length ? { ok: tx.friendlyClosed } : { error: tx.alreadyClosedOrNotStarted };
 }
 
 async function reopenFriendly(tournamentId: string): Promise<CloseState> {
+  const tx = await tr(adminManageText);
   const svc = createServiceClient();
   const { data: ms } = await svc.from("matches").select("phase, sets_a").eq("tournament_id", tournamentId);
   const groupsOpen = (ms ?? []).some((m) => m.phase === "group" && m.sets_a === null) || !(ms ?? []).some((m) => m.phase === "knockout");
   const { data } = await svc.from("tournaments").update({ status: groupsOpen ? "groups" : "knockout", closed_at: null })
     .eq("id", tournamentId).eq("ranked", false).eq("status", "closed").select("id");
-  return data?.length ? { ok: "Torneo riaperto." } : { error: "Il torneo non è chiuso." };
+  return data?.length ? { ok: tx.reopened } : { error: tx.notClosed };
 }
 
 /** Aggiunge un ospite (giocatore senza account) agli amichevoli di chi ha creato il torneo. */
 export async function addGuest(_prev: EnrollState, formData: FormData): Promise<EnrollState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   const access = await requireTournamentManager(tournamentId);
-  if (access.championshipId || !access.ownerUserId) return { error: "Gli ospiti si aggiungono solo agli amichevoli." };
-  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  if (access.championshipId || !access.ownerUserId) return { error: tx.guestsOnlyFriendly };
+  if (!hasServiceKey()) return { error: tx.missingServiceKey };
   const name = String(formData.get("guest_name") ?? "").trim();
-  if (name.length < 2 || name.length > 80) return { error: "Scrivi il nome dell'ospite (2-80 caratteri)." };
+  if (name.length < 2 || name.length > 80) return { error: tx.guestNameLength };
   const svc = createServiceClient();
   const { count } = await svc.from("players").select("id", { count: "exact", head: true }).eq("guest_of", access.ownerUserId);
-  if ((count ?? 0) >= 100) return { error: "Hai già 100 ospiti." };
+  if ((count ?? 0) >= 100) return { error: tx.tooManyGuests };
   const { error } = await svc.from("players").insert({ full_name: name, guest_of: access.ownerUserId });
-  if (error) return { error: "Non sono riuscito ad aggiungere l'ospite." };
+  if (error) return { error: tx.cantAddGuest };
   revalidatePath(`/gestione/${tournamentId}`);
   refresh();
-  return { ok: `Aggiunto ${name}: ora puoi iscriverlo.` };
+  return { ok: tx.guestAdded(name) };
 }
 
 // ── Iscrizioni dei giocatori ──────────────────────────────────────────────
 
 /** Apre o chiude le iscrizioni autonome (solo tornei di lega, in preparazione). */
 export async function setRegistration(_prev: EnrollState, formData: FormData): Promise<EnrollState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   const access = await requireTournamentManager(tournamentId);
-  if (!access.championshipId) return { error: "Le iscrizioni autonome valgono per i tornei di lega." };
+  if (!access.championshipId) return { error: tx.selfRegOnlyLeague };
   const open = formData.get("open") === "on";
   const raw = String(formData.get("deadline") ?? "").trim();
   const deadline = raw ? romeToIso(raw) : null;
-  if (raw && !deadline) return { error: "Data di chiusura non valida." };
+  if (raw && !deadline) return { error: tx.invalidDeadline };
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.from("tournaments").update({ registration_open: open, registration_deadline: deadline })
     .eq("id", tournamentId).eq("status", "draft").select("id");
-  if (error) return { error: "Non sono riuscito a salvare." };
-  if (!data?.length) return { error: "Il torneo non è più in preparazione." };
+  if (error) return { error: tx.cantSave };
+  if (!data?.length) return { error: tx.notDraftAnymore };
   revalidatePath(`/gestione/${tournamentId}`);
   refresh();
-  return { ok: open ? "Iscrizioni aperte." : "Iscrizioni chiuse." };
+  return { ok: open ? tx.regOpened : tx.regClosedOk };
 }
 
 /**
@@ -389,18 +409,19 @@ export async function setRegistration(_prev: EnrollState, formData: FormData): P
  * riaperto (così la classifica viene ricalcolata senza di lui); gli altri si eliminano direttamente.
  */
 export async function deleteTournamentAction(_prev: CloseState, formData: FormData): Promise<CloseState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   const access = await requireTournamentManager(tournamentId);
-  if (!hasServiceKey()) return { error: "Manca la configurazione del server (chiave segreta)." };
+  if (!hasServiceKey()) return { error: tx.missingServiceKey };
   const svc = createServiceClient();
   const { data: t } = await svc.from("tournaments").select("status, ranked, championship_id").eq("id", tournamentId).maybeSingle();
-  if (!t) return { error: "Torneo non trovato." };
+  if (!t) return { error: tx.tournamentNotFound };
   if (t.status === "closed" && t.ranked && t.championship_id)
-    return { error: "Il torneo è chiuso e conta per la classifica: riaprilo prima (la classifica viene ricalcolata senza di lui), poi eliminalo." };
+    return { error: tx.closedRankedReopenFirst };
   const { count: rated } = await svc.from("matches").select("id", { count: "exact", head: true }).eq("tournament_id", tournamentId).eq("rated", true);
-  if (rated) return { error: "Alcune partite risultano ancora conteggiate in classifica: riapri il torneo prima di eliminarlo." };
+  if (rated) return { error: tx.ratedMatchesLeft };
   const { error } = await svc.from("tournaments").delete().eq("id", tournamentId);
-  if (error) return { error: "Non sono riuscito a eliminare il torneo." };
+  if (error) return { error: tx.cantDeleteTournament };
   revalidatePath("/");
   if (access.championshipId) { revalidatePath(`/admin/campionati/${access.championshipId}`); redirect(`/admin/campionati/${access.championshipId}`); }
   redirect("/profilo");
@@ -408,14 +429,15 @@ export async function deleteTournamentAction(_prev: CloseState, formData: FormDa
 
 /** Torneo nella home di tutti (mentre è in corso) e link della diretta streaming. */
 export async function setPublicAndStream(_prev: ResultState, formData: FormData): Promise<ResultState> {
+  const tx = await tr(adminManageText);
   const tournamentId = String(formData.get("tournament_id") ?? "");
   await requireTournamentManager(tournamentId);
-  const stream = parseStreamUrl(String(formData.get("stream_url") ?? ""));
+  const stream = parseStreamUrl(String(formData.get("stream_url") ?? ""), await getLocale());
   if ("error" in stream) return { error: stream.error };
   const featured = formData.get("featured") === "on";
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("tournaments").update({ featured, stream_url: stream.url }).eq("id", tournamentId);
-  if (error) return { error: "Non sono riuscito a salvare." };
+  if (error) return { error: tx.cantSave };
   revalidatePath(`/gestione/${tournamentId}`); revalidatePath("/"); refresh();
-  return { ok: "Salvato." };
+  return { ok: tx.saved };
 }

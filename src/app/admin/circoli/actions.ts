@@ -4,18 +4,22 @@ import type { ActionState } from "@/components/action-form";
 import { requireOwner } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { tr } from "@/i18n/server";
+import { adminShellText } from "@/i18n/dict/admin-shell";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim().replace(/\s+/g, " ");
 
-function parseClub(f: FormData) {
+type T = (typeof adminShellText)["it"];
+
+function parseClub(t: T, f: FormData) {
   const name = str(f, "name"), city = str(f, "city");
-  if (name.length < 2 || name.length > 80) return { error: "Il nome del circolo deve avere 2-80 caratteri." } as const;
-  if (city.length > 60) return { error: "Nome della città troppo lungo." } as const;
+  if (name.length < 2 || name.length > 80) return { error: t.clubNameLength } as const;
+  if (city.length > 60) return { error: t.cityTooLong } as const;
   return { value: { name, city: city || null } } as const;
 }
 
-const duplicate = (code?: string) => code === "23505" ? "C'è già un circolo con questo nome." : null;
+const duplicate = (t: T, code?: string) => code === "23505" ? t.clubDuplicate : null;
 
 function done(ok: string): ActionState {
   revalidatePath("/admin/circoli"); refresh();
@@ -24,32 +28,35 @@ function done(ok: string): ActionState {
 
 export async function addClub(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireOwner();
-  const parsed = parseClub(formData);
+  const t = await tr(adminShellText);
+  const parsed = parseClub(t, formData);
   if ("error" in parsed) return { error: parsed.error };
   const { error } = await (await createServerSupabase()).from("clubs").insert(parsed.value);
-  if (error) return { error: duplicate(error.code) ?? "Non sono riuscito ad aggiungere il circolo." };
-  return done(`Aggiunto ${parsed.value.name}.`);
+  if (error) return { error: duplicate(t, error.code) ?? t.cantAddClub };
+  return done(t.clubAdded(parsed.value.name));
 }
 
 export async function updateClub(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireOwner();
+  const t = await tr(adminShellText);
   const id = str(formData, "id");
-  const parsed = parseClub(formData);
-  if (!UUID.test(id)) return { error: "Circolo non valido." };
+  const parsed = parseClub(t, formData);
+  if (!UUID.test(id)) return { error: t.invalidClub };
   if ("error" in parsed) return { error: parsed.error };
   const { error } = await (await createServerSupabase()).from("clubs").update(parsed.value).eq("id", id);
-  if (error) return { error: duplicate(error.code) ?? "Non sono riuscito a salvare." };
-  return done("Salvato.");
+  if (error) return { error: duplicate(t, error.code) ?? t.cantSave };
+  return done(t.saved);
 }
 
 /** Elimina il circolo: i suoi giocatori restano, senza circolo. */
 export async function deleteClub(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireOwner();
+  const t = await tr(adminShellText);
   const id = str(formData, "id");
-  if (!UUID.test(id)) return { error: "Circolo non valido." };
+  if (!UUID.test(id)) return { error: t.invalidClub };
   const { error } = await (await createServerSupabase()).from("clubs").delete().eq("id", id);
-  if (error) return { error: "Non sono riuscito a eliminare il circolo." };
-  return done("Circolo eliminato.");
+  if (error) return { error: t.cantDeleteClub };
+  return done(t.clubDeleted);
 }
 
 /**
@@ -58,32 +65,33 @@ export async function deleteClub(_prev: ActionState, formData: FormData): Promis
  */
 export async function decideClubRequest(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireOwner();
+  const t = await tr(adminShellText);
   const id = str(formData, "request_id"), decision = str(formData, "decision");
-  if (!UUID.test(id)) return { error: "Richiesta non valida." };
+  if (!UUID.test(id)) return { error: t.invalidRequest };
   const svc = createServiceClient();
   const { data: req } = await svc.from("club_requests").select("id, user_id, status").eq("id", id).maybeSingle();
-  if (!req || req.status !== "pending") return { error: "La richiesta non è più in attesa." };
+  if (!req || req.status !== "pending") return { error: t.requestNotPending };
   const close = (status: "approved" | "rejected", clubId: string | null) => svc.from("club_requests")
     .update({ status, club_id: clubId, decided_at: new Date().toISOString() }).eq("id", id).eq("status", "pending");
 
   if (decision === "reject") {
     await close("rejected", null);
-    return done("Richiesta rifiutata.");
+    return done(t.requestRejected);
   }
   let clubId: string;
   if (decision === "assign") {
     clubId = str(formData, "club_id");
-    if (!UUID.test(clubId)) return { error: "Scegli il circolo da assegnare." };
+    if (!UUID.test(clubId)) return { error: t.chooseClubToAssign };
   } else if (decision === "approve") {
-    const parsed = parseClub(formData);
+    const parsed = parseClub(t, formData);
     if ("error" in parsed) return { error: parsed.error };
     const { data: club, error } = await (await createServerSupabase()).from("clubs").insert(parsed.value).select("id").single();
-    if (error) return { error: error.code === "23505" ? "C'è già un circolo con questo nome: usa «Assegna un circolo esistente»." : "Non sono riuscito a creare il circolo." };
+    if (error) return { error: error.code === "23505" ? t.clubDuplicateUseAssign : t.cantCreateClub };
     clubId = club.id as string;
-  } else return { error: "Scelta non valida." };
+  } else return { error: t.invalidChoice };
 
   const { error: upd } = await svc.from("players").update({ club_id: clubId }).eq("user_id", req.user_id);
-  if (upd) return { error: "Non sono riuscito ad assegnare il circolo al giocatore." };
+  if (upd) return { error: t.cantAssignClub };
   await close("approved", clubId);
-  return done(decision === "approve" ? "Circolo creato e assegnato." : "Circolo assegnato.");
+  return done(decision === "approve" ? t.clubCreatedAssigned : t.clubAssigned);
 }

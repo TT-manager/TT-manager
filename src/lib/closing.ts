@@ -2,15 +2,18 @@ import "server-only";
 import { createServiceClient } from "./supabase/admin";
 import { computeRanking, parseRankingSettings, DEFAULT_RANKING, type RankingInput } from "./domain/ranking";
 import { isPlayed } from "./domain/tournament";
+import { tr } from "@/i18n/server";
+import { adminManageText } from "@/i18n/dict/admin-manage";
 
-const DB_ERRORS: Record<string, string> = {
-  TORNEO_NON_CHIUDIBILE: "Il torneo è già chiuso oppure non è ancora iniziato.",
-  PARTITE_CAMBIATE: "Nel frattempo un risultato è cambiato: ricarica la pagina e riprova.",
-  TORNEO_NON_CHIUSO: "Il torneo non è chiuso.",
-  CAMPIONATO_NON_TROVATO: "Lega non trovata.",
+type T = (typeof adminManageText)["it"];
+const DB_ERRORS: Record<string, keyof T> = {
+  TORNEO_NON_CHIUDIBILE: "dbNotClosable",
+  PARTITE_CAMBIATE: "dbMatchesChanged",
+  TORNEO_NON_CHIUSO: "dbNotClosed",
+  CAMPIONATO_NON_TROVATO: "dbLeagueNotFound",
 };
-const dbError = (msg: string | undefined) =>
-  Object.entries(DB_ERRORS).find(([k]) => msg?.includes(k))?.[1] ?? "Operazione non riuscita, riprova.";
+const dbError = (t: T, msg: string | undefined) =>
+  t[Object.entries(DB_ERRORS).find(([k]) => msg?.includes(k))?.[1] ?? "dbGeneric"] as string;
 
 /** Stato della chiusura: partite giocate e partite ancora da giocare. */
 export async function closingSummary(tournamentId: string) {
@@ -33,9 +36,10 @@ export async function closingSummary(tournamentId: string) {
  */
 export async function recomputeChampionship(championshipId: string, opts: { close?: string; reopen?: string } = {}):
   Promise<{ error?: string; ok?: string; rated?: number }> {
+  const t = await tr(adminManageText);
   const svc = createServiceClient();
   const { data: ch } = await svc.from("championships").select("id, settings").eq("id", championshipId).maybeSingle();
-  if (!ch) return { error: "Lega non trovata." };
+  if (!ch) return { error: t.dbLeagueNotFound };
   const parsed = parseRankingSettings(ch.settings);
   const settings = "settings" in parsed ? parsed.settings : DEFAULT_RANKING;
 
@@ -94,18 +98,18 @@ export async function recomputeChampionship(championshipId: string, opts: { clos
       history: result.history,
     },
   });
-  if (error) return { error: dbError(error.message) };
-  return { ok: "Classifica aggiornata.", rated: played.length };
+  if (error) return { error: dbError(t, error.message) };
+  return { ok: t.rankingUpdated, rated: played.length };
 }
 
 export async function closeTournament(championshipId: string, tournamentId: string) {
   const r = await recomputeChampionship(championshipId, { close: tournamentId });
   if (r.error) return r;
-  return { ok: "Torneo chiuso: la classifica della lega è aggiornata." };
+  return { ok: (await tr(adminManageText)).closedRankingUpdated };
 }
 
 export async function reopenTournament(championshipId: string, tournamentId: string) {
   const r = await recomputeChampionship(championshipId, { reopen: tournamentId });
   if (r.error) return r;
-  return { ok: "Torneo riaperto: la classifica è stata ricalcolata senza questo torneo." };
+  return { ok: (await tr(adminManageText)).reopenedRecomputed };
 }

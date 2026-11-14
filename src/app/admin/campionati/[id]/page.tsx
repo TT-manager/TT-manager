@@ -5,18 +5,26 @@ import { siteOrigin } from "@/lib/origin";
 import { hasServiceKey } from "@/lib/organizer";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { listAdminUsers } from "@/lib/admins";
-import { STATUS_LABEL } from "@/lib/labels";
+import { statusLabel } from "@/lib/labels";
+import { getLocale, tr } from "@/i18n/server";
+import { intlTag } from "@/i18n/locale";
+import { adminLeaguesText } from "@/i18n/dict/admin-leagues";
 import { clubLabel } from "@/lib/clubs";
 import { listClubs } from "@/lib/clubs-server";
 import { normName } from "@/lib/names";
 import { addChampionshipAdmin, addMembers, mergeDuplicateAction, decideRequest, disableInvite, regenerateInvite, recomputeAction, removeChampionshipAdmin, removeMember, renameChampionship, setVisibility } from "../actions";
+import { pointsLabel } from "@/lib/labels";
 import { ChampionshipHeader, input, loadManagedChampionship, muted } from "./shared";
 
-export const metadata = { title: "Lega" };
+export async function generateMetadata() {
+  return { title: (await tr(adminLeaguesText)).leagueTitle };
+}
 
 export default async function ChampionshipPage({ params }: PageProps<"/admin/campionati/[id]">) {
   const { id } = await params;
   const { admin, supabase, championship: c } = await loadManagedChampionship(id);
+  const tx = await tr(adminLeaguesText);
+  const l = await getLocale();
   const [{ data: ranking }, { data: allPlayers }, { data: tournaments }, { data: admins }, clubs] = await Promise.all([
     supabase.from("championship_ranking").select("player_id, full_name, club, rating, games_played, position").eq("championship_id", id).order("position").order("full_name"),
     (hasServiceKey() ? createServiceClient() : supabase).from("players").select("id, full_name, club, active").is("guest_of", null).order("full_name"),
@@ -45,15 +53,15 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
 
       <section>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">Tornei</h2>
-          <Link href={`/admin/tornei/nuovo?campionato=${id}`} className="btn-primary">Nuovo torneo</Link>
+          <h2 className="text-lg font-semibold">{tx.tournaments}</h2>
+          <Link href={`/admin/tornei/nuovo?campionato=${id}`} className="btn-primary">{tx.newTournament}</Link>
         </div>
-        {(tournaments ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>Nessun torneo ancora.</p> : (
+        {(tournaments ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>{tx.noTournamentsYet}</p> : (
           <ul className="mt-2 divide-y">
             {tournaments!.map((t) => (
               <li key={t.id} className="flex flex-wrap items-baseline gap-x-4 py-2">
-                <Link href={`/gestione/${t.id}`} className="font-medium hover:underline">{t.name}</Link>{!t.ranked && <span className="text-sm text-sky-700 dark:text-sky-300">amichevole</span>}
-                <span className={muted}>{t.starts_on ? new Date(t.starts_on).toLocaleDateString("it-IT") : "senza data"} · {STATUS_LABEL[t.status]}</span>
+                <Link href={`/gestione/${t.id}`} className="font-medium hover:underline">{t.name}</Link>{!t.ranked && <span className="text-sm text-sky-700 dark:text-sky-300">{tx.friendly}</span>}
+                <span className={muted}>{t.starts_on ? new Date(t.starts_on).toLocaleDateString(intlTag(l)) : tx.noDate} · {statusLabel(t.status, l)}</span>
               </li>
             ))}
           </ul>
@@ -61,10 +69,10 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">Classifica ({c.settings.label.toLowerCase()})</h2>
-        {(ranking ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>Aggiungi i giocatori della lega qui sotto.</p> : (
+        <h2 className="text-lg font-semibold">{tx.ranking(pointsLabel(c.settings.label, l).toLowerCase())}</h2>
+        {(ranking ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>{tx.addPlayersBelow}</p> : (
           <table className="mt-2 w-full text-left text-sm">
-            <thead><tr className="border-b"><th className="py-1">#</th><th>Giocatore</th><th className="text-right">{c.settings.label}</th><th className="text-right">Partite</th><th /></tr></thead>
+            <thead><tr className="border-b"><th className="py-1">#</th><th>{tx.player}</th><th className="text-right">{c.settings.label}</th><th className="text-right">{tx.matches}</th><th /></tr></thead>
             <tbody>
               {ranking!.map((r) => (
                 <tr key={r.player_id} className="border-b last:border-0">
@@ -74,7 +82,7 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
                   <td className="text-right">{r.games_played}</td>
                   <td className="text-right">
                     {r.games_played === 0 && (
-                      <ActionForm action={removeMember} submitLabel="Togli" primary={false} inline confirmText={`Togliere ${r.full_name} dalla lega?`}>
+                      <ActionForm action={removeMember} submitLabel={tx.remove} primary={false} inline confirmText={tx.confirmRemoveMember(r.full_name)}>
                         {hidden}<input type="hidden" name="player_id" value={r.player_id} />
                       </ActionForm>)}
                   </td>
@@ -83,26 +91,26 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
             </tbody>
           </table>
         )}
-        <ActionForm action={recomputeAction} submitLabel="Ricalcola la classifica" primary={false} className="mt-3">{hidden}</ActionForm>
-        <p className={`mt-1 ${muted}`}>La classifica si ricalcola da sola a ogni modifica; il pulsante serve solo per sicurezza.</p>
+        <ActionForm action={recomputeAction} submitLabel={tx.recompute} primary={false} className="mt-3">{hidden}</ActionForm>
+        <p className={`mt-1 ${muted}`}>{tx.recomputeNote}</p>
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">Richieste di partecipazione{requests.length > 0 && ` (${requests.length})`}</h2>
-        {requests.length === 0 ? <p className={`mt-2 ${muted}`}>Nessuna richiesta in attesa.</p> : (
+        <h2 className="text-lg font-semibold">{tx.joinRequests}{requests.length > 0 && ` (${requests.length})`}</h2>
+        {requests.length === 0 ? <p className={`mt-2 ${muted}`}>{tx.noPendingRequests}</p> : (
           <ul className="mt-2 divide-y">
             {requests.map((r) => (
               <li key={r.id} className="py-3">
-                <p><strong>{r.name}</strong> <span className={muted}>{r.email}{r.viaInvite && " · arrivato dal link d'invito"}</span></p>
-                <ActionForm action={decideRequest} submitLabel="Conferma" primary={false} className="mt-2 flex flex-wrap items-center gap-3">
+                <p><strong>{r.name}</strong> <span className={muted}>{r.email}{r.viaInvite && tx.viaInvite}</span></p>
+                <ActionForm action={decideRequest} submitLabel={tx.confirm} primary={false} className="mt-2 flex flex-wrap items-center gap-3">
                   {hidden}<input type="hidden" name="request_id" value={r.id} />
-                  <select name="decision" defaultValue="approve" className={`select-arrow ${input}`} aria-label="Decisione">
-                    <option value="approve">Approva</option><option value="reject">Rifiuta</option>
+                  <select name="decision" defaultValue="approve" className={`select-arrow ${input}`} aria-label={tx.decision}>
+                    <option value="approve">{tx.approve}</option><option value="reject">{tx.reject}</option>
                   </select>
                   {unclaimed.length > 0 && (
-                    <select name="link_player_id" defaultValue={r.claimId ?? ""} className={`select-arrow ${input}`} aria-label="Collega a">
-                      <option value="">come giocatore nuovo</option>
-                      {unclaimed.map((u) => <option key={u.id} value={u.id}>collegalo a {u.name}{u.id === r.claimId ? " (dice di essere lui)" : ""}</option>)}
+                    <select name="link_player_id" defaultValue={r.claimId ?? ""} className={`select-arrow ${input}`} aria-label={tx.linkTo}>
+                      <option value="">{tx.asNewPlayer}</option>
+                      {unclaimed.map((u) => <option key={u.id} value={u.id}>{tx.linkToName(u.name)}{u.id === r.claimId ? tx.saysItsHim : ""}</option>)}
                     </select>)}
                 </ActionForm>
               </li>))}
@@ -110,25 +118,25 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">Link d&apos;invito</h2>
-        <p className={`mt-1 ${muted}`}>Mandalo a chi vuoi far entrare (per esempio su WhatsApp): chi si registra da qui entra subito nella lega.
-          Chi dice di essere già in classifica (es. dai tornei passati) finisce comunque tra le richieste, per un tuo controllo.</p>
-        {inviteUrl ? <div className="mt-2"><CopyField value={inviteUrl} label="Link d'invito" /></div> : <p className="mt-2">Nessun link attivo.</p>}
+        <h2 className="text-lg font-semibold">{tx.inviteLink}</h2>
+        <p className={`mt-1 ${muted}`}>{tx.inviteIntro}
+          {" "}{tx.inviteIntro2}</p>
+        {inviteUrl ? <div className="mt-2"><CopyField value={inviteUrl} label={tx.inviteLink} /></div> : <p className="mt-2">{tx.noActiveLink}</p>}
         <div className="mt-2 flex flex-wrap gap-4">
-          <ActionForm action={regenerateInvite} submitLabel={inviteUrl ? "Crea un link nuovo" : "Crea il link"} primary={false}
-            confirmText={inviteUrl ? "Il link attuale smetterà di funzionare. Continuare?" : undefined}>{hidden}</ActionForm>
-          {inviteUrl && <ActionForm action={disableInvite} submitLabel="Disattiva il link" primary={false} confirmText="Disattivare il link d'invito?">{hidden}</ActionForm>}
+          <ActionForm action={regenerateInvite} submitLabel={inviteUrl ? tx.createNewLink : tx.createLink} primary={false}
+            confirmText={inviteUrl ? tx.confirmNewLink : undefined}>{hidden}</ActionForm>
+          {inviteUrl && <ActionForm action={disableInvite} submitLabel={tx.disableLink} primary={false} confirmText={tx.confirmDisableLink}>{hidden}</ActionForm>}
         </div>
       </section>
 
       <section className="rounded-lg border p-4">
-        <h2 className="text-lg font-semibold">Aggiungi giocatori a mano</h2>
-        <p className={`mt-1 ${muted}`}>Di solito non serve: i giocatori si registrano da soli. Usalo per chi non avrà un account o per i nomi dei tornei passati.</p>
-        <ActionForm action={addMembers} submitLabel="Aggiungi" className="mt-3">
+        <h2 className="text-lg font-semibold">{tx.addByHand}</h2>
+        <p className={`mt-1 ${muted}`}>{tx.addByHandNote}</p>
+        <ActionForm action={addMembers} submitLabel={tx.add} className="mt-3">
           {hidden}
           {others.length > 0 && (
             <fieldset>
-              <legend className={muted}>Giocatori già in anagrafica:</legend>
+              <legend className={muted}>{tx.existingPlayers}</legend>
               <div className="mt-2 grid gap-1 sm:grid-cols-2">
                 {others.map((p) => (
                   <label key={p.id} className="flex items-center gap-2">
@@ -136,11 +144,11 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
                   </label>))}
               </div>
             </fieldset>)}
-          <p className={`mt-4 ${muted}`}>{others.length > 0 ? "Oppure crea un giocatore nuovo:" : "Crea un giocatore nuovo:"}</p>
+          <p className={`mt-4 ${muted}`}>{others.length > 0 ? tx.orCreateNew : tx.createNew}</p>
           <div className="mt-1 grid gap-2 sm:grid-cols-2">
-            <input name="new_name" placeholder="Nome e cognome" maxLength={80} className={input} aria-label="Nome e cognome" />
-            <select name="club_id" defaultValue="" className={`select-arrow ${input}`} aria-label="Circolo">
-              <option value="">Nessun circolo</option>
+            <input name="new_name" placeholder={tx.fullName} maxLength={80} className={input} aria-label={tx.fullName} />
+            <select name="club_id" defaultValue="" className={`select-arrow ${input}`} aria-label={tx.club}>
+              <option value="">{tx.noClub}</option>
               {clubs.map((cl) => <option key={cl.id} value={cl.id}>{clubLabel(cl)}</option>)}
             </select>
           </div>
@@ -149,27 +157,26 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
 
       {unclaimed.length > 0 && registered.length > 0 && (
         <section className="rounded-lg border p-4">
-          <h2 className="text-lg font-semibold">Collega account</h2>
-          <p className={`mt-1 ${muted}`}>Se un giocatore che avevi aggiunto a mano si è registrato ed è finito in classifica due volte,
-            unisci le due schede: l&apos;account passa alla scheda con punti e storico e quella nuova sparisce. Si può fare solo se con la scheda nuova non ha ancora giocato.</p>
+          <h2 className="text-lg font-semibold">{tx.linkAccount}</h2>
+          <p className={`mt-1 ${muted}`}>{tx.linkAccountNote}</p>
           {suggested.map((p) => (
-            <ActionForm key={p.to.id + p.from.id} action={mergeDuplicateAction} submitLabel="Unisci" primary={false} inline className="mt-3 block"
-              confirmText={`Unire le schede di ${p.to.name}? L'account registrato userà la scheda con lo storico.`}>
+            <ActionForm key={p.to.id + p.from.id} action={mergeDuplicateAction} submitLabel={tx.merge} primary={false} inline className="mt-3 block"
+              confirmText={tx.confirmMergeNamed(p.to.name)}>
               {hidden}<input type="hidden" name="to_player_id" value={p.to.id} /><input type="hidden" name="from_player_id" value={p.from.id} />
-              <span className="mr-2"><span className="badge-contested mr-2">Stesso nome</span>{p.to.name} (senza account) e {p.from.name} (registrato)</span>
+              <span className="mr-2"><span className="badge-contested mr-2">{tx.sameName}</span>{p.to.name} {tx.noAccount} {tx.and} {p.from.name} {tx.registered}</span>
             </ActionForm>))}
-          <ActionForm action={mergeDuplicateAction} submitLabel="Unisci le schede" primary={false} className="mt-4"
-            confirmText="Unire le due schede? L'account registrato userà la scheda con lo storico.">
+          <ActionForm action={mergeDuplicateAction} submitLabel={tx.mergeRecords} primary={false} className="mt-4"
+            confirmText={tx.confirmMerge}>
             {hidden}
             <div className="grid gap-2 sm:grid-cols-2">
-              <label className="grid gap-1 text-sm">Scheda con punti e storico (senza account)
+              <label className="grid gap-1 text-sm">{tx.recordWithHistory}
                 <select name="to_player_id" required defaultValue="" className={`select-arrow ${input}`}>
-                  <option value="" disabled>Scegli…</option>
+                  <option value="" disabled>{tx.choose}</option>
                   {unclaimed.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select></label>
-              <label className="grid gap-1 text-sm">Account registrato da collegare
+              <label className="grid gap-1 text-sm">{tx.accountToLink}
                 <select name="from_player_id" required defaultValue="" className={`select-arrow ${input}`}>
-                  <option value="" disabled>Scegli…</option>
+                  <option value="" disabled>{tx.choose}</option>
                   {registered.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select></label>
             </div>
@@ -177,41 +184,41 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
         </section>)}
 
       <section>
-        <h2 className="text-lg font-semibold">Visibilità</h2>
-        <ActionForm action={setVisibility} submitLabel="Salva" primary={false} className="mt-2 flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-semibold">{tx.visibility}</h2>
+        <ActionForm action={setVisibility} submitLabel={tx.save} primary={false} className="mt-2 flex flex-wrap items-center gap-3">
           {hidden}
-          <label className="flex items-center gap-2"><input type="checkbox" name="is_public" defaultChecked={c.isPublic} /> Lega pubblica: compare nella home di tutti</label>
+          <label className="flex items-center gap-2"><input type="checkbox" name="is_public" defaultChecked={c.isPublic} /> {tx.publicLeague}</label>
         </ActionForm>
-        <p className={`mt-1 ${muted}`}>Se non è pubblico, nella home lo vede solo chi ne fa parte. La pagina resta comunque aperta a chi ha il link, per esempio da un invito.</p>
+        <p className={`mt-1 ${muted}`}>{tx.visibilityNote}</p>
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold">Nome della lega</h2>
-        <ActionForm action={renameChampionship} submitLabel="Salva nome" primary={false} className="mt-2 flex flex-wrap items-center gap-3">
-          {hidden}<input name="name" defaultValue={c.name} required maxLength={100} className={`${input} sm:w-96`} aria-label="Nome" />
+        <h2 className="text-lg font-semibold">{tx.leagueName}</h2>
+        <ActionForm action={renameChampionship} submitLabel={tx.saveName} primary={false} className="mt-2 flex flex-wrap items-center gap-3">
+          {hidden}<input name="name" defaultValue={c.name} required maxLength={100} className={`${input} sm:w-96`} aria-label={tx.name} />
         </ActionForm>
       </section>
 
       {admin.role === "owner" && (
         <section>
-          <h2 className="text-lg font-semibold">Chi gestisce la lega</h2>
-          <p className={`mt-1 ${muted}`}>Tu (proprietario) puoi gestire tutto. Qui scegli gli amministratori che possono gestire questa lega.</p>
+          <h2 className="text-lg font-semibold">{tx.whoManages}</h2>
+          <p className={`mt-1 ${muted}`}>{tx.whoManagesNote}</p>
           <ul className="mt-2 space-y-1">
             {adminUsers.filter((u) => assigned.has(u.userId)).map((u) => (
               <li key={u.userId} className="flex items-center gap-3">{u.email}
-                <ActionForm action={removeChampionshipAdmin} submitLabel="Togli" primary={false} inline confirmText={`Togliere ${u.email} da questa lega?`}>
+                <ActionForm action={removeChampionshipAdmin} submitLabel={tx.remove} primary={false} inline confirmText={tx.confirmRemoveAdmin(u.email)}>
                   {hidden}<input type="hidden" name="user_id" value={u.userId} />
                 </ActionForm>
               </li>))}
           </ul>
           {adminUsers.some((u) => !assigned.has(u.userId)) ? (
-            <ActionForm action={addChampionshipAdmin} submitLabel="Aggiungi" primary={false} className="mt-3 flex flex-wrap items-center gap-3">
+            <ActionForm action={addChampionshipAdmin} submitLabel={tx.add} primary={false} className="mt-3 flex flex-wrap items-center gap-3">
               {hidden}
-              <select name="user_id" className={`select-arrow ${input}`} aria-label="Amministratore">
+              <select name="user_id" className={`select-arrow ${input}`} aria-label={tx.administrator}>
                 {adminUsers.filter((u) => !assigned.has(u.userId)).map((u) => <option key={u.userId} value={u.userId}>{u.email}</option>)}
               </select>
             </ActionForm>
-          ) : <p className={`mt-2 ${muted}`}>Per aggiungere qualcuno, prima crealo in <Link href="/admin/amministratori" className="underline">Amministratori</Link>.</p>}
+          ) : <p className={`mt-2 ${muted}`}>{tx.toAddFirstCreate} <Link href="/admin/amministratori" className="underline">{tx.administrators}</Link>.</p>}
         </section>
       )}
     </main>
