@@ -4,6 +4,8 @@ import { getAccount } from "@/lib/account";
 import { formatDeadline, registrationIsOpen } from "@/lib/registration";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { selfEnroll, selfWithdraw } from "./iscrizione-actions";
+import { getLocale, tr } from "@/i18n/server";
+import { publicEnrollText } from "@/i18n/dict/public-tournament";
 
 type T = { id: string; public_code: string; status: string; kind: string; championship_id: string | null; registration_open: boolean; registration_deadline: string | null };
 
@@ -11,28 +13,29 @@ type T = { id: string; public_code: string; status: string; kind: string; champi
 export async function SelfEnroll({ t, slug }: { t: T; slug: string | null }) {
   if (!registrationIsOpen(t)) return null;
   const here = `/t/${t.public_code}`;
+  const [tx, l] = [await tr(publicEnrollText), await getLocale()];
   const box = "mt-6 rounded-lg border-2 border-emerald-600 p-4";
-  const deadline = t.registration_deadline && <p className="text-sm text-neutral-600 dark:text-neutral-400">Iscrizioni aperte fino a {formatDeadline(t.registration_deadline)}.</p>;
+  const deadline = t.registration_deadline && <p className="text-sm text-neutral-600 dark:text-neutral-400">{tx.openUntil(formatDeadline(t.registration_deadline, l))}</p>;
   const account = await getAccount();
   if (!account) return (
-    <div className={box}><p className="font-semibold">Iscrizioni aperte</p>{deadline}
-      <p className="mt-2"><Link href={`/login?next=${encodeURIComponent(here)}`} className="underline">Accedi</Link> per iscriverti.</p></div>);
+    <div className={box}><p className="font-semibold">{tx.registrationOpen}</p>{deadline}
+      <p className="mt-2"><Link href={`/login?next=${encodeURIComponent(here)}`} className="underline">{tx.login}</Link>{tx.toSignUp}</p></div>);
   const svc = createServiceClient();
   const [{ data: member }, { data: mine }] = await Promise.all([
     svc.from("championship_players").select("player_id").eq("championship_id", t.championship_id).eq("player_id", account.player.id).maybeSingle(),
     svc.from("entry_members").select("entry_id").eq("tournament_id", t.id).eq("player_id", account.player.id).maybeSingle(),
   ]);
   if (!member) return (
-    <div className={box}><p className="font-semibold">Iscrizioni aperte</p>{deadline}
-      <p className="mt-2">Per iscriverti devi far parte della lega. {slug && <Link href={`/partecipa/${slug}`} className="underline">Chiedi di partecipare</Link>}</p></div>);
+    <div className={box}><p className="font-semibold">{tx.registrationOpen}</p>{deadline}
+      <p className="mt-2">{tx.mustBeMember} {slug && <Link href={`/partecipa/${slug}`} className="underline">{tx.askToJoin}</Link>}</p></div>);
   const hidden = <input type="hidden" name="public_code" value={t.public_code} />;
   if (mine) {
     const { data: mates } = await svc.from("entry_members").select("player_id, players(full_name)").eq("entry_id", mine.entry_id).neq("player_id", account.player.id);
     const mate = (mates?.[0]?.players as unknown as { full_name: string } | undefined)?.full_name;
     return (
       <div className={box}>
-        <p className="font-semibold">Sei iscritto{t.kind === "doubles" ? (mate ? ` in coppia con ${mate}` : " da solo: l'organizzatore ti abbinerà a un compagno") : ""}.</p>{deadline}
-        <ActionForm action={selfWithdraw} submitLabel="Ritirati" primary={false} confirmText="Vuoi ritirarti dal torneo?" className="mt-2">{hidden}</ActionForm>
+        <p className="font-semibold">{tx.enrolled}{t.kind === "doubles" ? (mate ? tx.enrolledWith(mate) : tx.enrolledAlone) : ""}.</p>{deadline}
+        <ActionForm action={selfWithdraw} submitLabel={tx.withdraw} primary={false} confirmText={tx.withdrawConfirm} className="mt-2">{hidden}</ActionForm>
       </div>);
   }
   let partners: { id: string; name: string; solo: boolean }[] = [];
@@ -53,14 +56,14 @@ export async function SelfEnroll({ t, slug }: { t: T; slug: string | null }) {
   }
   return (
     <div className={box}>
-      <p className="font-semibold">Iscrizioni aperte</p>{deadline}
-      <ActionForm action={selfEnroll} submitLabel="Iscriviti" className="mt-2 space-y-2">
+      <p className="font-semibold">{tx.registrationOpen}</p>{deadline}
+      <ActionForm action={selfEnroll} submitLabel={tx.enter} className="mt-2 space-y-2">
         {hidden}
         {t.kind === "doubles" && (
-          <label className="grid gap-1">Compagno
+          <label className="grid gap-1">{tx.partner}
             <select name="partner_id" defaultValue="" className="select-arrow rounded border bg-transparent py-2 pl-3 sm:w-96">
-              <option value="">Non ho un compagno: abbinatemi voi</option>
-              {partners.map((p) => <option key={p.id} value={p.id}>{p.name}{p.solo ? " (cerca un compagno)" : ""}</option>)}
+              <option value="">{tx.noPartner}</option>
+              {partners.map((p) => <option key={p.id} value={p.id}>{p.name}{p.solo ? tx.seekingPartner : ""}</option>)}
             </select></label>)}
       </ActionForm>
     </div>);

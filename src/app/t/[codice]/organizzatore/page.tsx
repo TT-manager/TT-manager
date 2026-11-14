@@ -9,13 +9,18 @@ import { hasServiceKey, organizerTournamentId } from "@/lib/organizer";
 import { MatchForm } from "@/components/match-form";
 import { logout, submitResult } from "./actions";
 import { OrganizerLogin } from "./forms";
+import { getLocale, tr } from "@/i18n/server";
+import { publicOrganizerText } from "@/i18n/dict/public-tournament";
 
-export const metadata = { title: "Inserimento risultati", robots: { index: false } };
+export async function generateMetadata() {
+  return { title: (await tr(publicOrganizerText)).title, robots: { index: false } };
+}
 
-export default function OrganizerPage({ params }: PageProps<"/t/[codice]/organizzatore">) {
+export default async function OrganizerPage({ params }: PageProps<"/t/[codice]/organizzatore">) {
+  const t = await tr(publicOrganizerText);
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <Suspense fallback={<p>Caricamento…</p>}><Content params={params} /></Suspense>
+      <Suspense fallback={<p>{t.loading}</p>}><Content params={params} /></Suspense>
     </main>
   );
 }
@@ -29,13 +34,14 @@ async function Content({ params }: { params: PageProps<"/t/[codice]/organizzator
   const data = await getPublicTournament(code);
   if (!data) notFound();
   const { tournament: t, names, matches } = data;
+  const [tx, l] = [await tr(publicOrganizerText), await getLocale()];
   const back = <Link href={`/t/${code}`} className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">← {t.name}</Link>;
 
-  if (!hasServiceKey()) return <>{back}<p className="mt-6">Inserimento risultati non ancora attivo: manca la configurazione del server (chiave segreta).</p></>;
+  if (!hasServiceKey()) return <>{back}<p className="mt-6">{tx.notActive}</p></>;
   const tid = await organizerTournamentId(code);
-  if (!tid) return (<>{back}<h1 className="mt-4 text-2xl font-bold">Inserimento risultati</h1><OrganizerLogin publicCode={code} /></>);
-  if (t.status === "draft") return <>{back}<p className="mt-6">I gironi non sono ancora stati generati.</p></>;
-  if (t.status === "closed") return <>{back}<p className="mt-6">Il torneo è chiuso.</p></>;
+  if (!tid) return (<>{back}<h1 className="mt-4 text-2xl font-bold">{tx.title}</h1><OrganizerLogin publicCode={code} /></>);
+  if (t.status === "draft") return <>{back}<p className="mt-6">{tx.notDrawn}</p></>;
+  if (t.status === "closed") return <>{back}<p className="mt-6">{tx.closed}</p></>;
 
   const name = (id: string | null) => (id ? names.get(id) ?? "?" : "?");
   const ready = matches.filter((m) => m.player_a && m.player_b);
@@ -45,14 +51,14 @@ async function Content({ params }: { params: PageProps<"/t/[codice]/organizzator
   const done = sorted.filter(isPlayed).reverse();
   const waiting = matches.length - ready.length;
   const label = (m: (typeof matches)[number]) =>
-    m.phase === "group" ? `Girone ${groupLabel(m.group_no ?? 0)} · turno ${m.round}` : `${stageName(m.stage ?? 0)} ${m.position + 1}`;
+    m.phase === "group" ? tx.groupRound(groupLabel(m.group_no ?? 0), m.round) : `${stageName(m.stage ?? 0, l)} ${m.position + 1}`;
 
   const Row = ({ m }: { m: (typeof matches)[number] }) => (
     <li className="border-t py-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span><span className="text-sm text-neutral-600 dark:text-neutral-400">{label(m)}</span><br />
           <strong>{name(m.player_a)}</strong> – <strong>{name(m.player_b)}</strong></span>
-        {isPlayed(m) && <span className="tabular-nums">{m.sets_a}-{m.sets_b}{m.set_scores ? ` (${m.set_scores.map(([a, b]) => `${a}-${b}`).join(", ")})` : ""}{m.disputed && <span className="badge-contested ml-2">Contestato: correggi o salva per confermare</span>}</span>}
+        {isPlayed(m) && <span className="tabular-nums">{m.sets_a}-{m.sets_b}{m.set_scores ? ` (${m.set_scores.map(([a, b]) => `${a}-${b}`).join(", ")})` : ""}{m.disputed && <span className="badge-contested ml-2">{tx.disputedFix}</span>}</span>}
       </div>
       <MatchForm action={submitResult} hidden={{ public_code: code }} matchId={m.id} bestOf={m.best_of} rules={{ points: m.set_points, golden: m.golden_point }} a={name(m.player_a)} b={name(m.player_b)} initial={m.set_scores} />
     </li>
@@ -62,13 +68,13 @@ async function Content({ params }: { params: PageProps<"/t/[codice]/organizzator
     <>
       {back}
       <div className="mt-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Inserimento risultati</h1>
-        <form action={logout}><input type="hidden" name="public_code" value={code} /><button className="rounded border px-3 py-1 text-sm">Esci</button></form>
+        <h1 className="text-2xl font-bold">{tx.title}</h1>
+        <form action={logout}><input type="hidden" name="public_code" value={code} /><button className="rounded border px-3 py-1 text-sm">{tx.logout}</button></form>
       </div>
-      <h2 className="mt-6 text-lg font-semibold">Da giocare ({todo.length})</h2>
-      {todo.length ? <ul>{todo.map((m) => <Row key={m.id} m={m} />)}</ul> : <p className="text-neutral-600 dark:text-neutral-400">Nessuna partita pronta.</p>}
-      {waiting > 0 && <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{waiting} partite del tabellone in attesa dei risultati precedenti.</p>}
-      <h2 className="mt-8 text-lg font-semibold">Già giocate ({done.length})</h2>
+      <h2 className="mt-6 text-lg font-semibold">{tx.toPlay(todo.length)}</h2>
+      {todo.length ? <ul>{todo.map((m) => <Row key={m.id} m={m} />)}</ul> : <p className="text-neutral-600 dark:text-neutral-400">{tx.noneReady}</p>}
+      {waiting > 0 && <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{tx.waiting(waiting)}</p>}
+      <h2 className="mt-8 text-lg font-semibold">{tx.played(done.length)}</h2>
       <ul>{done.map((m) => <Row key={m.id} m={m} />)}</ul>
     </>
   );

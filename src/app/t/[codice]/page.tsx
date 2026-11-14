@@ -7,16 +7,22 @@ import { normalizeCode } from "@/lib/codes";
 import { getPublicTournament } from "@/lib/data";
 import { parseFormat, describeFormat } from "@/lib/domain/format";
 import { groupLabel, groupViews, isPlayed, resolveKnockout, type GroupView, type MatchRow } from "@/lib/domain/tournament";
-import { STATUS_LABEL } from "@/lib/labels";
+import { statusLabel } from "@/lib/labels";
 import { SelfEnroll } from "./self-enroll";
 import { MyMatches } from "./my-matches";
 import { streamPlatform } from "@/lib/stream";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { getLocale, tr } from "@/i18n/server";
+import { intlTag } from "@/i18n/locale";
+import { publicTournamentText } from "@/i18n/dict/public-tournament";
 
-export default function TournamentPage({ params, searchParams }: PageProps<"/t/[codice]">) {
+type Tx = (typeof publicTournamentText)["it"];
+
+export default async function TournamentPage({ params, searchParams }: PageProps<"/t/[codice]">) {
+  const t = await tr(publicTournamentText);
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
-      <Suspense fallback={<p className="text-muted">Caricamento…</p>}>
+      <Suspense fallback={<p className="text-muted">{t.loading}</p>}>
         <Tournament params={params} searchParams={searchParams} />
       </Suspense>
     </main>
@@ -30,7 +36,8 @@ async function ManageLink({ id }: { id: string }) {
   if (!claims?.claims?.sub) return null;
   const { data } = await supabase.from("tournaments").select("id").eq("id", id).maybeSingle();
   if (!data) return null;
-  return <Link href={`/gestione/${id}`} className="btn border border-white/30 py-1.5 text-sm hover:bg-white/10">⚙ Gestisci torneo</Link>;
+  const t = await tr(publicTournamentText);
+  return <Link href={`/gestione/${id}`} className="btn border border-white/30 py-1.5 text-sm hover:bg-white/10">{t.manage}</Link>;
 }
 
 function score(m: MatchRow) {
@@ -47,6 +54,7 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
   if (raw !== code) redirect(`/t/${code}`);
   const data = await getPublicTournament(code);
   if (!data) notFound();
+  const [tx, l] = [await tr(publicTournamentText), await getLocale()];
   const { tournament: t, championship, members, names, matches, enrolledCount, enrolled, entryPlayers, playerNames } = data;
   const name = (id: string | null) => (id ? names.get(id) ?? "?" : null);
   const parsed = parseFormat(t.format);
@@ -77,26 +85,26 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
           <div className="relative flex flex-wrap items-end justify-between gap-4">
             <div>
               <div className="mb-2 flex flex-wrap items-center gap-2">
-                {live && <span className="badge-live"><span className="live-dot" /> In corso</span>}
-                {t.status === "closed" && <span className="badge bg-white/15 text-white">Concluso</span>}
-                {t.status === "draft" && <span className="badge bg-white/15 text-white">In preparazione</span>}
-                {!t.ranked && <span className="badge-friendly">Amichevole</span>}
-                {t.kind === "doubles" && <span className="badge bg-white/15 text-white">Doppio</span>}
+                {live && <span className="badge-live"><span className="live-dot" /> {tx.inProgress}</span>}
+                {t.status === "closed" && <span className="badge bg-white/15 text-white">{tx.finished}</span>}
+                {t.status === "draft" && <span className="badge bg-white/15 text-white">{tx.inPreparation}</span>}
+                {!t.ranked && <span className="badge-friendly">{tx.friendly}</span>}
+                {t.kind === "doubles" && <span className="badge bg-white/15 text-white">{tx.doubles}</span>}
               </div>
               <h1 className="text-3xl font-bold sm:text-4xl">{t.name}</h1>
               <p className="mt-1 text-sm text-white/75">
-                {championship && <><Link href={`/c/${championship.slug}`} className="underline decoration-brand underline-offset-2 hover:text-white">{championship.name}</Link>{t.ranked ? " · vale per la classifica" : " · non vale per la classifica"} · </>}
-                {t.starts_on && `${new Date(t.starts_on).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })} · `}codice <span className="font-mono">{t.public_code}</span>
+                {championship && <><Link href={`/c/${championship.slug}`} className="underline decoration-brand underline-offset-2 hover:text-white">{championship.name}</Link>{t.ranked ? tx.ranked : tx.unranked} · </>}
+                {t.starts_on && `${new Date(t.starts_on).toLocaleDateString(intlTag(l), { weekday: "long", day: "numeric", month: "long" })} · `}{tx.code} <span className="font-mono">{t.public_code}</span>
               </p>
               {t.stream_url && (
                 <a href={t.stream_url} target="_blank" rel="noopener noreferrer nofollow" className="btn-primary mt-4">
-                  <span aria-hidden="true">▶</span> {live ? "Guarda la diretta" : "Guarda il video"}{streamPlatform(t.stream_url) ? ` su ${streamPlatform(t.stream_url)}` : ""}</a>)}
+                  <span aria-hidden="true">▶</span> {live ? tx.watchLive : tx.watchVideo}{streamPlatform(t.stream_url) ? tx.onPlatform(streamPlatform(t.stream_url)!) : ""}</a>)}
             </div>
             <div className="flex flex-col items-end gap-2 text-right text-sm">
               <Suspense fallback={null}><ManageLink id={t.id} /></Suspense>
               {t.status !== "closed" && <>
                 <AutoRefresh />
-                <Link href={`/t/${t.public_code}/organizzatore`} className="inline-block underline decoration-brand underline-offset-2">Inserisci risultati (organizzatore)</Link>
+                <Link href={`/t/${t.public_code}/organizzatore`} className="inline-block underline decoration-brand underline-offset-2">{tx.enterResults}</Link>
               </>}
             </div>
           </div>
@@ -104,8 +112,8 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
       </header>
 
       {"format" in parsed && (
-        <details className="card mt-4"><summary className="cursor-pointer font-medium">Formato del torneo</summary>
-          <ul className="mt-2 list-disc pl-5 text-sm">{describeFormat(parsed.format, enrolledCount || undefined).map((l) => <li key={l}>{l}</li>)}</ul>
+        <details className="card mt-4"><summary className="cursor-pointer font-medium">{tx.format}</summary>
+          <ul className="mt-2 list-disc pl-5 text-sm">{describeFormat(parsed.format, enrolledCount || undefined, l).map((line) => <li key={line}>{line}</li>)}</ul>
         </details>
       )}
 
@@ -113,11 +121,11 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
         <>
           <Suspense fallback={null}><SelfEnroll t={t} slug={championship?.slug ?? null} /></Suspense>
           <section className="card mt-6">
-            <h2 className="text-xl font-bold uppercase">{t.kind === "doubles" ? "Iscrizioni" : "Iscritti"} <span className="text-muted">({enrolledCount})</span></h2>
-            <p className="text-sm text-muted">Il torneo è in preparazione: gironi e tabellone non sono ancora stati sorteggiati.</p>
+            <h2 className="text-xl font-bold uppercase">{t.kind === "doubles" ? tx.entriesDoubles : tx.entriesSingles} <span className="text-muted">({enrolledCount})</span></h2>
+            <p className="text-sm text-muted">{tx.draftNote}</p>
             {enrolled.length > 0 && (
               <ul className="mt-3 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
-                {enrolled.map((e, i) => <li key={i} className="rounded-lg bg-background px-3 py-1.5">{e.name}{e.solo && <span className="text-sm text-muted"> · cerca un compagno</span>}</li>)}
+                {enrolled.map((e, i) => <li key={i} className="rounded-lg bg-background px-3 py-1.5">{e.name}{e.solo && <span className="text-sm text-muted">{tx.seekingPartner}</span>}</li>)}
               </ul>)}
           </section>
         </>
@@ -125,40 +133,40 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
         <>
           <Suspense fallback={null}><MyMatches t={t} matches={matches} entryPlayers={entryPlayers} playerNames={playerNames} name={name} /></Suspense>
           {matches.some((m) => m.disputed) && (
-            <p className="mt-6 rounded-lg bg-amber-400/15 px-4 py-2 text-sm"><span className="badge-contested mr-2">Contestato</span>
-              Uno o più risultati sono contestati: finché l&apos;organizzatore non decide, quel girone non si chiude e chi ha vinto quella partita non passa al turno dopo.</p>)}
+            <p className="mt-6 rounded-lg bg-amber-400/15 px-4 py-2 text-sm"><span className="badge-contested mr-2">{tx.disputed}</span>
+              {tx.disputedNote}</p>)}
           {both && (
             <nav className="mt-6 flex gap-1 border-b border-line">
-              {tabLink("qualificazione", "Qualificazione", `${groups.length} ${groups.length === 1 ? "girone" : "gironi"}${groupsDone ? " · conclusa" : ""}`)}
-              {tabLink("finale", "Fase finale", "tabellone a eliminazione")}
+              {tabLink("qualificazione", tx.qualification, tx.groupsCount(groups.length, groupsDone))}
+              {tabLink("finale", tx.knockoutStage, tx.knockoutSub)}
             </nav>)}
 
           {tab === "qualificazione" && groups.length > 0 && (
             <div className={`mt-6 grid gap-6 ${groups.length > 1 ? "lg:grid-cols-2" : ""}`}>
-              {groups.map((g) => <Group key={g.group} g={g} name={name} playerNames={playerNames} single={league || groups.length === 1} />)}
+              {groups.map((g) => <Group key={g.group} g={g} name={name} playerNames={playerNames} single={league || groups.length === 1} tx={tx} />)}
             </div>)}
 
           {tab === "finale" && knockout.length > 0 && (
             <section className="mt-6">
-              {both && !groupsDone && <p className="mb-4 rounded-lg bg-brand/10 px-4 py-2 text-sm">La qualificazione è ancora in corso: i nomi compariranno man mano che i gironi si concludono.</p>}
+              {both && !groupsDone && <p className="mb-4 rounded-lg bg-brand/10 px-4 py-2 text-sm">{tx.qualificationRunning}</p>}
               <Bracket knockout={knockout} resolved={resolved} name={name} />
             </section>)}
         </>
       )}
-      <p className="mt-8 text-sm text-muted">Stato: {STATUS_LABEL[t.status]}</p>
+      <p className="mt-8 text-sm text-muted">{tx.status(statusLabel(t.status, l))}</p>
     </>
   );
 }
 
-function Group({ g, name, playerNames, single = false }: { g: GroupView; name: (id: string | null) => string | null; playerNames: Map<string, string>; single?: boolean }) {
+function Group({ g, name, playerNames, single = false, tx }: { g: GroupView; name: (id: string | null) => string | null; playerNames: Map<string, string>; single?: boolean; tx: Tx }) {
   return (
     <section className="card overflow-hidden !p-0">
       <h3 className="flex items-center justify-between bg-ink px-4 py-2.5 text-lg font-bold uppercase text-white">
-        {single ? "Classifica" : `Girone ${groupLabel(g.group)}`}
-        {g.complete ? <span className="badge bg-white/15 text-white">Concluso</span> : <span className="badge-live"><span className="live-dot" /> In corso</span>}
+        {single ? tx.standings : tx.group(groupLabel(g.group))}
+        {g.complete ? <span className="badge bg-white/15 text-white">{tx.finished}</span> : <span className="badge-live"><span className="live-dot" /> {tx.inProgress}</span>}
       </h3>
       <table className="w-full text-left text-sm">
-        <thead className="text-xs uppercase tracking-wide text-muted"><tr><th className="py-2 pl-4">#</th><th>Giocatore</th><th className="text-right">V</th><th className="text-right">P</th><th className="text-right">Set</th><th className="pr-4 text-right">Punti</th></tr></thead>
+        <thead className="text-xs uppercase tracking-wide text-muted"><tr><th className="py-2 pl-4">#</th><th>{tx.player}</th><th className="text-right">{tx.wins}</th><th className="text-right">{tx.losses}</th><th className="text-right">{tx.sets}</th><th className="pr-4 text-right">{tx.points}</th></tr></thead>
         <tbody>
           {g.standings.map((s) => (
             <tr key={s.playerId} className="border-t border-line">
@@ -173,8 +181,8 @@ function Group({ g, name, playerNames, single = false }: { g: GroupView; name: (
         </tbody>
       </table>
       <h4 className="mt-3 flex items-center justify-between border-y border-line bg-ink/5 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted dark:bg-white/5">
-        Incontri
-        <span className="font-normal normal-case tracking-normal">{g.matches.filter((m) => score(m)).length} su {g.matches.length} giocati</span>
+        {tx.matches}
+        <span className="font-normal normal-case tracking-normal">{tx.playedOf(g.matches.filter((m) => score(m)).length, g.matches.length)}</span>
       </h4>
       <ul className="divide-y divide-line text-sm">
         {g.matches.map((m) => {
@@ -182,12 +190,12 @@ function Group({ g, name, playerNames, single = false }: { g: GroupView; name: (
           const winA = sc && (m.sets_a as number) > (m.sets_b as number);
           return (
             <li key={m.id} className="flex items-center justify-between gap-3 px-4 py-2">
-              <span><span className={winA ? "rounded bg-gold/20 px-1 font-semibold" : ""}>{name(m.player_a)}</span> <span className="text-muted">vs</span> <span className={sc && !winA ? "rounded bg-gold/20 px-1 font-semibold" : ""}>{name(m.player_b)}</span></span>
+              <span><span className={winA ? "rounded bg-gold/20 px-1 font-semibold" : ""}>{name(m.player_a)}</span> <span className="text-muted">{tx.vs}</span> <span className={sc && !winA ? "rounded bg-gold/20 px-1 font-semibold" : ""}>{name(m.player_b)}</span></span>
               {sc ? <span className="text-right"><span className="rounded bg-ink px-2 py-0.5 font-display font-bold tabular-nums text-white dark:bg-neutral-700">{sc.sets}</span>
                 {sc.detail && <span className="block text-[0.7rem] text-muted">{sc.detail}</span>}
-                {m.disputed ? <span className="badge-contested mt-1">Contestato</span>
-                  : (m as { reported_by?: string | null }).reported_by && <span className="block text-[0.7rem] text-muted">da {playerNames.get((m as { reported_by?: string | null }).reported_by!) ?? "un giocatore"}</span>}</span>
-                : <span className="text-xs text-muted">da giocare</span>}
+                {m.disputed ? <span className="badge-contested mt-1">{tx.disputed}</span>
+                  : (m as { reported_by?: string | null }).reported_by && <span className="block text-[0.7rem] text-muted">{tx.reportedBy(playerNames.get((m as { reported_by?: string | null }).reported_by!) ?? tx.aPlayer)}</span>}</span>
+                : <span className="text-xs text-muted">{tx.toPlay}</span>}
             </li>);
         })}
       </ul>

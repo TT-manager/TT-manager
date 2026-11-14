@@ -9,6 +9,9 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { loadDashboard } from "@/lib/dashboard";
 import { DashboardView } from "@/components/dashboard-view";
 import { HomeSkeleton } from "@/components/home-skeleton";
+import { getLocale, tr } from "@/i18n/server";
+import { intlTag } from "@/i18n/locale";
+import { publicHomeText } from "@/i18n/dict/public-home";
 
 export default function Home() {
   return (
@@ -20,18 +23,20 @@ export default function Home() {
   );
 }
 
-function CodeBox() {
+async function CodeBox() {
+  const t = await tr(publicHomeText);
   return (
     <form action="/t" className="flex w-full max-w-md gap-2">
-      <input name="codice" placeholder="Codice torneo" aria-label="Codice torneo" maxLength={6}
+      <input name="codice" placeholder={t.codePlaceholder} aria-label={t.codePlaceholder} maxLength={6}
         className="min-w-0 flex-1 rounded-lg border border-white/30 bg-white/10 px-3 py-2 uppercase text-white placeholder:text-white/60" />
-      <button className="btn-primary">Segui</button>
+      <button className="btn-primary">{t.follow}</button>
     </form>
   );
 }
 
 async function HomeContent() {
   const [account, all, featured] = await Promise.all([getAccount(), getChampionships(), getFeaturedLive()]);
+  const t = await tr(publicHomeText);
   let mine = new Set<string>();
   if (account) {
     const { data } = await createServiceClient().from("championship_players").select("championship_id").eq("player_id", account.player.id);
@@ -48,32 +53,32 @@ async function HomeContent() {
           <div aria-hidden="true" className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-brand/90" />
           <div aria-hidden="true" className="absolute -right-4 top-24 h-24 w-24 rounded-full bg-brand/40" />
           <div className="relative">
-            <h1 className="text-4xl font-bold sm:text-5xl">{account ? `Ciao ${account.player.full_name.split(" ")[0]}!` : "Il tuo tennis tavolo"}</h1>
+            <h1 className="text-4xl font-bold sm:text-5xl">{account ? t.hello(account.player.full_name.split(" ")[0]) : t.heroTitle}</h1>
             <p className="mt-2 max-w-xl text-white/80">
-              {account ? "Le tue leghe, i tornei in corso e le iscrizioni aperte." : "Classifiche delle leghe, tornei in diretta, iscrizioni e amichevoli con gli amici."}</p>
+              {account ? t.heroMember : t.heroGuest}</p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
               {account
-                ? <><Link href="/amichevole/nuovo" className="btn-primary">Crea un torneo amichevole</Link><Link href="/amici" className="btn border border-white/30 hover:bg-white/10">Amici</Link></>
-                : <><Link href="/registrati" className="btn-primary">Registrati</Link><Link href="/login" className="btn border border-white/30 hover:bg-white/10">Accedi</Link><Link href="/faq" className="text-sm text-white/80 underline hover:text-white">Come funziona?</Link></>}
+                ? <><Link href="/amichevole/nuovo" className="btn-primary">{t.createFriendly}</Link><Link href="/amici" className="btn border border-white/30 hover:bg-white/10">{t.friends}</Link></>
+                : <><Link href="/registrati" className="btn-primary">{t.signup}</Link><Link href="/login" className="btn border border-white/30 hover:bg-white/10">{t.login}</Link><Link href="/faq" className="text-sm text-white/80 underline hover:text-white">{t.howItWorks}</Link></>}
             </div>
-            <div className="mt-6"><p className="mb-1 text-sm text-white/70">Hai il codice di un torneo?</p><CodeBox /></div>
+            <div className="mt-6"><p className="mb-1 text-sm text-white/70">{t.haveCode}</p><CodeBox /></div>
           </div>
         </div>
       </section>
 
       {featured.length > 0 && (
         <section className="mt-6">
-          <h2 className="flex items-center gap-2 text-2xl font-bold uppercase"><span className="live-dot text-brand" /> In diretta</h2>
+          <h2 className="flex items-center gap-2 text-2xl font-bold uppercase"><span className="live-dot text-brand" /> {t.live}</h2>
           <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-            {featured.map((t) => (
-              <li key={t.id} className="card flex flex-wrap items-center justify-between gap-3">
-                <Link href={`/t/${t.public_code}`} className="min-w-0 hover:text-brand">
-                  <span className="block truncate font-display text-xl font-bold uppercase">{t.name}</span>
-                  <span className="text-sm text-muted">{t.status === "groups" ? "Qualificazione" : "Fase finale"}{t.kind === "doubles" ? " · doppio" : ""}{t.ranked ? "" : " · amichevole"}</span>
+            {featured.map((f) => (
+              <li key={f.id} className="card flex flex-wrap items-center justify-between gap-3">
+                <Link href={`/t/${f.public_code}`} className="min-w-0 hover:text-brand">
+                  <span className="block truncate font-display text-xl font-bold uppercase">{f.name}</span>
+                  <span className="text-sm text-muted">{f.status === "groups" ? t.qualification : t.knockoutStage}{f.kind === "doubles" ? t.doublesSuffix : ""}{f.ranked ? "" : t.friendlySuffix}</span>
                 </Link>
                 <span className="flex gap-2">
-                  {t.stream_url && <a href={t.stream_url} target="_blank" rel="noopener noreferrer nofollow" className="btn-primary py-1.5 text-sm"><span aria-hidden="true">▶</span> Diretta</a>}
-                  <Link href={`/t/${t.public_code}`} className="btn-outline py-1.5 text-sm">Risultati</Link>
+                  {f.stream_url && <a href={f.stream_url} target="_blank" rel="noopener noreferrer nofollow" className="btn-primary py-1.5 text-sm"><span aria-hidden="true">▶</span> {t.watchLive}</a>}
+                  <Link href={`/t/${f.public_code}`} className="btn-outline py-1.5 text-sm">{t.results}</Link>
                 </span>
               </li>))}
           </ul>
@@ -83,7 +88,7 @@ async function HomeContent() {
         <Dashboard account={account}>
       {shown.length === 0 ? (
         <p className="mt-3 text-muted">
-          {account ? "Non fai ancora parte di nessuna lega: chiedi il link d'invito a chi la organizza." : "Nessuna lega pubblica. Se hai ricevuto un invito, aprilo o accedi."}</p>
+          {account ? t.noLeagueMember : t.noLeagueGuest}</p>
       ) : (
         <div className={`mt-4 grid gap-5 ${account ? "" : "md:grid-cols-2"}`}>
           {shown.map((c) => <ChampionshipCard key={c.id} c={c} member={mine.has(c.id)} myPlayerId={account?.player.id} />)}
@@ -92,10 +97,10 @@ async function HomeContent() {
         </Dashboard>
       ) : (
         <>
-          <h2 className="mt-10 text-2xl font-bold uppercase">Leghe</h2>
+          <h2 className="mt-10 text-2xl font-bold uppercase">{t.leagues}</h2>
       {shown.length === 0 ? (
         <p className="mt-3 text-muted">
-          {account ? "Non fai ancora parte di nessuna lega: chiedi il link d'invito a chi la organizza." : "Nessuna lega pubblica. Se hai ricevuto un invito, aprilo o accedi."}</p>
+          {account ? t.noLeagueMember : t.noLeagueGuest}</p>
       ) : (
         <div className={`mt-4 grid gap-5 ${account ? "" : "md:grid-cols-2"}`}>
           {shown.map((c) => <ChampionshipCard key={c.id} c={c} member={mine.has(c.id)} myPlayerId={undefined} />)}
@@ -121,6 +126,7 @@ async function ChampionshipCard({ c, member, myPlayerId }: { c: Championship; me
       .select("id, name, starts_on, status, public_code, championship_id, registration_open, registration_deadline, ranked")
       .eq("championship_id", c.id).neq("status", "closed").order("starts_on", { ascending: true, nullsFirst: false }),
   ]);
+  const [tx, l] = [await tr(publicHomeText), await getLocale()];
   const me = myPlayerId ? rows.find((r) => r.player_id === myPlayerId) : undefined;
   const live = (tournaments ?? []).filter((t) => t.status === "groups" || t.status === "knockout");
   const open = (tournaments ?? []).filter((t) => registrationIsOpen(t));
@@ -130,31 +136,31 @@ async function ChampionshipCard({ c, member, myPlayerId }: { c: Championship; me
       <div className="flex items-start justify-between gap-3 border-b-4 border-brand bg-ink px-5 py-4 text-white rounded-t-xl">
         <div>
           <h3 className="text-2xl font-bold uppercase">{c.name}</h3>
-          <p className="text-sm text-white/70">{c.kind === "doubles" ? "Doppio" : "Singolare"} · {rows.length} giocatori</p>
+          <p className="text-sm text-white/70">{c.kind === "doubles" ? tx.doubles : tx.singles} · {tx.players(rows.length)}</p>
         </div>
         {me && <div className="text-right"><p className="font-display text-3xl font-bold leading-none">{me.games_played > 0 ? `#${me.position}` : "—"}</p>
           <p className="text-xs text-white/70">{me.rating} {c.settings.label.toLowerCase()}</p></div>}
       </div>
       <div className="flex-1 space-y-4 px-5 py-4">
-        {rows.length > 0 ? <Podium rows={rows.slice(0, 3)} label={c.settings.label} myPlayerId={myPlayerId} /> : <p className="text-sm text-muted">Classifica ancora vuota.</p>}
+        {rows.length > 0 ? <Podium rows={rows.slice(0, 3)} label={c.settings.label} myPlayerId={myPlayerId} /> : <p className="text-sm text-muted">{tx.rankingEmpty}</p>}
         {(live.length > 0 || open.length > 0 || next) && (
           <ul className="space-y-2 text-sm">
             {live.map((t) => (
               <li key={t.id}><Link href={`/t/${t.public_code}`} className="flex items-center gap-2 hover:text-brand">
-                <span className="badge-live"><span className="live-dot" /> In corso</span><span className="font-medium">{t.name}</span></Link></li>))}
+                <span className="badge-live"><span className="live-dot" /> {tx.inProgress}</span><span className="font-medium">{t.name}</span></Link></li>))}
             {open.map((t) => (
               <li key={t.id}><Link href={`/t/${t.public_code}`} className="flex flex-wrap items-center gap-2 hover:text-brand">
-                <span className="badge-open">Iscrizioni aperte</span><span className="font-medium">{t.name}</span>
-                {t.registration_deadline && <span className="text-muted">fino a {formatDeadline(t.registration_deadline)}</span>}</Link></li>))}
+                <span className="badge-open">{tx.registrationOpen}</span><span className="font-medium">{t.name}</span>
+                {t.registration_deadline && <span className="text-muted">{tx.until(formatDeadline(t.registration_deadline, l))}</span>}</Link></li>))}
             {next && !live.length && !open.length && (
               <li><Link href={`/t/${next.public_code}`} className="flex items-center gap-2 hover:text-brand">
-                <span className="badge-muted">Prossimo</span><span className="font-medium">{next.name}</span>
-                {next.starts_on && <span className="text-muted">{new Date(next.starts_on).toLocaleDateString("it-IT", { day: "numeric", month: "long" })}</span>}</Link></li>)}
+                <span className="badge-muted">{tx.next}</span><span className="font-medium">{next.name}</span>
+                {next.starts_on && <span className="text-muted">{new Date(next.starts_on).toLocaleDateString(intlTag(l), { day: "numeric", month: "long" })}</span>}</Link></li>)}
           </ul>)}
       </div>
       <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
-        {!member && myPlayerId ? <Link href={`/partecipa/${c.slug}`} className="text-sm link">Chiedi di partecipare</Link> : <span />}
-        <Link href={`/c/${c.slug}`} className="btn-dark py-1.5 text-sm">Apri la lega →</Link>
+        {!member && myPlayerId ? <Link href={`/partecipa/${c.slug}`} className="text-sm link">{tx.askToJoin}</Link> : <span />}
+        <Link href={`/c/${c.slug}`} className="btn-dark py-1.5 text-sm">{tx.openLeague}</Link>
       </div>
     </article>
   );

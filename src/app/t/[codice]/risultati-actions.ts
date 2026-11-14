@@ -6,14 +6,17 @@ import { hasServiceKey } from "@/lib/organizer";
 import { contestResult, playerSaveResult, setsFromForm } from "@/lib/results";
 import { createServiceClient } from "@/lib/supabase/admin";
 import type { ResultState } from "@/components/match-form";
+import { tr } from "@/i18n/server";
+import { publicOrganizerText } from "@/i18n/dict/public-tournament";
 
 /** Torneo dal codice pubblico + giocatore collegato. I controlli su chi gioca la partita sono in lib/results. */
 async function context(formData: FormData) {
   const code = normalizeCode(String(formData.get("public_code") ?? ""));
   const account = await requireAccount(`/t/${code}`);
-  if (!hasServiceKey()) return { error: "Manca la configurazione del server." } as const;
+  const tx = await tr(publicOrganizerText);
+  if (!hasServiceKey()) return { error: tx.missingConfig } as const;
   const { data: t } = await createServiceClient().from("tournaments").select("id").eq("public_code", code).maybeSingle();
-  if (!t) return { error: "Torneo non trovato." } as const;
+  if (!t) return { error: tx.notFound } as const;
   return { code, tournamentId: t.id as string, playerId: account.player.id } as const;
 }
 

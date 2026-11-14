@@ -3,6 +3,8 @@ import { createHash, randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { clientKey, verifyCode } from "./codes";
 import { createServiceClient } from "./supabase/admin";
+import { tr } from "../i18n/server";
+import { publicOrganizerText } from "../i18n/dict/public-tournament";
 
 export const hasServiceKey = () => Boolean(process.env.SUPABASE_SECRET_KEY);
 
@@ -23,11 +25,12 @@ export type LoginResult = { ok: true } | { ok: false; error: string };
 
 /** Verifica il codice organizzatore con limite ai tentativi; se giusto apre una sessione (cookie). */
 export async function organizerLogin(publicCode: string, code: string): Promise<LoginResult> {
+  const tx = await tr(publicOrganizerText);
   const svc = createServiceClient();
   const { data: t } = await svc.from("tournaments")
     .select("id, status, organizer_code_hash").eq("public_code", publicCode).maybeSingle();
-  if (!t) return { ok: false, error: "Torneo non trovato." };
-  if (t.status === "closed") return { ok: false, error: "Il torneo è chiuso: i risultati non si possono più inserire." };
+  if (!t) return { ok: false, error: tx.notFound };
+  if (t.status === "closed") return { ok: false, error: tx.closedNoResults };
 
   // Il tentativo viene registrato PRIMA della verifica, in modo atomico nel database:
   // richieste parallele non possono superare il limite. Se la registrazione fallisce, si nega.
@@ -35,11 +38,11 @@ export async function organizerLogin(publicCode: string, code: string): Promise<
   const { data: attemptId, error: attemptError } = await svc.rpc("organizer_attempt_begin", {
     p_tournament: t.id, p_ip: ipHash, p_max: MAX_ATTEMPTS_PER_IP, p_window_min: WINDOW_MIN,
   });
-  if (attemptError) return { ok: false, error: "Verifica non disponibile, riprova tra poco." };
-  if (attemptId === null) return { ok: false, error: `Troppi tentativi sbagliati da questo dispositivo. Riprova tra ${WINDOW_MIN} minuti.` };
+  if (attemptError) return { ok: false, error: tx.checkUnavailable };
+  if (attemptId === null) return { ok: false, error: tx.tooManyAttempts(WINDOW_MIN) };
 
   if (!(await verifyCode(code, t.organizer_code_hash)))
-    return { ok: false, error: "Codice non valido." };
+    return { ok: false, error: tx.invalidCode };
   // Codice giusto: il tentativo non conta come errore.
   await svc.from("organizer_attempts").delete().eq("id", attemptId);
 
@@ -47,7 +50,7 @@ export async function organizerLogin(publicCode: string, code: string): Promise<
   const expires = new Date(Date.now() + SESSION_HOURS * 3600_000);
   const { error } = await svc.from("organizer_sessions")
     .insert({ token_hash: sha256(token), tournament_id: t.id, expires_at: expires.toISOString() });
-  if (error) return { ok: false, error: "Accesso non riuscito, riprova." };
+  if (error) return { ok: false, error: tx.loginFailed };
   (await cookies()).set(cookieName(publicCode), token, {
     httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax",
     path: `/t/${publicCode}`, expires,
