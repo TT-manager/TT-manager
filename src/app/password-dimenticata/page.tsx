@@ -1,12 +1,17 @@
 import { ForgotForm } from "../login/login-form";
+import { tr } from "@/i18n/server";
+import { accountLoginText } from "@/i18n/dict/account-login";
 
-export const metadata = { title: "Password dimenticata" };
+export async function generateMetadata() {
+  return { title: (await tr(accountLoginText)).forgotTitle };
+}
 
-export default function ForgotPage() {
+export default async function ForgotPage() {
+  const t = await tr(accountLoginText);
   return (
     <main className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="text-2xl font-bold">Password dimenticata</h1>
-      <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">Ti mandiamo un link per sceglierne una nuova.</p>
+      <h1 className="text-2xl font-bold">{t.forgotTitle}</h1>
+      <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{t.forgotIntro}</p>
       <ForgotForm />
     </main>
   );

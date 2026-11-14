@@ -5,6 +5,8 @@ import { createServiceClient } from "./supabase/admin";
 import { createServerSupabase } from "./supabase/server";
 import { createClubRequest } from "./clubs-server";
 import { parseClubChoice } from "./clubs";
+import { tr } from "@/i18n/server";
+import { accountLibText } from "@/i18n/dict/account-clubs";
 
 export type Account = {
   userId: string; email: string; isAdmin: boolean;
@@ -80,28 +82,29 @@ export function safeNext(raw: unknown, fallback = "/") {
  */
 export async function attachToChampionship(cid: string, userId: string, linkPlayerId: string | null): Promise<{ error?: string }> {
   const svc = createServiceClient();
+  const t = await tr(accountLibText);
   const { data: own } = await svc.from("players").select("id").eq("user_id", userId).maybeSingle();
   let playerId = own?.id as string | undefined;
   if (linkPlayerId && linkPlayerId !== playerId) {
     const { data: target } = await svc.from("players").select("id, user_id, full_name").eq("id", linkPlayerId).maybeSingle();
-    if (!target) return { error: "Il giocatore da collegare non esiste più." };
-    if (target.user_id) return { error: `${target.full_name} è già collegato a un altro account.` };
+    if (!target) return { error: t.linkTargetGone };
+    if (target.user_id) return { error: t.alreadyLinkedOther(target.full_name) };
     if (playerId) {
       const [{ count: inChamp }, { count: played }] = await Promise.all([
         svc.from("championship_players").select("player_id", { count: "exact", head: true }).eq("player_id", playerId),
         svc.from("entry_members").select("player_id", { count: "exact", head: true }).eq("player_id", playerId),
       ]);
-      if (inChamp || played) return { error: `Questo account gioca già con un'altra scheda: non si può collegare a ${target.full_name}.` };
+      if (inChamp || played) return { error: t.accountHasOtherCard(target.full_name) };
       await svc.from("players").delete().eq("id", playerId);
     }
     const { error } = await svc.from("players").update({ user_id: userId }).eq("id", linkPlayerId).is("user_id", null);
-    if (error) return { error: "Non sono riuscito a collegare l'account." };
+    if (error) return { error: t.linkFailed };
     playerId = linkPlayerId;
   }
-  if (!playerId) return { error: "Scheda giocatore mancante: riprova." };
+  if (!playerId) return { error: t.playerCardMissing };
   const { error } = await svc.from("championship_players")
     .upsert({ championship_id: cid, player_id: playerId }, { onConflict: "championship_id,player_id", ignoreDuplicates: true });
-  return error ? { error: "Non sono riuscito a inserirti nella lega." } : {};
+  return error ? { error: t.joinFailed } : {};
 }
 
 /**
@@ -111,18 +114,19 @@ export async function attachToChampionship(cid: string, userId: string, linkPlay
  * Da chiamare solo dopo i controlli di chi gestisce la lega.
  */
 export async function mergeDuplicate(toPlayerId: string, fromPlayerId: string): Promise<{ error?: string; ok?: string }> {
-  if (toPlayerId === fromPlayerId) return { error: "Scegli due schede diverse." };
+  const t = await tr(accountLibText);
+  if (toPlayerId === fromPlayerId) return { error: t.pickTwoCards };
   const svc = createServiceClient();
   const [{ data: to }, { data: from }, { count: played }] = await Promise.all([
     svc.from("players").select("id, full_name, user_id, guest_of, avatar_path, club_id").eq("id", toPlayerId).maybeSingle(),
     svc.from("players").select("id, full_name, user_id, avatar_path, club_id").eq("id", fromPlayerId).maybeSingle(),
     svc.from("entry_members").select("player_id", { count: "exact", head: true }).eq("player_id", fromPlayerId),
   ]);
-  if (!to || !from) return { error: "Giocatore non trovato: ricarica la pagina." };
-  if (to.user_id) return { error: `${to.full_name} è già collegato a un account.` };
-  if (to.guest_of) return { error: "Non si può collegare un account a un ospite degli amichevoli." };
-  if (!from.user_id) return { error: `${from.full_name} non ha un account da collegare.` };
-  if (played) return { error: `${from.full_name} ha già giocato con la scheda nuova: non posso unirle senza perdere quelle partite.` };
+  if (!to || !from) return { error: t.playerNotFound };
+  if (to.user_id) return { error: t.alreadyLinked(to.full_name) };
+  if (to.guest_of) return { error: t.guestCannotLink };
+  if (!from.user_id) return { error: t.noAccountToLink(from.full_name) };
+  if (played) return { error: t.alreadyPlayed(from.full_name) };
 
   // Leghe della scheda nuova → scheda vecchia (se non c'è già).
   const { data: memberships } = await svc.from("championship_players").select("championship_id").eq("player_id", fromPlayerId);
@@ -130,19 +134,19 @@ export async function mergeDuplicate(toPlayerId: string, fromPlayerId: string): 
   if (leagues.length) {
     const { error } = await svc.from("championship_players")
       .upsert(leagues.map((championship_id) => ({ championship_id, player_id: toPlayerId })), { onConflict: "championship_id,player_id", ignoreDuplicates: true });
-    if (error) return { error: "Non sono riuscito a spostare le leghe." };
+    if (error) return { error: t.moveLeaguesFailed };
   }
   // L'account può stare su una sola scheda: prima si libera quella nuova, poi si collega la vecchia.
   const userId = from.user_id as string;
   const { error: e1 } = await svc.from("players").update({ user_id: null }).eq("id", fromPlayerId);
-  if (e1) return { error: "Non sono riuscito a collegare l'account." };
+  if (e1) return { error: t.linkFailed };
   const { error: e2 } = await svc.from("players").update({
     user_id: userId,
     ...(to.avatar_path ? {} : { avatar_path: from.avatar_path }),
     ...(to.club_id ? {} : { club_id: from.club_id }),
   }).eq("id", toPlayerId).is("user_id", null);
-  if (e2) { await svc.from("players").update({ user_id: userId }).eq("id", fromPlayerId); return { error: "Non sono riuscito a collegare l'account." }; }
+  if (e2) { await svc.from("players").update({ user_id: userId }).eq("id", fromPlayerId); return { error: t.linkFailed }; }
   await svc.from("championship_requests").update({ claim_player_id: null }).eq("claim_player_id", fromPlayerId);
   await svc.from("players").delete().eq("id", fromPlayerId);
-  return { ok: `Fatto: l'account ora usa la scheda di ${to.full_name}, con punti e storico.` };
+  return { ok: t.merged(to.full_name) };
 }
