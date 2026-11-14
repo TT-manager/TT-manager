@@ -6,6 +6,7 @@ import { statusLabel } from "@/lib/labels";
 import { registrationIsOpen } from "@/lib/registration";
 import { RankingTable } from "@/components/ranking-table";
 import { PointsExplainer } from "@/components/points-explainer";
+import { LeagueChallenges } from "@/components/challenges";
 import { getLocale, tr } from "@/i18n/server";
 import { intlTag } from "@/i18n/locale";
 import { publicLeagueText } from "@/i18n/dict/public-home";
@@ -48,6 +49,7 @@ async function Championship({ params }: { params: PageProps<"/c/[slug]">["params
       <h2 className="mt-8 text-2xl font-bold uppercase">{tx.ranking}</h2>
       <RankingTable rows={rows} label={c.settings.label} />
       <PointsExplainer s={c.settings} doubles={c.kind === "doubles"} />
+      <LeagueChallenges c={c} />
 
       <h2 className="mt-10 text-2xl font-bold uppercase">{tx.tournaments}</h2>
       {tournaments.length === 0 ? <p className="mt-2 text-muted">{tx.noTournaments}</p> : (

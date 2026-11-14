@@ -51,8 +51,10 @@ function groupHistory(history: Block["history"], t: T) {
   for (const h of history) {
     const last = out[out.length - 1];
     const label = h.kind === "start" ? t.startRanking
+      : h.challengeOpponent ? t.challengeAgainst(h.challengeOpponent)
       : h.kind === "decay" ? t.skipped(h.tournament?.name ?? t.tournamentFallback) : h.tournament?.name ?? t.tournament;
-    const key = `${h.kind}:${h.tournament?.name ?? ""}`;
+    // Le partite dello stesso torneo si sommano; ogni sfida resta una riga a sé.
+    const key = h.challenge_id ? `challenge:${h.challenge_id}` : `${h.kind}:${h.tournament?.name ?? ""}`;
     if (last && last.key === key && h.kind === "match") { last.after = h.rating_after; continue; }
     out.push({ key, label, date: h.created_at, before: h.rating_before, after: h.rating_after });
   }

@@ -10,6 +10,9 @@ import { DEFAULT_RANKING, parseRankingSettings } from "@/lib/domain/ranking";
 import { hasServiceKey } from "@/lib/organizer";
 import { createServerSupabase } from "@/lib/supabase/server";
 import type { ActionState } from "@/components/action-form";
+import type { ResultState } from "@/components/match-form";
+import { adminDecideChallenge } from "@/lib/challenges";
+import { setsFromForm } from "@/lib/domain/score";
 import { parseClubChoice } from "@/lib/clubs";
 import { getLocale, tr } from "@/i18n/server";
 import { adminLeaguesText } from "@/i18n/dict/admin-leagues";
@@ -221,6 +224,10 @@ export async function saveSettings(_prev: ActionState, formData: FormData): Prom
     decay: { enabled: formData.get("decay_enabled") === "on", pct: n("decay_pct"), floor: n("decay_floor") },
     comeback: { enabled: formData.get("comeback_enabled") === "on", afterMissed: n("comeback_after"), matches: n("comeback_matches") },
     podium: { 1: n("podium1"), 2: n("podium2"), 3: n("podium3"), 4: n("podium4") },
+    // Nelle leghe di doppio la sezione delle sfide non c'è: restano spente.
+    challenges: formData.has("challenges_weight")
+      ? { enabled: formData.get("challenges_enabled") === "on", weight: n("challenges_weight"), perWeek: n("challenges_per_week") }
+      : undefined,
   });
   if ("errors" in parsed) { const l = await getLocale(); return { error: parsed.errors.map((e) => translateDomainError(e, l)).join(" ") }; }
   const supabase = await createServerSupabase();
@@ -330,4 +337,24 @@ export async function mergeDuplicateAction(_prev: ActionState, formData: FormDat
   // Classifiche ricalcolate dove c'era la scheda tolta (la sua riga di partenza sparisce).
   for (const l of leagues ?? []) if (l.championship_id !== cid) await recomputeChampionship(l.championship_id as string);
   return done(cid, r.ok!);
+}
+
+// ── Sfide contestate ──────────────────────────────────────────────────────
+export async function decideChallengeAction(_prev: ResultState, formData: FormData): Promise<ResultState> {
+  const cid = str(formData, "championship_id");
+  await requireChampionshipManager(cid);
+  const sets = setsFromForm(formData);
+  if ("error" in sets) return { error: translateDomainError(sets.error, await getLocale()), set: sets.set };
+  const r = await adminDecideChallenge(cid, str(formData, "match_id"), { sets });
+  revalidatePath("/", "layout"); refresh();
+  return r;
+}
+
+/** Conferma il risultato così com'è (decision=confirm) oppure annulla la sfida. */
+export async function settleChallengeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const cid = str(formData, "championship_id");
+  await requireChampionshipManager(cid);
+  const r = await adminDecideChallenge(cid, str(formData, "challenge_id"), str(formData, "decision") === "confirm" ? "confirm" : "annul");
+  revalidatePath("/", "layout"); refresh();
+  return { error: r.error, ok: r.ok };
 }

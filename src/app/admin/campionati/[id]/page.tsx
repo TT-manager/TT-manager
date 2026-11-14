@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
+import { DisputedChallenges } from "@/components/challenges";
 import { CopyField } from "@/components/copy-field";
 import { siteOrigin } from "@/lib/origin";
 import { hasServiceKey } from "@/lib/organizer";
@@ -50,6 +51,7 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
   return (
     <main className="space-y-10">
       <ChampionshipHeader c={c} current="" />
+      {hasServiceKey() && <DisputedChallenges championshipId={id} />}
 
       <section>
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MyChallenges } from "@/components/challenges";
 import type { ReactNode } from "react";
 import { Avatar } from "./avatar";
 import type { loadDashboard, Side } from "@/lib/dashboard";
@@ -76,6 +77,8 @@ export async function DashboardView({ d, me, children }: { d: DashboardData; me:
               <Link href="/amichevole/nuovo" className="btn-primary">{t.organise}</Link>
             </div>
           )}
+
+          <MyChallenges playerId={me.id} className="mt-8" />
 
           {d.live.length > 0 && <>
             <h2 id="in-corso" className="mt-8 scroll-mt-24 text-2xl font-bold uppercase">{t.liveTitle}</h2>

@@ -78,6 +78,12 @@ export async function PointsExplainer({ s, doubles }: { s: RankingSettings; doub
             <p className="text-muted">{t.comebackText(s.comeback.afterMissed, s.comeback.matches, s.k.new, pts)}</p>
           </section>)}
 
+        {!doubles && s.challenges.enabled && (
+          <section>
+            <h3 className="font-bold">{t.challengesTitle}</h3>
+            <p className="text-muted">{t.challengesText(s.challenges.weight, s.challenges.perWeek)}</p>
+          </section>)}
+
         <section>
           <h3 className="font-bold">{t.notCountTitle}</h3>
           <p className="text-muted">{t.notCountText}</p>

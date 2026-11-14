@@ -2,6 +2,7 @@ import "server-only";
 import { createServiceClient } from "./supabase/admin";
 import { computeRanking, parseRankingSettings, DEFAULT_RANKING, type RankingInput } from "./domain/ranking";
 import { isPlayed } from "./domain/tournament";
+import { romeDay } from "./domain/challenges";
 import { tr } from "@/i18n/server";
 import { adminManageText } from "@/i18n/dict/admin-manage";
 
@@ -43,11 +44,13 @@ export async function recomputeChampionship(championshipId: string, opts: { clos
   const parsed = parseRankingSettings(ch.settings);
   const settings = "settings" in parsed ? parsed.settings : DEFAULT_RANKING;
 
-  const [{ data: members }, { data: past }, { data: absences }, { data: tournaments }] = await Promise.all([
+  const [{ data: members }, { data: past }, { data: absences }, { data: tournaments }, { data: challenges }] = await Promise.all([
     svc.from("championship_players").select("player_id, start_override, joined_on").eq("championship_id", championshipId),
     svc.from("past_results").select("player_id, position, past_tournaments!inner(championship_id)").eq("past_tournaments.championship_id", championshipId),
     svc.from("player_absences").select("player_id, from_date, to_date").eq("championship_id", championshipId),
     svc.from("tournaments").select("id, status, starts_on, closed_at, created_at").eq("championship_id", championshipId).eq("ranked", true),
+    svc.from("challenges").select("id, challenger_id, opponent_id, sets_a, sets_b, played_at")
+      .eq("championship_id", championshipId).eq("status", "confirmed").eq("ranked", true).order("played_at"),
   ]);
   // Tornei conteggiati dopo questa operazione, in ordine cronologico.
   const counted = (tournaments ?? [])
@@ -85,6 +88,14 @@ export async function recomputeChampionship(championshipId: string, opts: { clos
         })
         .filter((m) => m.winners.length > 0 && m.losers.length > 0),
     })),
+    // Le sfide valide contano con il peso attuale della lega (anche se nel frattempo sono state spente).
+    challenges: (challenges ?? []).map((c) => {
+      const aWins = (c.sets_a as number) > (c.sets_b as number);
+      return {
+        id: c.id as string, date: romeDay(c.played_at as string), weight: settings.challenges.weight,
+        winner: (aWins ? c.challenger_id : c.opponent_id) as string, loser: (aWins ? c.opponent_id : c.challenger_id) as string,
+      };
+    }),
   };
   const result = computeRanking(input);
 

@@ -37,7 +37,7 @@ describe("ricalcolo", () => {
     const p = Object.fromEntries(r.players.map((x) => [x.id, x.rating]));
     expect(p).toEqual({ a: 1291, b: 1000, c: 1200 });
     expect(r.history.filter((h) => h.kind === "decay")).toEqual([
-      { playerId: "a", kind: "decay", tournamentId: "t1", matchId: null, before: 1300, after: 1291 },
+      { playerId: "a", kind: "decay", tournamentId: "t1", matchId: null, challengeId: null, before: 1300, after: 1291 },
     ]);
   });
 
@@ -80,7 +80,55 @@ describe("ricalcolo", () => {
   });
 });
 
+describe("sfide singole", () => {
+  const base: RankingInput = { settings: S, members: members(["a", "b"]), pastResults: [], absences: [], tournaments: [] };
+
+  it("valgono la frazione scelta dei punti di una partita di torneo", () => {
+    const full = computeRanking({ ...base, challenges: [{ id: "c1", date: "2026-01-05", winner: "a", loser: "b", weight: 1 }] });
+    const half = computeRanking({ ...base, challenges: [{ id: "c1", date: "2026-01-05", winner: "a", loser: "b", weight: 0.5 }] });
+    const quarter = computeRanking({ ...base, challenges: [{ id: "c1", date: "2026-01-05", winner: "a", loser: "b", weight: 0.25 }] });
+    expect(full.players.map((p) => p.rating)).toEqual([1020, 980]);
+    expect(half.players.map((p) => p.rating)).toEqual([1010, 990]);
+    expect(quarter.players.map((p) => p.rating)).toEqual([1005, 995]);
+    expect(half.history.filter((h) => h.challengeId === "c1").map((h) => [h.playerId, h.kind, h.before, h.after]))
+      .toEqual([["a", "match", 1000, 1010], ["b", "match", 1000, 990]]);
+    expect(half.players[0].games).toBe(1);
+  });
+
+  it("si inseriscono in ordine di data con i tornei (stesso giorno: dopo il torneo)", () => {
+    const r = computeRanking({ ...base,
+      tournaments: [{ id: "t", date: "2026-02-01", participants: ["a", "b"], matches: [{ id: "m", winners: ["b"], losers: ["a"] }] }],
+      challenges: [
+        { id: "late", date: "2026-02-01", winner: "a", loser: "b", weight: 1 },
+        { id: "early", date: "2026-01-20", winner: "a", loser: "b", weight: 1 },
+      ] });
+    const order = r.history.filter((h) => h.kind === "match" && h.playerId === "a").map((h) => h.challengeId ?? h.matchId);
+    expect(order).toEqual(["early", "m", "late"]);
+  });
+
+  it("non contano come presenza: chi salta il torneo perde comunque punti", () => {
+    const r = computeRanking({ ...base, members: [{ playerId: "a", override: 1300, joinedOn: null }, { playerId: "b", override: 1300, joinedOn: null }],
+      tournaments: [{ id: "t", date: "2026-02-01", participants: [], matches: [] }],
+      challenges: [{ id: "c", date: "2026-01-20", winner: "a", loser: "b", weight: 0.5 }] });
+    expect(r.history.filter((h) => h.kind === "decay")).toHaveLength(2);
+  });
+
+  it("ignora le sfide di chi non è più nella lega", () => {
+    const r = computeRanking({ ...base, challenges: [{ id: "c", date: "2026-01-20", winner: "a", loser: "z", weight: 1 }] });
+    expect(r.players.map((p) => p.rating)).toEqual([1000, 1000]);
+  });
+});
+
 describe("impostazioni", () => {
+  it("sfide: spente di base, metà punti, una a settimana; valori controllati", () => {
+    const d = parseRankingSettings({});
+    expect("settings" in d && d.settings.challenges).toEqual({ enabled: false, weight: 0.5, perWeek: 1 });
+    const ok = parseRankingSettings({ challenges: { enabled: true, weight: 0.25, perWeek: 0 } });
+    expect("settings" in ok && ok.settings.challenges).toEqual({ enabled: true, weight: 0.25, perWeek: 0 });
+    expect(parseRankingSettings({ challenges: { weight: 0.3 } })).toHaveProperty("errors");
+    expect(parseRankingSettings({ challenges: { perWeek: 9 } })).toHaveProperty("errors");
+  });
+
   it("completa con i default e rifiuta valori impossibili", () => {
     const ok = parseRankingSettings({ label: "Punti", decay: { pct: 5 } });
     expect("settings" in ok && [ok.settings.decay.pct, ok.settings.initial, ok.settings.podium[1]]).toEqual([5, 1000, 60]);

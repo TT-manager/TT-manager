@@ -25,7 +25,16 @@ export interface RankingSettings {
   comeback: { enabled: boolean; /** tornei saltati di fila che attivano il rientro veloce */ afterMissed: number; /** partite con velocità «nuovo» */ matches: number };
   /** Bonus dei podi dei tornei passati, per posizione (1..4). */
   podium: Record<1 | 2 | 3 | 4, number>;
+  /**
+   * Sfide singole fuori torneo: valgono per la classifica solo se attive.
+   * `weight` = frazione dei punti di una partita di torneo; `perWeek` = sfide valide a settimana
+   * tra gli stessi due giocatori (0 = nessun limite; le altre contano come amichevoli).
+   */
+  challenges: { enabled: boolean; weight: ChallengeWeight; perWeek: number };
 }
+
+export type ChallengeWeight = 1 | 0.5 | 0.25;
+export const CHALLENGE_WEIGHTS: ChallengeWeight[] = [1, 0.5, 0.25];
 
 export const DEFAULT_RANKING: RankingSettings = {
   label: "Punti",
@@ -36,6 +45,7 @@ export const DEFAULT_RANKING: RankingSettings = {
   decay: { enabled: true, pct: 3, floor: 1000 },
   comeback: { enabled: true, afterMissed: 2, matches: 5 },
   podium: { 1: 60, 2: 40, 3: 25, 4: 25 },
+  challenges: { enabled: false, weight: 0.5, perWeek: 1 },
 };
 
 /** Legge le impostazioni da dati non fidati, completando con i valori di default. */
@@ -45,7 +55,7 @@ export function parseRankingSettings(raw: unknown): { settings: RankingSettings 
   const num = (v: unknown, d: number) => (v === undefined || v === null ? d : typeof v === "number" ? v : NaN);
   const bool = (v: unknown, d: boolean) => (typeof v === "boolean" ? v : d);
   const D = DEFAULT_RANKING;
-  const k = obj(o.k), decay = obj(o.decay), comeback = obj(o.comeback), podium = obj(o.podium);
+  const k = obj(o.k), decay = obj(o.decay), comeback = obj(o.comeback), podium = obj(o.podium), ch = obj(o.challenges);
   const s: RankingSettings = {
     label: typeof o.label === "string" && o.label.trim() ? o.label.trim().slice(0, 30) : D.label,
     initial: num(o.initial, D.initial),
@@ -55,6 +65,11 @@ export function parseRankingSettings(raw: unknown): { settings: RankingSettings 
     decay: { enabled: bool(decay.enabled, D.decay.enabled), pct: num(decay.pct, D.decay.pct), floor: num(decay.floor, D.decay.floor) },
     comeback: { enabled: bool(comeback.enabled, D.comeback.enabled), afterMissed: num(comeback.afterMissed, D.comeback.afterMissed), matches: num(comeback.matches, D.comeback.matches) },
     podium: { 1: num(podium[1], D.podium[1]), 2: num(podium[2], D.podium[2]), 3: num(podium[3], D.podium[3]), 4: num(podium[4], D.podium[4]) },
+    challenges: {
+      enabled: bool(ch.enabled, D.challenges.enabled),
+      weight: num(ch.weight, D.challenges.weight) as ChallengeWeight,
+      perWeek: num(ch.perWeek, D.challenges.perWeek),
+    },
   };
   const errors: string[] = [];
   const int = (v: number, min: number, max: number, what: string) => {
@@ -69,6 +84,8 @@ export function parseRankingSettings(raw: unknown): { settings: RankingSettings 
   int(s.comeback.afterMissed, 1, 50, "Tornei saltati per il rientro veloce");
   int(s.comeback.matches, 1, 50, "Partite di rientro veloce");
   for (const p of [1, 2, 3, 4] as const) int(s.podium[p], 0, 1000, `Bonus ${p}° posto`);
+  if (!CHALLENGE_WEIGHTS.includes(s.challenges.weight)) errors.push("Peso delle sfide: intero, metà o un quarto.");
+  int(s.challenges.perWeek, 0, 7, "Sfide valide a settimana");
   return errors.length ? { errors } : { settings: s };
 }
 
@@ -107,11 +124,18 @@ export interface RankingInput {
     /** Partite giocate, in ordine; winners/losers = giocatori (1 nel singolare, 2 nel doppio). */
     matches: { id: string; winners: string[]; losers: string[] }[];
   }[];
+  /**
+   * Sfide singole confermate e valide per la classifica. `date` = giorno della conferma (YYYY-MM-DD):
+   * nello stesso giorno vengono dopo i tornei. Non cambiano il calo né il rientro veloce.
+   */
+  challenges?: { id: string; date: string; winner: string; loser: string; weight: number }[];
 }
 
 export type HistoryKind = "start" | "match" | "decay";
 export interface HistoryRow {
   playerId: string; kind: HistoryKind; tournamentId: string | null; matchId: string | null;
+  /** Valorizzato per le partite delle sfide singole (kind «match»). */
+  challengeId: string | null;
   before: number; after: number;
 }
 
@@ -129,10 +153,29 @@ export function computeRanking(input: RankingInput) {
   const comeback = new Map(input.members.map((m) => [m.playerId, 0]));
   const joined = new Map(input.members.map((m) => [m.playerId, m.joinedOn]));
   const history: HistoryRow[] = input.members.map((m) => ({
-    playerId: m.playerId, kind: "start", tournamentId: null, matchId: null, before: s.initial, after: start.get(m.playerId)!,
+    playerId: m.playerId, kind: "start", tournamentId: null, matchId: null, challengeId: null, before: s.initial, after: start.get(m.playerId)!,
   }));
 
+  const challenges = [...(input.challenges ?? [])].sort((a, b) => a.date.localeCompare(b.date));
+  let ci = 0;
+  const playChallenge = (c: NonNullable<RankingInput["challenges"]>[number]) => {
+    if (!rating.has(c.winner) || !rating.has(c.loser)) return; // non (più) nella lega
+    const rw = rating.get(c.winner)!, rl = rating.get(c.loser)!;
+    const expW = expectedScore(rw, rl);
+    const apply = (id: string, score: 0 | 1, expected: number) => {
+      const before = rating.get(id)!;
+      const delta = Math.round(kFor(s, games.get(id) ?? 0, 0) * c.weight * (score - expected));
+      rating.set(id, before + delta);
+      games.set(id, (games.get(id) ?? 0) + 1);
+      history.push({ playerId: id, kind: "match", tournamentId: null, matchId: null, challengeId: c.id, before, after: before + delta });
+    };
+    apply(c.winner, 1, expW);
+    apply(c.loser, 0, 1 - expW);
+  };
+
   for (const t of input.tournaments) {
+    // Le sfide dei giorni precedenti al torneo vengono prima.
+    while (ci < challenges.length && challenges[ci].date < t.date) playChallenge(challenges[ci++]);
     const present = new Set(t.participants);
     if (s.comeback.enabled)
       for (const p of present) if ((missed.get(p) ?? 0) >= s.comeback.afterMissed) comeback.set(p, s.comeback.matches);
@@ -148,7 +191,7 @@ export function computeRanking(input: RankingInput) {
         rating.set(id, before + delta);
         games.set(id, (games.get(id) ?? 0) + 1);
         if (left > 0) comeback.set(id, left - 1);
-        history.push({ playerId: id, kind: "match", tournamentId: t.id, matchId: m.id, before, after: before + delta });
+        history.push({ playerId: id, kind: "match", tournamentId: t.id, matchId: m.id, challengeId: null, before, after: before + delta });
       };
       // Prima si calcolano tutte le attese, poi si applicano (nel doppio i compagni non si influenzano).
       for (const id of m.winners) apply(id, 1, expW);
@@ -167,9 +210,11 @@ export function computeRanking(input: RankingInput) {
       const after = Math.max(s.decay.floor, before - Math.round((s.decay.pct / 100) * (before - s.decay.floor)));
       if (after === before) continue;
       rating.set(id, after);
-      history.push({ playerId: id, kind: "decay", tournamentId: t.id, matchId: null, before, after });
+      history.push({ playerId: id, kind: "decay", tournamentId: t.id, matchId: null, challengeId: null, before, after });
     }
   }
+
+  while (ci < challenges.length) playChallenge(challenges[ci++]);
 
   return {
     players: input.members.map((m) => ({ id: m.playerId, rating: rating.get(m.playerId)!, games: games.get(m.playerId)! })),

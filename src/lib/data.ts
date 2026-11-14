@@ -1,4 +1,6 @@
 import { createPublicClient } from "./supabase/public";
+import { createServiceClient } from "./supabase/admin";
+import { hasServiceKey } from "./organizer";
 import { entryName, loadEntries } from "./entries";
 import { DEFAULT_RANKING, parseRankingSettings, type RankingSettings } from "./domain/ranking";
 import type { MatchRow } from "./domain/tournament";
@@ -64,7 +66,23 @@ export async function getChampionshipTournaments(championshipId: string) {
 export type HistoryRow = {
   id: number; kind: "start" | "match" | "decay"; rating_before: number; rating_after: number; created_at: string;
   tournament: { name: string } | null;
+  challenge_id: string | null;
+  /** Per le sfide singole: nome dell'avversario. */
+  challengeOpponent?: string;
 };
+
+/** Avversario di ogni sfida dello storico (le sfide non sono leggibili dal client anonimo). */
+async function challengeOpponents(playerId: string, ids: (string | null)[]) {
+  const wanted = [...new Set(ids.filter((x): x is string => Boolean(x)))];
+  if (!wanted.length || !hasServiceKey()) return new Map<string, string>();
+  const { data } = await createServiceClient().from("challenges")
+    .select("id, challenger_id, opponent_id, challenger:players!challenges_challenger_id_fkey(full_name), opponent:players!challenges_opponent_id_fkey(full_name)")
+    .in("id", wanted);
+  return new Map((data ?? []).map((c) => {
+    const other = (c.challenger_id === playerId ? c.opponent : c.challenger) as unknown as { full_name: string } | null;
+    return [c.id as string, other?.full_name ?? "?"];
+  }));
+}
 
 /** Giocatore con punti e storico in ogni lega. */
 export async function getPlayer(id: string) {
@@ -74,10 +92,11 @@ export async function getPlayer(id: string) {
   const [{ data: memberships }, { data: history }] = await Promise.all([
     supabase.from("championship_players").select("championship_id, rating, games_played, championships(name, slug, settings)").eq("player_id", id),
     supabase.from("rating_history")
-      .select("id, championship_id, kind, rating_before, rating_after, created_at, tournament:tournaments_public(name)")
+      .select("id, championship_id, kind, rating_before, rating_after, created_at, challenge_id, tournament:tournaments_public(name)")
       .eq("player_id", id).order("id", { ascending: true }),
   ]);
   const locale = await getLocale();
+  const opponents = await challengeOpponents(id, (history ?? []).map((h) => h.challenge_id as string | null));
   const championships = (memberships ?? []).map((m) => {
     const c = m.championships as unknown as { name: string; slug: string; settings: unknown } | null;
     const p = parseRankingSettings(c?.settings);
@@ -85,7 +104,8 @@ export async function getPlayer(id: string) {
       id: m.championship_id as string, name: c?.name ?? "?", slug: c?.slug ?? "",
       label: pointsLabel(("settings" in p ? p.settings : DEFAULT_RANKING).label, locale),
       rating: m.rating as number, games: m.games_played as number,
-      history: ((history ?? []) as unknown as (HistoryRow & { championship_id: string })[]).filter((h) => h.championship_id === m.championship_id),
+      history: ((history ?? []) as unknown as (HistoryRow & { championship_id: string })[]).filter((h) => h.championship_id === m.championship_id)
+        .map((h) => (h.challenge_id ? { ...h, challengeOpponent: opponents.get(h.challenge_id) ?? "?" } : h)),
     };
   });
   return { player, championships };

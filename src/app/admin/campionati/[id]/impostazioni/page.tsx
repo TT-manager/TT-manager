@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ActionForm } from "@/components/action-form";
-import { DEFAULT_RANKING } from "@/lib/domain/ranking";
+import { CHALLENGE_WEIGHTS, DEFAULT_RANKING } from "@/lib/domain/ranking";
 import { saveSettings } from "../../actions";
 import { ChampionshipHeader, loadManagedChampionship, muted } from "../shared";
 import { tr } from "@/i18n/server";
@@ -80,6 +80,28 @@ export default async function SettingsPage({ params }: PageProps<"/admin/campion
             {([1, 2, 3, 4] as const).map((p) => <Num key={p} name={`podium${p}`} label={t.place(p)} value={s.podium[p]} min={0} max={1000} help={t.defaultValue(D.podium[p])} />)}
           </div>
         </section>
+
+        {c.kind === "singles" && <section className={box}>
+          <h2 className="text-lg font-semibold">{t.challengesTitle}</h2>
+          <p className={muted}>{t.challengesNote}</p>
+          <label className="flex items-center gap-2"><input type="checkbox" name="challenges_enabled" defaultChecked={s.challenges.enabled} /> {t.challengesEnabled}</label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="grid gap-1">
+              <span>{t.challengesWeight}</span>
+              <select name="challenges_weight" defaultValue={String(s.challenges.weight)} className="select-arrow w-60 rounded border bg-transparent px-3 py-2">
+                {CHALLENGE_WEIGHTS.map((w) => <option key={w} value={w}>{t.challengesWeightOption(w)}</option>)}
+              </select>
+              <span className={muted}>{t.challengesWeightHelp}</span>
+            </label>
+            <label className="grid gap-1">
+              <span>{t.challengesPerWeek}</span>
+              <select name="challenges_per_week" defaultValue={String(s.challenges.perWeek)} className="select-arrow w-60 rounded border bg-transparent px-3 py-2">
+                {[1, 2, 3, 4, 5, 6, 7, 0].map((n) => <option key={n} value={n}>{t.challengesPerWeekOption(n)}</option>)}
+              </select>
+              <span className={muted}>{t.challengesPerWeekHelp}</span>
+            </label>
+          </div>
+        </section>}
       </ActionForm>
     </main>
   );

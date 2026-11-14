@@ -56,6 +56,8 @@ const IT: Section[] = [
       { q: "Perché ho perso punti senza giocare?", a: <>In molte leghe chi salta un torneo perde una piccola parte dei punti che ha sopra una certa soglia, così la classifica premia chi gioca. Se eri infortunato o fuori per lavoro, chiedi all&apos;amministratore di segnare l&apos;assenza: in quel periodo non perdi nulla.</> },
       { q: "Quando si aggiorna la classifica?", a: <>Quando l&apos;organizzatore chiude il torneo. Se un risultato era sbagliato, può riaprirlo, correggerlo e richiuderlo: la classifica viene ricalcolata da capo.</> },
       { q: "Il punteggio dei set conta?", a: <>Per la classifica della lega conta solo chi vince la partita. I set servono a ordinare i gironi.</> },
+      { q: "Cosa sono le sfide?", a: <>Nelle leghe di singolare che le hanno attivate puoi sfidare un altro membro anche fuori dai tornei: dalla pagina della lega scegli l&apos;avversario e lanci la sfida. Se accetta, giocate; poi uno dei due inserisce il risultato e l&apos;altro lo conferma (o lo contesta: in quel caso decide un amministratore della lega). Una sfida confermata sposta una parte dei punti di una partita di torneo, e l&apos;amministratore può limitare quante sfide valgono a settimana con lo stesso avversario: le altre restano amichevoli. Le sfide che trovi in attesa sono nella tua home, alla voce «Le mie sfide».</> },
+      { q: "Una sfida può scadere?", a: <>Sì: se l&apos;avversario non risponde entro 7 giorni la sfida scade, e lo stesso succede se dopo averla accettata nessuno inserisce il risultato entro 3 settimane. Chi non gioca sfide non perde punti.</> },
     ],
   },
   {
@@ -112,6 +114,8 @@ const EN: Section[] = [
       { q: "Why did I lose points without playing?", a: <>In many leagues, if you skip a tournament you lose a small share of the points you have above a certain threshold, so the ranking rewards those who play. If you were injured or away for work, ask the administrator to record your absence: during that period you lose nothing.</> },
       { q: "When is the ranking updated?", a: <>When the organiser closes the tournament. If a result was wrong, they can reopen it, correct it and close it again: the ranking is recalculated from scratch.</> },
       { q: "Does the set score count?", a: <>For the league ranking, only who wins the match counts. Sets are used to order the groups.</> },
+      { q: "What are challenges?", a: <>In singles leagues that have turned them on, you can challenge another member outside tournaments too: from the league page pick your opponent and send the challenge. If they accept, you play; then one of you enters the result and the other confirms it (or disputes it: then a league administrator decides). A confirmed challenge moves part of the points of a tournament match, and the administrator can limit how many challenges count each week with the same opponent: the others stay friendlies. Your pending challenges are on your home page, under «My challenges».</> },
+      { q: "Can a challenge expire?", a: <>Yes: if the opponent doesn&apos;t reply within 7 days the challenge expires, and the same happens if nobody enters the result within 3 weeks of accepting it. Players who don&apos;t play challenges lose no points.</> },
     ],
   },
   {

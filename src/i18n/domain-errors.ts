@@ -59,6 +59,7 @@ const EN: [RegExp, string | ((...m: string[]) => string)][] = [
   [/^(.+): valore tra (\d+) e (\d+)\.$/, (_, what, a, b) => `${RANKING_FIELDS[what] ?? what}: value between ${a} and ${b}.`],
   [/^Le partite da intermedio devono essere almeno quelle da nuovo\.$/, "Intermediate matches must be at least as many as newcomer matches."],
   [/^Calo per torneo saltato: tra 0% e 50%\.$/, "Drop for a missed tournament: between 0% and 50%."],
+  [/^Peso delle sfide: intero, metà o un quarto\.$/, "Challenge weight: full, half or a quarter."],
 ];
 
 const RANKING_FIELDS: Record<string, string> = {
@@ -73,6 +74,7 @@ const RANKING_FIELDS: Record<string, string> = {
   "Partite di rientro veloce": "Fast comeback matches",
   "Bonus 1° posto": "1st place bonus", "Bonus 2° posto": "2nd place bonus",
   "Bonus 3° posto": "3rd place bonus", "Bonus 4° posto": "4th place bonus",
+  "Sfide valide a settimana": "Ranked challenges per week",
 };
 
 export function translateDomainError(msg: string, l: Locale): string {

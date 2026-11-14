@@ -34,6 +34,9 @@ export const compPoints = dict({
   comebackTitle: "Quando rientri",
   comebackText: (missed: number, matches: number, k: number, pts: string) =>
     `Se hai saltato ${missed === 1 ? "un torneo" : `${missed} tornei di fila`}, nelle prime ${matches} partite al rientro ti muovi alla velocità dei nuovi (${k} ${pts}), così recuperi in fretta il tuo livello.`,
+  challengesTitle: "Le sfide",
+  challengesText: (weight: number, perWeek: number) =>
+    `In questa lega puoi sfidare un altro membro anche fuori dai tornei. Se l'avversario conferma il risultato, la sfida sposta ${weight === 1 ? "gli stessi punti di una partita di torneo" : weight === 0.5 ? "metà dei punti di una partita di torneo" : "un quarto dei punti di una partita di torneo"}${perWeek === 0 ? "" : `; con lo stesso avversario ne valgono al massimo ${perWeek} a settimana, le altre sono amichevoli`}. Le sfide non contano come presenza ai tornei.`,
   notCountTitle: "Cosa non conta",
   notCountText: "I tornei amichevoli non toccano la classifica. Anche i «Punti» nella tabella dei gironi sono un'altra cosa: servono solo a ordinare il girone (2 per una vittoria, 1 per una sconfitta). La classifica si aggiorna quando l'organizzatore chiude il torneo.",
   moreFaq: "Altre domande frequenti",
@@ -67,6 +70,9 @@ export const compPoints = dict({
   comebackTitle: "When you come back",
   comebackText: (missed: number, matches: number, k: number, pts: string) =>
     `If you've missed ${missed === 1 ? "a tournament" : `${missed} tournaments in a row`}, for your first ${matches} matches back you move at newcomer speed (${k} ${pts}), so you quickly get back to your level.`,
+  challengesTitle: "Challenges",
+  challengesText: (weight: number, perWeek: number) =>
+    `In this league you can also challenge another member outside tournaments. If the opponent confirms the result, the challenge moves ${weight === 1 ? "the same points as a tournament match" : weight === 0.5 ? "half the points of a tournament match" : "a quarter of the points of a tournament match"}${perWeek === 0 ? "" : `; with the same opponent at most ${perWeek} a week count, the others are friendlies`}. Challenges don't count as attending a tournament.`,
   notCountTitle: "What doesn't count",
   notCountText: "Friendly tournaments don't affect the ranking. The “Points” in the group standings are something else too: they're only used to order the group (2 for a win, 1 for a loss). The ranking is updated when the organiser closes the tournament.",
   moreFaq: "More FAQs",
