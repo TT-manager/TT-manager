@@ -12,5 +12,12 @@ export const LEGAL_OWNER = clean(process.env.NEXT_PUBLIC_LEGAL_OWNER);
 /** Sede o indirizzo del titolare (facoltativo). */
 export const LEGAL_ADDRESS = clean(process.env.NEXT_PUBLIC_LEGAL_ADDRESS);
 
-/** Da aggiornare a ogni modifica sostanziale dei testi legali. */
-export const LEGAL_UPDATED = "12 novembre 2026";
+/** Da aggiornare a ogni modifica sostanziale dei testi legali (AAAA-MM-GG). */
+export const LEGAL_UPDATED = "2026-11-12";
+
+/** Data di aggiornamento leggibile nella lingua indicata (Intl), es. «12 novembre 2026» / «12 November 2026». */
+export function legalUpdatedLabel(intlTag: string): string {
+  return new Date(`${LEGAL_UPDATED}T12:00:00Z`).toLocaleDateString(intlTag, {
+    day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Rome",
+  });
+}

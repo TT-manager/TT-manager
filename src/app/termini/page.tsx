@@ -1,10 +1,19 @@
 import Link from "next/link";
 import { LegalPage, OwnerLine, SupportLink } from "@/components/legal-page";
 import { SITE_NAME } from "@/components/logo";
+import { getLocale, tr } from "@/i18n/server";
+import { legalText } from "@/i18n/dict/legal-common";
 
-export const metadata = { title: "Termini d'uso", description: `Le regole per usare ${SITE_NAME}.` };
+export async function generateMetadata() {
+  const t = await tr(legalText);
+  return { title: t.termsTitle, description: t.termsDescription(SITE_NAME) };
+}
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  return (await getLocale()) === "en" ? <TermsEn /> : <TermsIt />;
+}
+
+function TermsIt() {
   return (
     <LegalPage
       title="Termini d'uso"
@@ -88,6 +97,96 @@ export default function TermsPage() {
         <p>
           Questi termini sono regolati dalla legge italiana. Se sei un consumatore restano valide le norme inderogabili del tuo Paese di residenza
           e il foro del consumatore. Per domande o segnalazioni scrivi a <SupportLink />.
+        </p>
+      </section>
+    </LegalPage>
+  );
+}
+
+function TermsEn() {
+  return (
+    <LegalPage
+      title="Terms of use"
+      intro={`By using ${SITE_NAME} you accept these rules. They are written to keep the game fair for everyone: if you do not agree with them, please do not use the site.`}
+    >
+      <section>
+        <h2>1. The service</h2>
+        <p>
+          {SITE_NAME} lets you view table tennis rankings, tournaments and results and, with an account, take part in leagues,
+          manage friendships and enter or view your own matches. The service is run by <OwnerLine />.
+        </p>
+      </section>
+
+      <section>
+        <h2>2. Account</h2>
+        <ul>
+          <li>To sign up you must provide true and up-to-date information. You may have only one personal account.</li>
+          <li>You are responsible for keeping your password confidential and for what happens with your account: if you suspect unauthorised use, write to us straight away.</li>
+          <li>If you are under 14, you need the consent of a parent or guardian.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>3. Fair behaviour</h2>
+        <p>You must not:</p>
+        <ul>
+          <li>enter false results or tamper with rankings and ranking scores;</li>
+          <li>use another person&apos;s identity or data;</li>
+          <li>upload photos or text that are offensive, unlawful or infringe the rights of others (your profile photo must show you and must not be inappropriate);</li>
+          <li>try to access restricted areas, get around security limits or overload the site with automated requests;</li>
+          <li>use the site for unlawful purposes or for unauthorised commercial purposes.</li>
+        </ul>
+        <p>Whoever manages a league or tournament can correct or cancel results and remove entries, to keep the rankings fair.</p>
+      </section>
+
+      <section>
+        <h2>4. Content and visibility</h2>
+        <p>
+          You keep the rights to your photo and to the content you upload, and you grant us a non-exclusive, free-of-charge permission to show it on the site
+          for the sole purpose of providing the service. Remember that name, club, photo, scores and results are public, as explained in the{" "}
+          <Link href="/privacy" className="underline hover:text-brand">Privacy policy</Link>.
+        </p>
+        <p>The name, logo and design of {SITE_NAME} belong to the operator and may not be reused without permission.</p>
+      </section>
+
+      <section>
+        <h2>5. Scores and rankings</h2>
+        <p>
+          The ranking score and the rankings are calculated automatically from the results entered and are purely friendly and sporting in nature.
+          They may be recalculated if a result is corrected, and they give no right to prizes or refunds, except as set out by the organisers of each tournament.
+        </p>
+      </section>
+
+      <section>
+        <h2>6. Availability and liability</h2>
+        <p>
+          The service is provided &quot;as is&quot;, with no guarantee that it will work continuously or without errors; it may be suspended for maintenance or changed.
+          To the extent permitted by law, the operator is not liable for indirect damage arising from the use of, or inability to use, the site, nor for
+          what users publish. This does not affect any liability that the law does not allow to be excluded, in particular towards consumers.
+        </p>
+      </section>
+
+      <section>
+        <h2>7. Suspension and closure of your account</h2>
+        <p>
+          You can stop using the site and ask for your account to be deleted by writing to <SupportLink />.
+          We may suspend or close an account that breaks these rules, giving you an explanation where possible.
+        </p>
+      </section>
+
+      <section>
+        <h2>8. Changes to these terms</h2>
+        <p>
+          We may update these terms; the date at the top shows the latest version. If you keep using the site after a change, you accept it.
+          For significant changes we will let you know on the site or by email.
+        </p>
+      </section>
+
+      <section>
+        <h2>9. Governing law and contact</h2>
+        <p>
+          These terms are governed by Italian law. If you are a consumer, the mandatory rules of your country of residence
+          and the consumer&apos;s court remain applicable. For questions or reports write to <SupportLink />.
         </p>
       </section>
     </LegalPage>
