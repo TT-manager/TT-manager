@@ -43,5 +43,5 @@ async function AccountNav() {
     ...(admin ? [{ href: "/admin", label: t.admin, icon: "admin" as const }] : []),
     { href: "/faq", label: t.faq, icon: "help" as const },
   ];
-  return <AccountMenu items={items} logout={logout} logoutLabel={t.logout} menuLabel={t.menu} />;
+  return <AccountMenu items={items} logout={logout} logoutLabel={t.logout} menuLabel={t.menu} languageLabel={t.language} />;
 }

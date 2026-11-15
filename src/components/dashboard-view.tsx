@@ -98,7 +98,6 @@ export async function DashboardView({ d, me, children }: { d: DashboardData; me:
               <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 text-brand"><Icon name="match" className="h-7 w-7" /></span>
               <div className="flex-1"><p className="font-bold">{t.noMatchTitle}</p>
                 <p className="text-sm text-muted">{t.noMatchText}</p></div>
-              <Link href="/amichevole/nuovo" className="btn-primary">{t.organise}</Link>
             </div>
           )}
 

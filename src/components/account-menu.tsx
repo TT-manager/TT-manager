@@ -3,12 +3,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "./icons";
+import { LanguageSwitch } from "./language-switch";
 
 type Item = { href: string; label: string; icon: IconName };
 
 /** Menu a tendina (hamburger) per chi ha fatto l'accesso. Si chiude cambiando pagina, toccando fuori o con Esc. */
-export function AccountMenu({ items, logout, logoutLabel, menuLabel }: {
-  items: Item[]; logout: () => Promise<void>; logoutLabel: string; menuLabel: string;
+export function AccountMenu({ items, logout, logoutLabel, menuLabel, languageLabel }: {
+  items: Item[]; logout: () => Promise<void>; logoutLabel: string; menuLabel: string; languageLabel: string;
 }) {
   const [open, setOpen] = useState(false);
   const path = usePathname();
@@ -39,7 +40,11 @@ export function AccountMenu({ items, logout, logoutLabel, menuLabel }: {
               className={`flex items-center gap-3 px-4 py-2.5 hover:bg-white/10 ${active(x.href) ? "border-l-4 border-brand bg-white/5 font-semibold" : "border-l-4 border-transparent"}`}>
               <Icon name={x.icon} className="h-5 w-5 shrink-0 text-white/70" />{x.label}
             </Link>))}
-          <form action={logout} className="mt-1 border-t border-white/10 pt-1">
+          <div className="mt-1 flex items-center justify-between gap-3 border-t border-white/10 px-4 py-3">
+            <span className="text-sm text-white/70">{languageLabel}</span>
+            <LanguageSwitch label={languageLabel} onDark />
+          </div>
+          <form action={logout} className="border-t border-white/10 pt-1">
             <button className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-white/70 hover:bg-white/10">
               <Icon name="logout" className="h-5 w-5 shrink-0" />{logoutLabel}</button>
           </form>
