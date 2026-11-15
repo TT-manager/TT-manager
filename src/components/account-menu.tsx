@@ -2,8 +2,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { Icon, type IconName } from "./icons";
 
-type Item = { href: string; label: string; icon: string };
+type Item = { href: string; label: string; icon: IconName };
 
 /** Menu a tendina (hamburger) per chi ha fatto l'accesso. Si chiude cambiando pagina, toccando fuori o con Esc. */
 export function AccountMenu({ items, logout, logoutLabel, menuLabel }: {
@@ -36,11 +37,11 @@ export function AccountMenu({ items, logout, logoutLabel, menuLabel }: {
           {items.map((x) => (
             <Link key={x.href} href={x.href} aria-current={active(x.href) ? "page" : undefined}
               className={`flex items-center gap-3 px-4 py-2.5 hover:bg-white/10 ${active(x.href) ? "border-l-4 border-brand bg-white/5 font-semibold" : "border-l-4 border-transparent"}`}>
-              <span aria-hidden="true" className="w-6 text-center">{x.icon}</span>{x.label}
+              <Icon name={x.icon} className="h-5 w-5 shrink-0 text-white/70" />{x.label}
             </Link>))}
           <form action={logout} className="mt-1 border-t border-white/10 pt-1">
             <button className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-white/70 hover:bg-white/10">
-              <span aria-hidden="true" className="w-6 text-center">↩</span>{logoutLabel}</button>
+              <Icon name="logout" className="h-5 w-5 shrink-0" />{logoutLabel}</button>
           </form>
         </div>)}
     </div>

@@ -1,4 +1,5 @@
 import { matchStageName, stageName } from "@/lib/domain/format";
+import { Icon } from "./icons";
 import { isPlayed, sourceLabel, type MatchRow } from "@/lib/domain/tournament";
 import type { Locale } from "@/i18n/locale";
 import { getLocale, tr } from "@/i18n/server";
@@ -31,7 +32,7 @@ export async function Bracket({ knockout, resolved, name }: {
     <div>
       {champion && (
         <div className="mb-6 flex items-center gap-4 rounded-2xl border-4 border-gold bg-ink p-4 text-white shadow-lg">
-          <span className="text-4xl" aria-hidden="true">🏆</span>
+          <Icon name="trophy" className="h-10 w-10 text-gold" />
           <div><p className="text-xs uppercase tracking-widest text-gold">{t.winner}</p>
             <p className="font-display text-3xl font-bold uppercase">{champion}</p></div>
         </div>
@@ -44,7 +45,7 @@ export async function Bracket({ knockout, resolved, name }: {
             return (
               <div key={s} className="w-52 shrink-0">
                 <p className={`mb-3 text-center font-display text-sm font-bold uppercase tracking-wider ${s === 0 ? "text-brand" : "text-muted"}`}>
-                  {s === 0 ? "🏆 " : ""}{stageName(s, l)}</p>
+                  {s === 0 ? <Icon name="trophy" className="mr-1 inline h-4 w-4 align-[-0.15em] text-gold" /> : null}{stageName(s, l)}</p>
                 <div className="flex flex-col" style={{ height: 2 ** first * unit }}>
                   {pairs.map((pair) => (
                     <div key={pair[0]} className={`relative flex flex-1 flex-col ${s > 0 ? "after:absolute after:left-full after:top-1/4 after:h-1/2 after:w-3 after:rounded-r after:border-y-2 after:border-r-2 after:border-neutral-400 after:content-[''] dark:after:border-neutral-600" : ""}`}>

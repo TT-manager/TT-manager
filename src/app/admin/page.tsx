@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icon, type IconName } from "@/components/icons";
 import { managedChampionships, requireAdmin } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/admin";
@@ -42,16 +43,16 @@ export default async function AdminHome() {
   ].filter((x) => x.n > 0).map((x) => ({ ...x, text: x.label(x.n) }));
 
   const tiles = [
-    { href: "/admin/campionati", icon: "🏆", title: t.navLeagues, text: t.homeLeagues, stat: t.statLeagues(leagues.length) },
-    { href: "/admin/tornei", icon: "🏓", title: t.navTournaments, text: t.homeTournaments,
+    { href: "/admin/campionati", icon: "trophy" as IconName, title: t.navLeagues, text: t.homeLeagues, stat: t.statLeagues(leagues.length) },
+    { href: "/admin/tornei", icon: "tournament" as IconName, title: t.navTournaments, text: t.homeTournaments,
       stat: live.length ? t.statLive(live.length) : t.statTournaments(rows.length), hot: live.length > 0 },
-    { href: "/admin/giocatori", icon: "👥", title: t.navPlayers, text: t.homePlayers, stat: t.statPlayers(players.count ?? 0) },
+    { href: "/admin/giocatori", icon: "friends" as IconName, title: t.navPlayers, text: t.homePlayers, stat: t.statPlayers(players.count ?? 0) },
     ...(owner ? [
-      { href: "/admin/circoli", icon: "📍", title: t.navClubs, text: t.homeClubs, stat: clubRequests.count ? t.statRequests(clubRequests.count) : null, hot: Boolean(clubRequests.count) },
-      { href: "/admin/amministratori", icon: "🛡️", title: t.navAdmins, text: t.homeAdmins, stat: null },
-      { href: "/admin/backup", icon: "💾", title: t.navBackup, text: t.homeBackup, stat: null },
+      { href: "/admin/circoli", icon: "clubs" as IconName, title: t.navClubs, text: t.homeClubs, stat: clubRequests.count ? t.statRequests(clubRequests.count) : null, hot: Boolean(clubRequests.count) },
+      { href: "/admin/amministratori", icon: "admin" as IconName, title: t.navAdmins, text: t.homeAdmins, stat: null },
+      { href: "/admin/backup", icon: "backup" as IconName, title: t.navBackup, text: t.homeBackup, stat: null },
     ] : []),
-    { href: "/admin/password", icon: "🔑", title: t.navPassword, text: t.homePassword, stat: null },
+    { href: "/admin/password", icon: "password" as IconName, title: t.navPassword, text: t.homePassword, stat: null },
   ];
 
   return (
@@ -76,7 +77,7 @@ export default async function AdminHome() {
           {tiles.map((x) => (
             <li key={x.href}>
               <Link href={x.href} className="card flex h-full items-center gap-4 transition hover:border-brand">
-                <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-2xl">{x.icon}</span>
+                <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"><Icon name={x.icon} className="h-6 w-6" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-display text-lg font-bold uppercase">{x.title}</span>

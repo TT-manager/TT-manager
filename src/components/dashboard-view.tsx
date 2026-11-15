@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MyChallenges } from "@/components/challenges";
 import type { ReactNode } from "react";
 import { Avatar } from "./avatar";
+import { Icon, type IconName } from "./icons";
 import type { loadDashboard, Side } from "@/lib/dashboard";
 import { timeAgo } from "@/lib/time";
 import { formatDeadline } from "@/lib/registration";
@@ -31,12 +32,12 @@ export async function DashboardView({ d, me, children }: { d: DashboardData; me:
   const l = await getLocale();
   const pct = d.kpi.games ? Math.round((d.kpi.wins / d.kpi.games) * 100) : null;
   const kpis = [
-    { label: t.kpiLeagues, value: String(d.kpi.championships).padStart(2, "0"), sub: d.kpi.championships ? t.leaguesSub : t.leaguesSubNone, icon: "🏆" },
-    { label: t.kpiLive, value: String(d.live.length).padStart(2, "0"), icon: "🔴",
+    { label: t.kpiLeagues, value: String(d.kpi.championships).padStart(2, "0"), sub: d.kpi.championships ? t.leaguesSub : t.leaguesSubNone, icon: "trophy" as IconName },
+    { label: t.kpiLive, value: String(d.live.length).padStart(2, "0"), icon: "live" as IconName,
       href: d.live.length === 1 ? `/t/${d.live[0].code}` : d.live.length ? "#in-corso" : undefined,
       sub: d.live.length === 1 ? d.live[0].name : d.live.length ? t.liveSubMany : t.liveSubNone },
-    { label: t.kpiGames, value: String(d.kpi.games).padStart(2, "0"), sub: d.kpi.games ? t.gamesSub : t.gamesSubNone, icon: "🏓" },
-    { label: t.kpiWins, value: pct === null ? "—" : `${pct}%`, sub: d.kpi.games ? t.winsSub(d.kpi.wins, d.kpi.games - d.kpi.wins) : t.winsSubNone, icon: "📈" },
+    { label: t.kpiGames, value: String(d.kpi.games).padStart(2, "0"), sub: d.kpi.games ? t.gamesSub : t.gamesSubNone, icon: "match" as IconName },
+    { label: t.kpiWins, value: pct === null ? "—" : `${pct}%`, sub: d.kpi.games ? t.winsSub(d.kpi.wins, d.kpi.games - d.kpi.wins) : t.winsSubNone, icon: "wins" as IconName },
   ];
   return (
     <>
@@ -70,7 +71,7 @@ export async function DashboardView({ d, me, children }: { d: DashboardData; me:
                 <p className="mt-1 font-display text-4xl font-bold leading-none">{k.value}</p>
                 <p className="mt-1 text-xs text-muted">{k.sub}</p>
               </div>
-              <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-lg">{k.icon}</span>
+              <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"><Icon name={k.icon} /></span>
             </div>);
           return k.href ? <Link key={k.label} href={k.href} className="block transition hover:-translate-y-0.5">{body}</Link> : <div key={k.label}>{body}</div>;
         })}
@@ -94,7 +95,7 @@ export async function DashboardView({ d, me, children }: { d: DashboardData; me:
             </Link>
           ) : (
             <div className="card mt-3 flex flex-wrap items-center gap-4">
-              <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 text-2xl">🏓</span>
+              <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 text-brand"><Icon name="match" className="h-7 w-7" /></span>
               <div className="flex-1"><p className="font-bold">{t.noMatchTitle}</p>
                 <p className="text-sm text-muted">{t.noMatchText}</p></div>
               <Link href="/amichevole/nuovo" className="btn-primary">{t.organise}</Link>
@@ -133,14 +134,14 @@ export async function DashboardView({ d, me, children }: { d: DashboardData; me:
           <h2 className="text-2xl font-bold uppercase">{t.quickActions}</h2>
           <div className="card mt-3 grid gap-2 !p-3">
             {[
-              { href: "/amichevole/nuovo", icon: "🏓", title: t.createFriendly, sub: t.challengeFriends },
-              { href: "/amici", icon: "👥", title: d.kpi.friendRequests ? t.friendRequests : t.findFriends,
+              { href: "/amichevole/nuovo", icon: "add" as IconName, title: t.createFriendly, sub: t.challengeFriends },
+              { href: "/amici", icon: "friends" as IconName, title: d.kpi.friendRequests ? t.friendRequests : t.findFriends,
                 sub: d.kpi.friendRequests ? t.requestsToAccept(d.kpi.friendRequests) : t.searchPlayers, alert: d.kpi.friendRequests },
-              { href: "/profilo", icon: "👤", title: t.myProfile,
+              { href: "/profilo", icon: "profile" as IconName, title: t.myProfile,
                 sub: d.kpi.openToJoin ? t.openRegistrations(d.kpi.openToJoin) : t.profileSub, alert: d.kpi.openToJoin },
             ].map((a) => (
               <Link key={a.href} href={a.href} className="flex items-center gap-3 rounded-lg border border-line bg-background px-3 py-2.5 transition hover:border-brand">
-                <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface text-lg">{a.icon}</span>
+                <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface text-brand"><Icon name={a.icon} /></span>
                 <span className="flex-1"><span className="block text-sm font-bold">{a.title}</span><span className="text-xs text-muted">{a.sub}</span></span>
                 {"alert" in a && a.alert ? <span className="rounded-full bg-brand px-2 text-xs font-bold text-white">{a.alert}</span> : null}
                 <span aria-hidden="true" className="text-muted">›</span>

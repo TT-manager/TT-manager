@@ -36,12 +36,12 @@ async function AccountNav() {
   </>;
   const { data: admin } = await supabase.from("admins").select("role").eq("user_id", data.claims.sub).maybeSingle();
   const items = [
-    { href: "/", label: t.home, icon: "🏠" },
-    { href: "/profilo", label: t.myProfile, icon: "👤" },
-    { href: "/amici", label: t.friends, icon: "👥" },
-    { href: "/amichevole/nuovo", label: t.createFriendly, icon: "🏓" },
-    ...(admin ? [{ href: "/admin", label: t.admin, icon: "🛡️" }] : []),
-    { href: "/faq", label: t.faq, icon: "❓" },
+    { href: "/", label: t.home, icon: "home" as const },
+    { href: "/profilo", label: t.myProfile, icon: "profile" as const },
+    { href: "/amici", label: t.friends, icon: "friends" as const },
+    { href: "/amichevole/nuovo", label: t.createFriendly, icon: "add" as const },
+    ...(admin ? [{ href: "/admin", label: t.admin, icon: "admin" as const }] : []),
+    { href: "/faq", label: t.faq, icon: "help" as const },
   ];
   return <AccountMenu items={items} logout={logout} logoutLabel={t.logout} menuLabel={t.menu} />;
 }
