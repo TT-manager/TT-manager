@@ -1,5 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
+import { createServiceClient } from "@/lib/supabase/admin";
+import { hasServiceKey } from "@/lib/organizer";
 import { AddPlayerForm, PlayersTable } from "./player-forms";
 import { listClubs } from "@/lib/clubs-server";
 import { tr } from "@/i18n/server";
@@ -12,7 +14,9 @@ export async function generateMetadata() {
 export default async function PlayersPage() {
   await requireAdmin();
   const t = await tr(adminShellText);
-  const supabase = await createServerSupabase();
+  // user_id e guest_of non sono leggibili con il login normale (riservati): dopo il controllo
+  // dell'amministratore si legge con la chiave del server.
+  const supabase = hasServiceKey() ? createServiceClient() : await createServerSupabase();
   const clubs = await listClubs();
   const { data: players, error } = await supabase
     .from("players").select("id, full_name, club_id, active, avatar_path, user_id, championship_players(championships(name))").is("guest_of", null)

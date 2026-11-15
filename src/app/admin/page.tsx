@@ -22,7 +22,8 @@ export default async function AdminHome() {
   const none = { count: 0 } as { count: number | null };
   const [tournaments, players, clubRequests, joinRequests, disputedChallenges] = await Promise.all([
     supabase.from("tournaments").select("id, status, championship_id"),
-    supabase.from("players").select("id", { count: "exact", head: true }).is("guest_of", null),
+    // guest_of non è leggibile con il login normale: si conta con la chiave del server.
+    (svc ?? supabase).from("players").select("id", { count: "exact", head: true }).is("guest_of", null),
     owner ? supabase.from("club_requests").select("id", { count: "exact", head: true }).eq("status", "pending") : none,
     ids.length ? supabase.from("championship_requests").select("id", { count: "exact", head: true }).eq("status", "pending").in("championship_id", ids) : none,
     svc && ids.length ? svc.from("challenges").select("id", { count: "exact", head: true }).eq("status", "disputed").in("championship_id", ids) : none,
