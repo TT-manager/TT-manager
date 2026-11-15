@@ -33,10 +33,11 @@ export async function ChampionshipHeader({ c, current }: { c: { id: string; name
       <h1 className="mt-2 text-2xl font-bold">{c.name}</h1>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">{c.kind === "doubles" ? t.doubles : t.singles} ·{" "}
         <Link href={`/c/${c.slug}`} className="underline">{t.publicPage}</Link></p>
-      <nav className="mt-4 flex flex-wrap gap-2 border-b pb-2 text-sm">
+      {/* Schede della lega: una riga sottolineata che su telefono scorre di lato. */}
+      <nav className="scroll-row mt-4 gap-5 border-b border-line text-sm">
         {TABS.map(([path, label]) => (
-          <Link key={path} href={`/admin/campionati/${c.id}${path}`}
-            className={`rounded px-3 py-1 ${current === path ? "bg-brand text-white" : "hover:text-brand"}`}>{t[label]}</Link>
+          <Link key={path} href={`/admin/campionati/${c.id}${path}`} aria-current={current === path ? "page" : undefined}
+            className={`-mb-px shrink-0 border-b-2 py-2.5 transition ${current === path ? "border-brand font-semibold text-brand" : "border-transparent text-muted hover:text-brand"}`}>{t[label]}</Link>
         ))}
       </nav>
     </div>

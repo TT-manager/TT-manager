@@ -67,6 +67,13 @@ body {
 @utility badge-muted { @apply badge bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300; }
 @utility badge-friendly { @apply badge bg-sky-100 text-sky-900 dark:bg-sky-900 dark:text-sky-100; }
 @utility badge-contested { @apply badge bg-amber-400 text-ink; }
+/* Riga di schede che su telefono scorre di lato, senza barra di scorrimento. */
+@utility scroll-row {
+  @apply flex flex-nowrap overflow-x-auto whitespace-nowrap;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  &::-webkit-scrollbar { display: none; }
+}
 @utility link { @apply font-medium underline decoration-brand/40 underline-offset-2 hover:text-brand hover:decoration-brand; }
 
 /* Puntino che pulsa per le cose in corso. */
