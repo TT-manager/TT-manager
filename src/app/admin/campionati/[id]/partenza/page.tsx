@@ -3,6 +3,8 @@ import { startPoints } from "@/lib/domain/ranking";
 import { deletePastTournament, savePastTournament, saveStartOverrides } from "../../actions";
 import { ChampionshipHeader, input, loadManagedChampionship, muted } from "../shared";
 import { getLocale, tr } from "@/i18n/server";
+import { intlTag } from "@/i18n/locale";
+import { WoodMedal } from "@/components/wood-medal";
 import { pointsLabel } from "@/lib/labels";
 import { adminLeaguesText } from "@/i18n/dict/admin-leagues";
 
@@ -10,6 +12,7 @@ export async function generateMetadata() {
   return { title: (await tr(adminLeaguesText)).tabStart };
 }
 const POS = [1, 2, 3, 4] as const;
+const MEDAL = ["", "🥇", "🥈", "🥉"];
 
 export default async function StartPage({ params }: PageProps<"/admin/campionati/[id]/partenza">) {
   const { id } = await params;
@@ -19,12 +22,13 @@ export default async function StartPage({ params }: PageProps<"/admin/campionati
   const [{ data: members }, { data: past }] = await Promise.all([
     supabase.from("championship_players").select("player_id, start_override, players(full_name)").eq("championship_id", id),
     supabase.from("past_tournaments").select("id, name, held_on, past_results(position, player_id)").eq("championship_id", id)
-      .order("held_on", { ascending: true, nullsFirst: true }).order("name"),
+      .order("held_on", { ascending: false, nullsFirst: false }).order("name"),
   ]);
   const players = (members ?? []).map((m) => ({
     id: m.player_id as string, name: (m.players as unknown as { full_name: string } | null)?.full_name ?? "?",
     override: m.start_override as number | null,
   })).sort((a, b) => a.name.localeCompare(b.name, "it"));
+  const nameOf = new Map(players.map((p) => [p.id, p.name]));
   const results = (past ?? []).flatMap((p) => (p.past_results ?? []).map((r) => ({ playerId: r.player_id as string, position: r.position as number })));
   const fromPodiums = startPoints(c.settings, players.map((p) => ({ playerId: p.id, override: null })), results);
   const preview = players.map((p) => ({ ...p, computed: fromPodiums.get(p.id)!, final: p.override ?? fromPodiums.get(p.id)! }))
@@ -51,26 +55,49 @@ export default async function StartPage({ params }: PageProps<"/admin/campionati
       <section>
         <h2 className="text-lg font-semibold">{t.pastTournaments}</h2>
         <div className="mt-3 space-y-4">
-          {(past ?? []).map((p) => (
-            <div key={p.id} className="rounded-lg border p-4">
-              <ActionForm action={savePastTournament} submitLabel={t.save} primary={false}>
-                {hidden}<input type="hidden" name="past_id" value={p.id} />
-                <div className="grid gap-2 sm:grid-cols-[1fr_12rem]">
-                  <input name="name" defaultValue={p.name} required maxLength={100} className={input} aria-label={t.tournamentName} />
-                  <input name="held_on" type="date" defaultValue={p.held_on ?? ""} className={input} aria-label={t.date} />
-                </div>
-                {podiumSelects(p.past_results as { position: number; player_id: string }[])}
-              </ActionForm>
-              <ActionForm action={deletePastTournament} submitLabel={t.deletePast} primary={false} inline className="mt-2"
-                confirmText={t.confirmDeletePast(p.name)}>
-                {hidden}<input type="hidden" name="past_id" value={p.id} />
-              </ActionForm>
-            </div>
-          ))}
+          {(past ?? []).length > 0 && (
+            <ul className="card divide-y divide-line !py-1">
+              {(past ?? []).map((p) => {
+                const podium = [...((p.past_results ?? []) as { position: number; player_id: string }[])].sort((a, b) => a.position - b.position);
+                return (
+                  <li key={p.id}>
+                    <details className="group py-3">
+                      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
+                        <span className="min-w-0">
+                          <span className="block font-semibold">{p.name}
+                            {p.held_on && <span className="ml-2 text-sm font-normal text-muted">
+                              {new Date(p.held_on).toLocaleDateString(intlTag(l), { day: "numeric", month: "short", year: "numeric" })}</span>}</span>
+                          <span className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm">
+                            {podium.map((r) => (
+                              <span key={r.position} className="whitespace-nowrap">
+                                {r.position === 4 ? <WoodMedal label={t.place(4)} /> : MEDAL[r.position]} {nameOf.get(r.player_id) ?? "?"}</span>))}
+                          </span>
+                        </span>
+                        <span className="shrink-0 rounded-md border border-line px-2.5 py-1 text-sm text-muted group-open:bg-white/10">
+                          <span className="group-open:hidden">{t.editPast}</span><span className="hidden group-open:inline">{t.closePast}</span></span>
+                      </summary>
+                      <div className="mt-3 rounded-lg bg-background p-3">
+                        <ActionForm action={savePastTournament} submitLabel={t.save} primary={false}>
+                          {hidden}<input type="hidden" name="past_id" value={p.id} />
+                          <div className="grid gap-2 sm:grid-cols-[1fr_12rem]">
+                            <input name="name" defaultValue={p.name} required maxLength={100} className={input} aria-label={t.tournamentName} />
+                            <input name="held_on" type="date" defaultValue={p.held_on ?? ""} className={input} aria-label={t.date} />
+                          </div>
+                          {podiumSelects(p.past_results as { position: number; player_id: string }[])}
+                        </ActionForm>
+                        <ActionForm action={deletePastTournament} submitLabel={t.deletePast} primary={false} inline className="mt-2"
+                          confirmText={t.confirmDeletePast(p.name)}>
+                          {hidden}<input type="hidden" name="past_id" value={p.id} />
+                        </ActionForm>
+                      </div>
+                    </details>
+                  </li>);
+              })}
+            </ul>)}
           {players.length > 0 && (
-            <div className="rounded-lg border border-dashed p-4">
-              <p className="font-medium">{t.addPast}</p>
-              <ActionForm action={savePastTournament} submitLabel={t.add} className="mt-2">
+            <details className="rounded-xl border border-dashed border-line p-4" open={(past ?? []).length === 0}>
+              <summary className="cursor-pointer font-medium text-brand">+ {t.addPast}</summary>
+              <ActionForm action={savePastTournament} submitLabel={t.add} className="mt-3">
                 {hidden}
                 <div className="grid gap-2 sm:grid-cols-[1fr_12rem]">
                   <input name="name" required maxLength={100} placeholder={t.pastNamePlaceholder} className={input} aria-label={t.tournamentName} />
@@ -79,7 +106,7 @@ export default async function StartPage({ params }: PageProps<"/admin/campionati
                 {podiumSelects()}
                 <p className={`mt-1 ${muted}`}>{t.winnerEnough}</p>
               </ActionForm>
-            </div>)}
+            </details>)}
         </div>
       </section>
 

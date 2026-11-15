@@ -4,6 +4,8 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { SITE_NAME } from "./logo";
 import { tr } from "@/i18n/server";
 import { layoutText } from "@/i18n/dict/layout";
+import { logout } from "@/app/login/actions";
+import { AccountMenu } from "./account-menu";
 
 /** Barra in alto, uguale su tutte le pagine. */
 export async function SiteHeader() {
@@ -33,10 +35,13 @@ async function AccountNav() {
     <Link href="/registrati" className="rounded-md bg-brand px-3 py-1.5 font-medium hover:bg-brand-dark">{t.signup}</Link>
   </>;
   const { data: admin } = await supabase.from("admins").select("role").eq("user_id", data.claims.sub).maybeSingle();
-  return <>
-    <Link href="/" className={`${item} hidden sm:inline`}>{t.home}</Link>
-    <Link href="/amici" className={`${item} hidden sm:inline`}>{t.friends}</Link>
-    {admin && <Link href="/admin" className={item}>{t.admin}</Link>}
-    <Link href="/profilo" className="rounded-md bg-brand px-3 py-1.5 font-medium hover:bg-brand-dark"><span className="sm:hidden">{t.profileShort}</span><span className="hidden sm:inline">{t.myProfile}</span></Link>
-  </>;
+  const items = [
+    { href: "/", label: t.home, icon: "🏠" },
+    { href: "/profilo", label: t.myProfile, icon: "👤" },
+    { href: "/amici", label: t.friends, icon: "👥" },
+    { href: "/amichevole/nuovo", label: t.createFriendly, icon: "🏓" },
+    ...(admin ? [{ href: "/admin", label: t.admin, icon: "🛡️" }] : []),
+    { href: "/faq", label: t.faq, icon: "❓" },
+  ];
+  return <AccountMenu items={items} logout={logout} logoutLabel={t.logout} menuLabel={t.menu} />;
 }
