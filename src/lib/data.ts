@@ -64,7 +64,7 @@ export async function getChampionshipTournaments(championshipId: string) {
 }
 
 export type HistoryRow = {
-  id: number; kind: "start" | "match" | "decay"; rating_before: number; rating_after: number; created_at: string;
+  id: number; kind: "start" | "match" | "decay" | "placement"; rating_before: number; rating_after: number; created_at: string;
   tournament: { name: string } | null;
   challenge_id: string | null;
   /** Per le sfide singole: nome dell'avversario. */

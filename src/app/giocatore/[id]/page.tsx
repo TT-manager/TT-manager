@@ -52,6 +52,7 @@ function groupHistory(history: Block["history"], t: T) {
     const last = out[out.length - 1];
     const label = h.kind === "start" ? t.startRanking
       : h.challengeOpponent ? t.challengeAgainst(h.challengeOpponent)
+      : h.kind === "placement" ? t.placementAward(h.tournament?.name ?? t.tournamentFallback)
       : h.kind === "decay" ? t.skipped(h.tournament?.name ?? t.tournamentFallback) : h.tournament?.name ?? t.tournament;
     // Le partite dello stesso torneo si sommano; ogni sfida resta una riga a sé.
     const key = h.challenge_id ? `challenge:${h.challenge_id}` : `${h.kind}:${h.tournament?.name ?? ""}`;

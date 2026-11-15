@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { pointsSwing } from "@/lib/domain/explain";
+import { placementPoints } from "@/lib/domain/placement";
 import type { RankingSettings } from "@/lib/domain/ranking";
 import { tr } from "@/i18n/server";
 import { compPoints } from "@/i18n/dict/comp-points";
@@ -76,6 +77,12 @@ export async function PointsExplainer({ s, doubles }: { s: RankingSettings; doub
           <section>
             <h3 className="font-bold">{t.comebackTitle}</h3>
             <p className="text-muted">{t.comebackText(s.comeback.afterMissed, s.comeback.matches, s.k.new, pts)}</p>
+          </section>)}
+
+        {s.placement.enabled && (
+          <section>
+            <h3 className="font-bold">{t.placementTitle}</h3>
+            <p className="text-muted">{t.placementText(pts, placementPoints(s.placement.podium, 1, 8), placementPoints(s.placement.podium, 1, 16), placementPoints(s.placement.podium, 1, 32), placementPoints(s.placement.podium, 1, 48))}</p>
           </section>)}
 
         {!doubles && s.challenges.enabled && (

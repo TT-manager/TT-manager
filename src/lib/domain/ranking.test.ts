@@ -119,6 +119,19 @@ describe("sfide singole", () => {
   });
 });
 
+describe("premio di piazzamento", () => {
+  it("si aggiunge dopo le partite del torneo, con una riga di storico a parte", () => {
+    const r = computeRanking({ settings: S, members: members(["a", "b"]), pastResults: [], absences: [],
+      tournaments: [{ id: "t", date: "2026-03-01", participants: ["a", "b"], matches: [{ id: "m", winners: ["a"], losers: ["b"] }],
+        placements: [{ playerId: "a", points: 28 }, { playerId: "z", points: 14 }] }] });
+    expect(r.players.find((p) => p.id === "a")!.rating).toBe(1000 + 20 + 28);
+    expect(r.history.filter((h) => h.kind === "placement")).toEqual([
+      { playerId: "a", kind: "placement", tournamentId: "t", matchId: null, challengeId: null, before: 1020, after: 1048 },
+    ]);
+    expect(r.players.find((p) => p.id === "a")!.games).toBe(1); // il premio non è una partita
+  });
+});
+
 describe("impostazioni", () => {
   it("sfide: spente di base, metà punti, una a settimana; valori controllati", () => {
     const d = parseRankingSettings({});
@@ -127,6 +140,9 @@ describe("impostazioni", () => {
     expect("settings" in ok && ok.settings.challenges).toEqual({ enabled: true, weight: 0.25, perWeek: 0 });
     expect(parseRankingSettings({ challenges: { weight: 0.3 } })).toHaveProperty("errors");
     expect(parseRankingSettings({ challenges: { perWeek: 9 } })).toHaveProperty("errors");
+    const d2 = parseRankingSettings({});
+    expect("settings" in d2 && d2.settings.placement).toEqual({ enabled: false, podium: { 1: 100, 2: 50, 3: 25, 4: 20 } });
+    expect(parseRankingSettings({ placement: { podium: { 1: -5 } } })).toHaveProperty("errors");
   });
 
   it("completa con i default e rifiuta valori impossibili", () => {

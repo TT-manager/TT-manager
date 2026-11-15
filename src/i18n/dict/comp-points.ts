@@ -34,6 +34,9 @@ export const compPoints = dict({
   comebackTitle: "Quando rientri",
   comebackText: (missed: number, matches: number, k: number, pts: string) =>
     `Se hai saltato ${missed === 1 ? "un torneo" : `${missed} tornei di fila`}, nelle prime ${matches} partite al rientro ti muovi alla velocità dei nuovi (${k} ${pts}), così recuperi in fretta il tuo livello.`,
+  placementTitle: "Premio di piazzamento",
+  placementText: (pts: string, p8: number, p16: number, p32: number, p48: number) =>
+    `Chi arriva tra i primi 4 di un torneo riceve ${pts} in più, tanto di più quanti sono i partecipanti: nei tornei piccoli quasi niente, in quelli grandi molto. Per esempio, vincere un torneo vale ${p8} ${pts} in più con 8 partecipanti, ${p16} con 16, ${p32} con 32 e ${p48} da 48 in su. Il 2°, il 3° e il 4° posto ricevono una parte di questo premio.`,
   challengesTitle: "Le sfide",
   challengesText: (weight: number, perWeek: number) =>
     `In questo circuito puoi sfidare un altro membro anche fuori dai tornei. Se l'avversario conferma il risultato, la sfida sposta ${weight === 1 ? "gli stessi punti di una partita di torneo" : weight === 0.5 ? "metà dei punti di una partita di torneo" : "un quarto dei punti di una partita di torneo"}${perWeek === 0 ? "" : `; con lo stesso avversario se ne possono giocare al massimo ${perWeek} a settimana`}. Le sfide non contano come presenza ai tornei.`,
@@ -70,6 +73,9 @@ export const compPoints = dict({
   comebackTitle: "When you come back",
   comebackText: (missed: number, matches: number, k: number, pts: string) =>
     `If you've missed ${missed === 1 ? "a tournament" : `${missed} tournaments in a row`}, for your first ${matches} matches back you move at newcomer speed (${k} ${pts}), so you quickly get back to your level.`,
+  placementTitle: "Placement award",
+  placementText: (pts: string, p8: number, p16: number, p32: number, p48: number) =>
+    `The top 4 of a tournament get extra ${pts}, more the more players take part: almost nothing in small tournaments, a lot in large ones. For example, winning a tournament is worth ${p8} extra ${pts} with 8 participants, ${p16} with 16, ${p32} with 32 and ${p48} from 48 up. 2nd, 3rd and 4th place get a share of this award.`,
   challengesTitle: "Challenges",
   challengesText: (weight: number, perWeek: number) =>
     `In this league you can also challenge another member outside tournaments. If the opponent confirms the result, the challenge moves ${weight === 1 ? "the same points as a tournament match" : weight === 0.5 ? "half the points of a tournament match" : "a quarter of the points of a tournament match"}${perWeek === 0 ? "" : `; with the same opponent you can play at most ${perWeek} a week`}. Challenges don't count as attending a tournament.`,

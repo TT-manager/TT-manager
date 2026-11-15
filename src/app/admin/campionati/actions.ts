@@ -224,7 +224,8 @@ export async function saveSettings(_prev: ActionState, formData: FormData): Prom
     decay: { enabled: formData.get("decay_enabled") === "on", pct: n("decay_pct"), floor: n("decay_floor") },
     comeback: { enabled: formData.get("comeback_enabled") === "on", afterMissed: n("comeback_after"), matches: n("comeback_matches") },
     podium: { 1: n("podium1"), 2: n("podium2"), 3: n("podium3"), 4: n("podium4") },
-    // Nelle leghe di doppio la sezione delle sfide non c'è: restano spente.
+    placement: { enabled: formData.get("placement_enabled") === "on", podium: { 1: n("placement1"), 2: n("placement2"), 3: n("placement3"), 4: n("placement4") } },
+    // Nei circuiti di doppio la sezione delle sfide non c'è: restano spente.
     challenges: formData.has("challenges_weight")
       ? { enabled: formData.get("challenges_enabled") === "on", weight: n("challenges_weight"), perWeek: n("challenges_per_week") }
       : undefined,

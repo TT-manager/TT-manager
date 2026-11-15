@@ -31,6 +31,11 @@ export interface RankingSettings {
    * tra gli stessi due giocatori (0 = nessun limite; le altre contano come amichevoli).
    */
   challenges: { enabled: boolean; weight: ChallengeWeight; perWeek: number };
+  /**
+   * Premio di piazzamento per i primi 4 dei tornei giocati sul sito: `podium` è il premio pieno
+   * per un torneo da 32 partecipanti, ridotto o aumentato in base ai partecipanti (vedi placement.ts).
+   */
+  placement: { enabled: boolean; podium: Record<1 | 2 | 3 | 4, number> };
 }
 
 export type ChallengeWeight = 1 | 0.5 | 0.25;
@@ -46,6 +51,7 @@ export const DEFAULT_RANKING: RankingSettings = {
   comeback: { enabled: true, afterMissed: 2, matches: 5 },
   podium: { 1: 100, 2: 50, 3: 25, 4: 20 },
   challenges: { enabled: false, weight: 0.5, perWeek: 1 },
+  placement: { enabled: false, podium: { 1: 100, 2: 50, 3: 25, 4: 20 } },
 };
 
 /** Legge le impostazioni da dati non fidati, completando con i valori di default. */
@@ -56,6 +62,7 @@ export function parseRankingSettings(raw: unknown): { settings: RankingSettings 
   const bool = (v: unknown, d: boolean) => (typeof v === "boolean" ? v : d);
   const D = DEFAULT_RANKING;
   const k = obj(o.k), decay = obj(o.decay), comeback = obj(o.comeback), podium = obj(o.podium), ch = obj(o.challenges);
+  const pl = obj(o.placement), plp = obj(pl.podium);
   const s: RankingSettings = {
     label: typeof o.label === "string" && o.label.trim() ? o.label.trim().slice(0, 30) : D.label,
     initial: num(o.initial, D.initial),
@@ -69,6 +76,10 @@ export function parseRankingSettings(raw: unknown): { settings: RankingSettings 
       enabled: bool(ch.enabled, D.challenges.enabled),
       weight: num(ch.weight, D.challenges.weight) as ChallengeWeight,
       perWeek: num(ch.perWeek, D.challenges.perWeek),
+    },
+    placement: {
+      enabled: bool(pl.enabled, D.placement.enabled),
+      podium: { 1: num(plp[1], D.placement.podium[1]), 2: num(plp[2], D.placement.podium[2]), 3: num(plp[3], D.placement.podium[3]), 4: num(plp[4], D.placement.podium[4]) },
     },
   };
   const errors: string[] = [];
@@ -86,6 +97,7 @@ export function parseRankingSettings(raw: unknown): { settings: RankingSettings 
   for (const p of [1, 2, 3, 4] as const) int(s.podium[p], 0, 1000, `Bonus ${p}° posto`);
   if (!CHALLENGE_WEIGHTS.includes(s.challenges.weight)) errors.push("Peso delle sfide: intero, metà o un quarto.");
   int(s.challenges.perWeek, 0, 7, "Sfide valide a settimana");
+  for (const p of [1, 2, 3, 4] as const) int(s.placement.podium[p], 0, 1000, `Premio ${p}° posto`);
   return errors.length ? { errors } : { settings: s };
 }
 
@@ -123,6 +135,8 @@ export interface RankingInput {
     participants: string[];
     /** Partite giocate, in ordine; winners/losers = giocatori (1 nel singolare, 2 nel doppio). */
     matches: { id: string; winners: string[]; losers: string[] }[];
+    /** Premio di piazzamento già calcolato (solo giocatori del circuito, punti > 0). */
+    placements?: { playerId: string; points: number }[];
   }[];
   /**
    * Sfide singole confermate e valide per la classifica. `date` = giorno della conferma (YYYY-MM-DD):
@@ -131,7 +145,7 @@ export interface RankingInput {
   challenges?: { id: string; date: string; winner: string; loser: string; weight: number }[];
 }
 
-export type HistoryKind = "start" | "match" | "decay";
+export type HistoryKind = "start" | "match" | "decay" | "placement";
 export interface HistoryRow {
   playerId: string; kind: HistoryKind; tournamentId: string | null; matchId: string | null;
   /** Valorizzato per le partite delle sfide singole (kind «match»). */
@@ -196,6 +210,13 @@ export function computeRanking(input: RankingInput) {
       // Prima si calcolano tutte le attese, poi si applicano (nel doppio i compagni non si influenzano).
       for (const id of m.winners) apply(id, 1, expW);
       for (const id of m.losers) apply(id, 0, 1 - expW);
+    }
+
+    for (const p of t.placements ?? []) {
+      if (!rating.has(p.playerId) || p.points <= 0) continue;
+      const before = rating.get(p.playerId)!;
+      rating.set(p.playerId, before + p.points);
+      history.push({ playerId: p.playerId, kind: "placement", tournamentId: t.id, matchId: null, challengeId: null, before, after: before + p.points });
     }
 
     for (const mem of input.members) {

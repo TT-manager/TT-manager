@@ -1,7 +1,8 @@
 import "server-only";
 import { createServiceClient } from "./supabase/admin";
 import { computeRanking, parseRankingSettings, DEFAULT_RANKING, type RankingInput } from "./domain/ranking";
-import { isPlayed } from "./domain/tournament";
+import { isPlayed, type MatchRow } from "./domain/tournament";
+import { placementPoints, tournamentPlacements } from "./domain/placement";
 import { romeDay } from "./domain/challenges";
 import { tr } from "@/i18n/server";
 import { adminManageText } from "@/i18n/dict/admin-manage";
@@ -60,13 +61,27 @@ export async function recomputeChampionship(championshipId: string, opts: { clos
   const ids = counted.map((t) => t.id as string);
 
   const [{ data: matches }, { data: entryMembers }] = ids.length ? await Promise.all([
-    svc.from("matches").select("id, tournament_id, phase, stage, round, position, player_a, player_b, sets_a, sets_b, played_at").in("tournament_id", ids),
+    svc.from("matches").select("id, tournament_id, phase, group_no, stage, round, position, player_a, player_b, sets_a, sets_b, set_scores, source_a, source_b, played_at").in("tournament_id", ids),
     svc.from("entry_members").select("entry_id, tournament_id, player_id").in("tournament_id", ids),
   ]) : [{ data: [] }, { data: [] }];
+  // Iscritti di ogni torneo (giocatori o coppie): servono per il premio di piazzamento.
+  const { data: entries } = ids.length && settings.placement.enabled
+    ? await svc.from("tournament_entries").select("id, tournament_id, group_no, seed").in("tournament_id", ids) : { data: [] };
   const playersOf = new Map<string, string[]>();
   for (const m of entryMembers ?? []) playersOf.set(m.entry_id as string, [...(playersOf.get(m.entry_id as string) ?? []), m.player_id as string]);
 
   const memberIds = new Set((members ?? []).map((m) => m.player_id as string));
+  /** Premio di piazzamento dei primi 4 del torneo, ai giocatori del circuito. */
+  const placementsOf = (tid: string) => {
+    const tEntries = (entries ?? []).filter((e) => e.tournament_id === tid);
+    const groupMembers = tEntries.filter((e) => e.group_no !== null)
+      .map((e) => ({ playerId: e.id as string, group: e.group_no as number, seed: e.seed as number | null }));
+    const rows = (matches ?? []).filter((m) => m.tournament_id === tid) as unknown as MatchRow[];
+    return tournamentPlacements(rows, groupMembers).flatMap((p) => {
+      const points = placementPoints(settings.placement.podium, p.place, tEntries.length, p.shared3);
+      return (playersOf.get(p.entryId) ?? []).filter((id) => memberIds.has(id)).map((playerId) => ({ playerId, points }));
+    }).filter((p) => p.points > 0);
+  };
   const played = (matches ?? []).filter((m) => isPlayed(m) && m.player_a && m.player_b);
   const input: RankingInput = {
     settings,
@@ -87,6 +102,7 @@ export async function recomputeChampionship(championshipId: string, opts: { clos
           return { id: m.id as string, winners: aWins ? a : b, losers: aWins ? b : a };
         })
         .filter((m) => m.winners.length > 0 && m.losers.length > 0),
+      placements: settings.placement.enabled ? placementsOf(t.id as string) : [],
     })),
     // Le sfide valide contano con il peso attuale della lega (anche se nel frattempo sono state spente).
     challenges: (challenges ?? []).map((c) => {

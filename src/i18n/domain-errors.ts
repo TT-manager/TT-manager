@@ -75,6 +75,8 @@ const RANKING_FIELDS: Record<string, string> = {
   "Bonus 1° posto": "1st place bonus", "Bonus 2° posto": "2nd place bonus",
   "Bonus 3° posto": "3rd place bonus", "Bonus 4° posto": "4th place bonus",
   "Sfide valide a settimana": "Ranked challenges per week",
+  "Premio 1° posto": "1st place award", "Premio 2° posto": "2nd place award",
+  "Premio 3° posto": "3rd place award", "Premio 4° posto": "4th place award",
 };
 
 export function translateDomainError(msg: string, l: Locale): string {

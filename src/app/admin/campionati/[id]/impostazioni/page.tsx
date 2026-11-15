@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ActionForm } from "@/components/action-form";
 import { CHALLENGE_WEIGHTS, DEFAULT_RANKING } from "@/lib/domain/ranking";
+import { placementPoints } from "@/lib/domain/placement";
 import { saveSettings } from "../../actions";
 import { ChampionshipHeader, loadManagedChampionship, muted } from "../shared";
 import { tr } from "@/i18n/server";
@@ -79,6 +80,28 @@ export default async function SettingsPage({ params }: PageProps<"/admin/campion
           <div className="grid gap-4 sm:grid-cols-4">
             {([1, 2, 3, 4] as const).map((p) => <Num key={p} name={`podium${p}`} label={t.place(p)} value={s.podium[p]} min={0} max={1000} help={t.defaultValue(D.podium[p])} />)}
           </div>
+        </section>
+
+        <section className={box}>
+          <h2 className="text-lg font-semibold">{t.placementTitle}</h2>
+          <p className={muted}>{t.placementNote}</p>
+          <label className="flex items-center gap-2"><input type="checkbox" name="placement_enabled" defaultChecked={s.placement.enabled} /> {t.placementEnabled}</label>
+          <p className={muted}>{t.placementFull}</p>
+          <div className="grid gap-4 sm:grid-cols-4">
+            {([1, 2, 3, 4] as const).map((p) => <Num key={p} name={`placement${p}`} label={t.place(p)} value={s.placement.podium[p]} min={0} max={1000} help={t.defaultValue(D.placement.podium[p])} />)}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="text-sm tabular-nums">
+              <caption className={`text-left ${muted}`}>{t.placementExamples}</caption>
+              <thead><tr className="text-left text-xs uppercase text-muted"><th className="py-1 pr-4">{t.placementEntrants}</th>{([1, 2, 3, 4] as const).map((p) => <th key={p} className="px-2 text-right">{t.place(p)}</th>)}</tr></thead>
+              <tbody>
+                {[5, 8, 16, 24, 32, 48].map((n) => (
+                  <tr key={n} className="border-t border-line"><td className="py-1 pr-4">{n}</td>
+                    {([1, 2, 3, 4] as const).map((p) => <td key={p} className="px-2 text-right">{placementPoints(s.placement.podium, p, n)}</td>)}</tr>))}
+              </tbody>
+            </table>
+          </div>
+          <p className={muted}>{t.placementSemis}</p>
         </section>
 
         {c.kind === "singles" && <section className={box}>
