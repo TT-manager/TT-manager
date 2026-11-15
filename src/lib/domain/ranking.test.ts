@@ -12,7 +12,7 @@ describe("classifica di partenza", () => {
     ], [
       { playerId: "a", position: 1 }, { playerId: "b", position: 2 }, { playerId: "a", position: 1 }, { playerId: "b", position: 3 }, { playerId: "c", position: 1 },
     ]);
-    expect(Object.fromEntries(sp)).toEqual({ a: 1120, b: 1065, c: 1111, d: 1000 });
+    expect(Object.fromEntries(sp)).toEqual({ a: 1200, b: 1075, c: 1111, d: 1000 });
   });
 });
 
@@ -131,7 +131,7 @@ describe("impostazioni", () => {
 
   it("completa con i default e rifiuta valori impossibili", () => {
     const ok = parseRankingSettings({ label: "Punti", decay: { pct: 5 } });
-    expect("settings" in ok && [ok.settings.decay.pct, ok.settings.initial, ok.settings.podium[1]]).toEqual([5, 1000, 60]);
+    expect("settings" in ok && [ok.settings.decay.pct, ok.settings.initial, ok.settings.podium[1]]).toEqual([5, 1000, 100]);
     expect(parseRankingSettings({ initial: -3 })).toHaveProperty("errors");
     expect(parseRankingSettings({ newUntil: 50, midUntil: 10 })).toHaveProperty("errors");
     expect(parseRankingSettings({ decay: { pct: "x" } })).toHaveProperty("errors");

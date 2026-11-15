@@ -44,7 +44,7 @@ export const DEFAULT_RANKING: RankingSettings = {
   midUntil: 60,
   decay: { enabled: true, pct: 3, floor: 1000 },
   comeback: { enabled: true, afterMissed: 2, matches: 5 },
-  podium: { 1: 60, 2: 40, 3: 25, 4: 25 },
+  podium: { 1: 100, 2: 50, 3: 25, 4: 20 },
   challenges: { enabled: false, weight: 0.5, perWeek: 1 },
 };
 
