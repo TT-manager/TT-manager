@@ -42,32 +42,38 @@ async function move(id: string, from: ChallengeStatus[], change: Record<string, 
 }
 
 /**
- * Lancia una sfida. Da chiamare con il giocatore dell'account collegato.
- * Se la lega non ha attivato le sfide valide per la classifica, la sfida è comunque amichevole.
+ * Lancia una sfida (vale sempre per la classifica). Da chiamare con il giocatore dell'account collegato.
+ * Si può solo se la lega ha attivato le sfide e i due non hanno già raggiunto il limite della settimana.
  */
-export async function createChallenge(championshipId: string, challengerId: string, opponentId: string, bestOf: number, friendly: boolean): Promise<Result> {
+export async function createChallenge(championshipId: string, challengerId: string, opponentId: string, bestOf: number): Promise<Result> {
   const t = await tr(challengesText);
   const league = await leagueOf(championshipId);
   if (!league) return { error: t.notFound };
   if (league.kind !== "singles") return { error: t.singlesOnly };
+  if (!league.settings.challenges.enabled) return { error: t.disabled };
   if (challengerId === opponentId) return { error: t.selfChallenge };
   if (!(CHALLENGE_BEST_OF as readonly number[]).includes(bestOf)) return { error: t.badBestOf };
   const svc = createServiceClient();
-  const [{ data: members }, { data: opp }, { data: open }] = await Promise.all([
+  const pair = `and(challenger_id.eq.${challengerId},opponent_id.eq.${opponentId}),and(challenger_id.eq.${opponentId},opponent_id.eq.${challengerId})`;
+  const [{ data: members }, { data: opp }, { data: open }, { data: done }] = await Promise.all([
     svc.from("championship_players").select("player_id").eq("championship_id", championshipId).in("player_id", [challengerId, opponentId]),
     svc.from("players").select("user_id").eq("id", opponentId).maybeSingle(),
     svc.from("challenges").select("status, created_at").eq("championship_id", championshipId)
       .in("status", ["pending", "accepted", "reported", "disputed"])
-      .or(`and(challenger_id.eq.${challengerId},opponent_id.eq.${opponentId}),and(challenger_id.eq.${opponentId},opponent_id.eq.${challengerId})`),
+      .or(pair),
+    svc.from("challenges").select("played_at").eq("championship_id", championshipId).eq("status", "confirmed").eq("ranked", true)
+      .gte("played_at", new Date(Date.now() - 8 * 86400000).toISOString()).or(pair),
   ]);
   const ids = new Set((members ?? []).map((m) => m.player_id as string));
   if (!ids.has(challengerId)) return { error: t.notMember };
   if (!ids.has(opponentId)) return { error: t.opponentNotMember };
   if (!opp?.user_id) return { error: t.opponentNoAccount };
   if ((open ?? []).some((c) => !isExpired(c as { status: string; created_at: string }))) return { error: t.alreadyOpen };
+  // Limite settimanale già raggiunto con questo avversario: la prossima sfida dalla settimana dopo.
+  if (!countsForRanking(league.settings.challenges, new Date().toISOString(), (done ?? []) as { played_at: string }[]))
+    return { error: t.weeklyLimit(league.settings.challenges.perWeek) };
   const { error } = await svc.from("challenges").insert({
     championship_id: championshipId, challenger_id: challengerId, opponent_id: opponentId, best_of: bestOf,
-    friendly: friendly || !league.settings.challenges.enabled,
   });
   return error ? { error: t.saveFailed } : { ok: t.sent };
 }
@@ -116,14 +122,14 @@ async function finalize(c: Challenge, change: Record<string, unknown>, from: Cha
   const { data: pair } = await createServiceClient().from("challenges").select("played_at")
     .eq("championship_id", c.championship_id).eq("status", "confirmed").eq("ranked", true).neq("id", c.id)
     .or(`and(challenger_id.eq.${c.challenger_id},opponent_id.eq.${c.opponent_id}),and(challenger_id.eq.${c.opponent_id},opponent_id.eq.${c.challenger_id})`);
-  const ranked = !c.friendly && countsForRanking(league.settings.challenges, playedAt, (pair ?? []) as { played_at: string }[]);
+  const ranked = countsForRanking(league.settings.challenges, playedAt, (pair ?? []) as { played_at: string }[]);
   const ok = await move(c.id, from, { ...change, status: "confirmed", ranked, played_at: playedAt, confirmed_at: new Date().toISOString() });
   if (!ok) return { error: t.wrongState };
   if (ranked) {
     const r = await recomputeChampionship(c.championship_id);
     if (r.error) return { error: t.recomputeFailed };
   }
-  return { ok: ranked ? t.confirmedRanked : t.confirmedFriendly };
+  return { ok: ranked ? t.confirmedRanked : t.confirmedNotCounted };
 }
 
 /** L'avversario di chi ha inserito il risultato lo conferma o lo contesta. */

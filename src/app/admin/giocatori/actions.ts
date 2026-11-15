@@ -77,3 +77,17 @@ export async function removePlayerAvatar(_prev: FormState, formData: FormData): 
   refresh();
   return { ok: t.photoRemoved };
 }
+
+/** Disattiva o riattiva un giocatore (pulsante nella scheda). */
+export async function setPlayerActive(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+  const t = await tr(adminShellText);
+  const id = String(formData.get("id") ?? "");
+  const active = formData.get("active") === "1";
+  const supabase = await createServerSupabase();
+  const { error } = await supabase.from("players").update({ active }).eq("id", id);
+  if (error) return { error: t.cantSaveChanges };
+  revalidatePath("/admin/giocatori", "layout");
+  refresh();
+  return { ok: active ? t.playerReactivated : t.playerDeactivated };
+}

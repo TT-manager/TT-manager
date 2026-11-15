@@ -33,7 +33,7 @@ function Act({ action, id, answer, label, confirmText, primary = false }: {
 export async function LeagueChallenges({ c }: { c: Championship }) {
   const s = c.settings.challenges;
   const latest = c.kind === "singles" ? await latestChallenges(c.id) : [];
-  if (c.kind !== "singles") return null;
+  if (c.kind !== "singles" || (!s.enabled && latest.length === 0)) return null;
   const [t, l, account, members] = [await tr(challengesText), await getLocale(), await getAccount(), await challengeableMembers(c.id)];
   const me = account?.player.id;
   // Chi ha un account ed è nella lega compare tra i membri sfidabili.
@@ -44,8 +44,8 @@ export async function LeagueChallenges({ c }: { c: Championship }) {
   return (
     <section className="mt-10">
       <h2 className="text-2xl font-bold uppercase">{t.sectionTitle}</h2>
-      <div className="card mt-3">
-          <p className="text-sm text-muted">{s.enabled ? t.sectionIntro(s.weight, s.perWeek) : t.sectionIntroFriendly}</p>
+      {s.enabled && <div className="card mt-3">
+          <p className="text-sm text-muted">{t.sectionIntro(s.weight, s.perWeek)}</p>
           {!account ? <p className="mt-3 text-sm"><Link href={`/login?next=/c/${c.slug}`} className="link">{t.loginToChallenge}</Link></p>
             : !isMember ? null
             : opponents.length === 0 ? <p className="mt-3 text-sm text-muted">{t.noOpponents}</p>
@@ -62,14 +62,8 @@ export async function LeagueChallenges({ c }: { c: Championship }) {
                   <select name="best_of" defaultValue="3" className="select-arrow rounded border bg-transparent px-3 py-2">
                     {CHALLENGE_BEST_OF.map((n) => <option key={n} value={n}>{t.sets(n)}</option>)}
                   </select></label>
-                {s.enabled && (
-                  <label className="grid gap-1 text-sm">{t.type}
-                    <select name="friendly" defaultValue="0" className="select-arrow rounded border bg-transparent px-3 py-2">
-                      <option value="0">{t.typeRanked}</option>
-                      <option value="1">{t.typeFriendly}</option>
-                    </select></label>)}
               </ActionForm>)}
-      </div>
+      </div>}
 
       <h3 className="mt-6 text-lg font-bold uppercase">{t.latest}</h3>
       {latest.length === 0 ? <p className="mt-2 text-muted">{t.noneYet}</p> : (
@@ -84,7 +78,7 @@ export async function LeagueChallenges({ c }: { c: Championship }) {
                 {score(x)}
                 {x.ranked && x.deltaChallenger !== null && x.deltaOpponent !== null
                   ? <span className="tabular-nums text-muted">{sign(x.deltaChallenger)} / {sign(x.deltaOpponent)}</span>
-                  : <span className="badge-friendly">{t.friendly}</span>}
+                  : <span className="badge-muted">{t.notCounted}</span>}
               </span>
             </li>))}
         </ul>)}
@@ -127,7 +121,6 @@ export async function MyChallenges({ playerId, className = "" }: { playerId: str
                 <span>
                   <span className="text-xs uppercase tracking-wide text-muted">
                     {league ? <Link href={`/c/${league.slug}`} className="hover:text-brand">{league.name}</Link> : null} · {t.bestOfShort(c.best_of)}
-                    {c.friendly && <> · {t.friendly}</>}
                     {(c.status === "pending" || c.status === "accepted") && <> · {t.expiresIn(daysLeft(c))}</>}
                   </span><br />
                   <span className="font-medium">{text}</span>
@@ -165,7 +158,6 @@ export async function MyChallenges({ playerId, className = "" }: { playerId: str
                 <input type="hidden" name="championship_id" value={c.championship_id} />
                 <input type="hidden" name="opponent_id" value={other} />
                 <input type="hidden" name="best_of" value={c.best_of} />
-                <input type="hidden" name="friendly" value={c.friendly ? "1" : "0"} />
               </ActionForm>
             </li>);
         })}

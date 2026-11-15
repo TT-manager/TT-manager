@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
-import { addPlayer, deletePlayer, removePlayerAvatar, updatePlayer, type FormState } from "./actions";
+import { addPlayer, deletePlayer, removePlayerAvatar, setPlayerActive, updatePlayer, type FormState } from "./actions";
 import { Avatar } from "@/components/avatar";
 import { ClubPicker } from "@/components/club-picker";
 import { clubLabel, type Club } from "@/lib/clubs";
@@ -98,7 +98,8 @@ export function EditPlayerForm({ player, clubs }: { player: { id: string; full_n
         <input name="full_name" defaultValue={player.full_name} required className={input} /></label>
       <div className="grid gap-1 text-sm">{t.club}
         <ClubPicker clubs={clubs} defaultValue={player.club_id ?? ""} className={`${input} w-full`} /></div>
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={player.active} className="h-4 w-4" /> {t.activeLong}</label>
+      {/* Lo stato si cambia con il pulsante in cima alla scheda: qui si conserva com'è. */}
+      {player.active && <input type="hidden" name="active" value="on" />}
       <div className="flex flex-wrap items-center gap-3">
         <button disabled={pending} className="btn-primary">{pending ? "…" : t.save}</button>
         {msg(state)}
@@ -133,5 +134,21 @@ export function DeletePlayerBox({ id, name }: { id: string; name: string }) {
       </form>
       <div className="mt-2">{msg(state)}</div>
     </section>
+  );
+}
+
+/** «Disattiva giocatore» / «Riattiva», con conferma che spiega cosa succede. */
+export function ToggleActiveButton({ id, active }: { id: string; active: boolean }) {
+  const t = useTr(adminShellText);
+  const [state, action, pending] = useActionState<FormState, FormData>(setPlayerActive, {});
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2"
+      onSubmit={(e) => { if (!confirm(active ? t.confirmDeactivate : t.confirmReactivate)) e.preventDefault(); }}>
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="active" value={active ? "0" : "1"} />
+      <button disabled={pending} className={active ? "btn-outline px-3 py-1.5 text-sm" : "btn-primary px-3 py-1.5 text-sm"}>
+        {pending ? "…" : active ? t.deactivatePlayer : t.reactivatePlayer}</button>
+      {msg(state)}
+    </form>
   );
 }

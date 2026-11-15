@@ -9,7 +9,7 @@ import { avatarUrl } from "@/lib/avatar";
 import { Avatar } from "@/components/avatar";
 import { pointsLabel, statusLabel } from "@/lib/labels";
 import { DEFAULT_RANKING, parseRankingSettings } from "@/lib/domain/ranking";
-import { DeletePlayerBox, EditPlayerForm, RemovePhotoButton } from "../player-forms";
+import { DeletePlayerBox, EditPlayerForm, RemovePhotoButton, ToggleActiveButton } from "../player-forms";
 import { getLocale, tr } from "@/i18n/server";
 import { intlTag } from "@/i18n/locale";
 import { adminShellText } from "@/i18n/dict/admin-shell";
@@ -65,6 +65,7 @@ export default async function AdminPlayerPage({ params }: PageProps<"/admin/gioc
             {club && <span>{clubLabel(club)}</span>}
             <Link href={`/giocatore/${id}`} className="link">{t.publicCard}</Link>
           </p>
+          <div className="mt-3"><ToggleActiveButton id={id} active={p.active as boolean} /></div>
         </div>
       </header>
 
