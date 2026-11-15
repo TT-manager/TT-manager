@@ -5,7 +5,7 @@ export const accountLoginText = dict({
   // Titoli e pagine
   loginTitle: "Accedi",
   signupTitle: "Registrati",
-  signupIntro: "Con un account puoi chiedere di partecipare alle leghe e vedere la tua scheda.",
+  signupIntro: "Con un account puoi chiedere di partecipare ai circuiti e vedere la tua scheda.",
   forgotTitle: "Password dimenticata",
   forgotIntro: "Ti mandiamo un link per sceglierne una nuova.",
   newPasswordTitle: "Nuova password",

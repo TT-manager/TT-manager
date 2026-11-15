@@ -22,7 +22,7 @@ function TermsIt() {
       <section>
         <h2>1. Il servizio</h2>
         <p>
-          {SITE_NAME} permette di consultare classifiche, tornei e risultati di tennis tavolo e, con un account, di partecipare alle leghe,
+          {SITE_NAME} permette di consultare classifiche, tornei e risultati di tennis tavolo e, con un account, di partecipare ai circuiti,
           gestire amicizie e inserire o consultare le proprie partite. Il servizio è gestito da <OwnerLine />.
         </p>
       </section>
@@ -46,7 +46,7 @@ function TermsIt() {
           <li>tentare di accedere ad aree riservate, aggirare i limiti di sicurezza o sovraccaricare il sito con accessi automatici;</li>
           <li>usare il sito per scopi illeciti o commerciali non autorizzati.</li>
         </ul>
-        <p>Chi gestisce una lega o un torneo può correggere o annullare risultati e rimuovere iscrizioni, per mantenere la correttezza delle classifiche.</p>
+        <p>Chi gestisce un circuito o un torneo può correggere o annullare risultati e rimuovere iscrizioni, per mantenere la correttezza delle classifiche.</p>
       </section>
 
       <section>
