@@ -5,6 +5,7 @@ import { getChampionshipBySlug, getChampionshipTournaments, getRanking } from "@
 import { statusLabel } from "@/lib/labels";
 import { registrationIsOpen } from "@/lib/registration";
 import { RankingTable } from "@/components/ranking-table";
+import { WoodMedal } from "@/components/wood-medal";
 import { PointsExplainer } from "@/components/points-explainer";
 import { LeagueChallenges } from "@/components/challenges";
 import { getLocale, tr } from "@/i18n/server";
@@ -80,7 +81,9 @@ async function Championship({ params }: { params: PageProps<"/c/[slug]">["params
               <li key={p.id} className="py-3">
                 <p className="font-medium">{p.name}{p.held_on && <span className="ml-2 text-sm font-normal text-neutral-500 dark:text-neutral-400">
                   {new Date(p.held_on).toLocaleDateString(intlTag(l))}</span>}</p>
-                <p className="text-sm">{p.podium.map((r) => `${r.position === 4 ? tx.fourth : MEDAL[r.position]} ${r.name}`).join("   ")}</p>
+                <p className="mt-0.5 flex flex-wrap gap-x-4 gap-y-1 text-sm">{p.podium.map((r) => (
+                  <span key={r.position + r.name} className="whitespace-nowrap">
+                    {r.position === 4 ? <WoodMedal label={tx.fourth} /> : MEDAL[r.position]} {r.name}</span>))}</p>
               </li>))}
           </ul>
         </>)}
