@@ -54,7 +54,7 @@ export default async function AdminPlayerPage({ params }: PageProps<"/admin/gioc
 
   return (
     <main className="space-y-6">
-      <Link href="/admin/giocatori" className="text-sm text-muted hover:underline">{t.backToPlayers}</Link>
+      <Link href="/admin/giocatori" className="inline-block text-sm text-muted hover:underline">{t.backToPlayers}</Link>
 
       <header className="flex flex-wrap items-center gap-4">
         <Avatar name={p.full_name as string} path={p.avatar_path as string | null} size="h-20 w-20 text-xl" />
