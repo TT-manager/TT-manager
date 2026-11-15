@@ -49,6 +49,7 @@ export default async function AdminHome() {
     ...(owner ? [
       { href: "/admin/circoli", icon: "📍", title: t.navClubs, text: t.homeClubs, stat: clubRequests.count ? t.statRequests(clubRequests.count) : null, hot: Boolean(clubRequests.count) },
       { href: "/admin/amministratori", icon: "🛡️", title: t.navAdmins, text: t.homeAdmins, stat: null },
+      { href: "/admin/backup", icon: "💾", title: t.navBackup, text: t.homeBackup, stat: null },
     ] : []),
     { href: "/admin/password", icon: "🔑", title: t.navPassword, text: t.homePassword, stat: null },
   ];

@@ -35,6 +35,7 @@ async function Header() {
     ...(admin.role === "owner" ? [
       { href: "/admin/circoli", label: t.navClubs, badge: pendingClubs ?? 0 },
       { href: "/admin/amministratori", label: t.navAdmins },
+      { href: "/admin/backup", label: t.navBackup },
     ] : []),
     { href: "/admin/password", label: t.navPassword },
   ];
