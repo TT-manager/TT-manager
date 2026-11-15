@@ -18,7 +18,8 @@ function updated() {
 
 export async function sendChallengeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const account = await requireAccount(field(formData, "back") || "/");
-  const r = await createChallenge(field(formData, "championship_id"), account.player.id, field(formData, "opponent_id"), Number(field(formData, "best_of")));
+  const r = await createChallenge(field(formData, "championship_id"), account.player.id, field(formData, "opponent_id"),
+    Number(field(formData, "best_of")), field(formData, "friendly") === "1");
   if (r.ok) updated();
   return r;
 }

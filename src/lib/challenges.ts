@@ -2,7 +2,9 @@ import "server-only";
 import { createServiceClient } from "./supabase/admin";
 import { validateMatch, type SetScore } from "./domain/score";
 import { parseRankingSettings, DEFAULT_RANKING } from "./domain/ranking";
-import { CHALLENGE_BEST_OF, countsForRanking, isExpired, type ChallengeStatus } from "./domain/challenges";
+import {
+  ACCEPTED_DAYS, CHALLENGE_BEST_OF, NOTICE_DAYS, countsForRanking, isExpired, recentlyClosed, recentlyExpired, type ChallengeStatus,
+} from "./domain/challenges";
 import { recomputeChampionship } from "./closing";
 import { getLocale, tr } from "@/i18n/server";
 import { challengesText } from "@/i18n/dict/challenges";
@@ -11,11 +13,13 @@ import { translateDomainError } from "@/i18n/domain-errors";
 type Result = { error?: string; ok?: string; set?: number };
 
 export const CHALLENGE_COLUMNS =
-  "id, championship_id, challenger_id, opponent_id, best_of, status, sets_a, sets_b, set_scores, reported_by, played_at, confirmed_at, ranked, created_at";
+  "id, championship_id, challenger_id, opponent_id, best_of, status, sets_a, sets_b, set_scores, reported_by, played_at, confirmed_at, ranked, friendly, cancelled_by, created_at, updated_at";
 export type Challenge = {
   id: string; championship_id: string; challenger_id: string; opponent_id: string; best_of: number; status: ChallengeStatus;
   sets_a: number | null; sets_b: number | null; set_scores: SetScore[] | null; reported_by: string | null;
-  played_at: string | null; confirmed_at: string | null; ranked: boolean; created_at: string;
+  played_at: string | null; confirmed_at: string | null; ranked: boolean;
+  /** Scelta come amichevole da chi l'ha lanciata: non vale mai per la classifica. */
+  friendly: boolean; cancelled_by: string | null; created_at: string; updated_at: string;
 };
 
 async function leagueOf(championshipId: string) {
@@ -37,13 +41,15 @@ async function move(id: string, from: ChallengeStatus[], change: Record<string, 
   return !error && Boolean(data?.length);
 }
 
-/** Lancia una sfida. Da chiamare con il giocatore dell'account collegato. */
-export async function createChallenge(championshipId: string, challengerId: string, opponentId: string, bestOf: number): Promise<Result> {
+/**
+ * Lancia una sfida. Da chiamare con il giocatore dell'account collegato.
+ * Se la lega non ha attivato le sfide valide per la classifica, la sfida è comunque amichevole.
+ */
+export async function createChallenge(championshipId: string, challengerId: string, opponentId: string, bestOf: number, friendly: boolean): Promise<Result> {
   const t = await tr(challengesText);
   const league = await leagueOf(championshipId);
   if (!league) return { error: t.notFound };
   if (league.kind !== "singles") return { error: t.singlesOnly };
-  if (!league.settings.challenges.enabled) return { error: t.disabled };
   if (challengerId === opponentId) return { error: t.selfChallenge };
   if (!(CHALLENGE_BEST_OF as readonly number[]).includes(bestOf)) return { error: t.badBestOf };
   const svc = createServiceClient();
@@ -59,7 +65,10 @@ export async function createChallenge(championshipId: string, challengerId: stri
   if (!ids.has(opponentId)) return { error: t.opponentNotMember };
   if (!opp?.user_id) return { error: t.opponentNoAccount };
   if ((open ?? []).some((c) => !isExpired(c as { status: string; created_at: string }))) return { error: t.alreadyOpen };
-  const { error } = await svc.from("challenges").insert({ championship_id: championshipId, challenger_id: challengerId, opponent_id: opponentId, best_of: bestOf });
+  const { error } = await svc.from("challenges").insert({
+    championship_id: championshipId, challenger_id: challengerId, opponent_id: opponentId, best_of: bestOf,
+    friendly: friendly || !league.settings.challenges.enabled,
+  });
   return error ? { error: t.saveFailed } : { ok: t.sent };
 }
 
@@ -75,7 +84,7 @@ export async function answerChallenge(id: string, playerId: string, answer: "acc
     const ok = await move(id, ["pending"], { status: answer === "accept" ? "accepted" : "declined" });
     return ok ? { ok: answer === "accept" ? t.accepted : t.declined, championshipId: c.championship_id } : { error: t.wrongState };
   }
-  const ok = await move(id, ["pending", "accepted"], { status: "cancelled" });
+  const ok = await move(id, ["pending", "accepted"], { status: "cancelled", cancelled_by: playerId });
   return ok ? { ok: t.cancelled, championshipId: c.championship_id } : { error: t.wrongState };
 }
 
@@ -107,7 +116,7 @@ async function finalize(c: Challenge, change: Record<string, unknown>, from: Cha
   const { data: pair } = await createServiceClient().from("challenges").select("played_at")
     .eq("championship_id", c.championship_id).eq("status", "confirmed").eq("ranked", true).neq("id", c.id)
     .or(`and(challenger_id.eq.${c.challenger_id},opponent_id.eq.${c.opponent_id}),and(challenger_id.eq.${c.opponent_id},opponent_id.eq.${c.challenger_id})`);
-  const ranked = countsForRanking(league.settings.challenges, playedAt, (pair ?? []) as { played_at: string }[]);
+  const ranked = !c.friendly && countsForRanking(league.settings.challenges, playedAt, (pair ?? []) as { played_at: string }[]);
   const ok = await move(c.id, from, { ...change, status: "confirmed", ranked, played_at: playedAt, confirmed_at: new Date().toISOString() });
   if (!ok) return { error: t.wrongState };
   if (ranked) {
@@ -160,6 +169,25 @@ export async function openChallengesOf(playerId: string): Promise<Challenge[]> {
     .or(`challenger_id.eq.${playerId},opponent_id.eq.${playerId}`)
     .in("status", ["pending", "accepted", "reported", "disputed"]).order("created_at", { ascending: false }).limit(30);
   return ((data ?? []) as Challenge[]).filter((c) => !isExpired(c));
+}
+
+/**
+ * Sfide chiuse di recente senza essere giocate, da segnalare al giocatore: rifiutate (a chi le aveva lanciate),
+ * annullate dall'altro giocatore e scadute (a chi le aveva lanciate; se già accettate, a entrambi).
+ */
+export async function closedNoticesOf(playerId: string): Promise<(Challenge & { reason: "declined" | "cancelled" | "expired" })[]> {
+  const since = new Date(Date.now() - (ACCEPTED_DAYS + NOTICE_DAYS) * 86400000).toISOString();
+  const { data } = await createServiceClient().from("challenges").select(CHALLENGE_COLUMNS)
+    .or(`challenger_id.eq.${playerId},opponent_id.eq.${playerId}`)
+    .in("status", ["declined", "cancelled", "pending", "accepted"]).gte("created_at", since)
+    .order("updated_at", { ascending: false }).limit(30);
+  const out: (Challenge & { reason: "declined" | "cancelled" | "expired" })[] = [];
+  for (const c of (data ?? []) as Challenge[]) {
+    if (c.status === "declined" && c.challenger_id === playerId && recentlyClosed(c)) out.push({ ...c, reason: "declined" });
+    else if (c.status === "cancelled" && c.cancelled_by && c.cancelled_by !== playerId && recentlyClosed(c)) out.push({ ...c, reason: "cancelled" });
+    else if (recentlyExpired(c) && (c.status === "accepted" || c.challenger_id === playerId)) out.push({ ...c, reason: "expired" });
+  }
+  return out;
 }
 
 /** Ultime sfide confermate della lega, con i punti scambiati (null = amichevole). */

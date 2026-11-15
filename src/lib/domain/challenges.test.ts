@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countsForRanking, isExpired, romeDay, romeWeek } from "./challenges";
+import { countsForRanking, isExpired, recentlyClosed, recentlyExpired, romeDay, romeWeek } from "./challenges";
 
 describe("settimana delle sfide (ora italiana)", () => {
   it("parte dal lunedì", () => {
@@ -37,5 +37,18 @@ describe("scadenza", () => {
     expect(isExpired({ status: "pending", created_at: "2026-11-14T12:00:00Z" }, now)).toBe(false);
     expect(isExpired({ status: "accepted", created_at: "2026-11-12T12:00:00Z" }, now)).toBe(false);
     expect(isExpired({ status: "reported", created_at: "2026-01-01T12:00:00Z" }, now)).toBe(false);
+  });
+});
+
+describe("avvisi di sfide chiuse", () => {
+  const now = new Date("2026-11-20T12:00:00Z").getTime();
+  it("una sfida scaduta resta visibile per una settimana", () => {
+    expect(recentlyExpired({ status: "pending", created_at: "2026-11-12T12:00:00Z" }, now)).toBe(true);  // scaduta il 19
+    expect(recentlyExpired({ status: "pending", created_at: "2026-11-01T12:00:00Z" }, now)).toBe(false); // scaduta l'8
+    expect(recentlyExpired({ status: "pending", created_at: "2026-11-18T12:00:00Z" }, now)).toBe(false); // non scaduta
+  });
+  it("rifiutata o annullata: visibile per una settimana", () => {
+    expect(recentlyClosed({ updated_at: "2026-11-15T12:00:00Z" }, now)).toBe(true);
+    expect(recentlyClosed({ updated_at: "2026-11-10T12:00:00Z" }, now)).toBe(false);
   });
 });

@@ -49,6 +49,21 @@ export function countsForRanking(
 
 /** Giorni che restano prima che una sfida pending/accepted scada (almeno 1). */
 export function daysLeft(c: { status: string; created_at: string }, now = Date.now()) {
-  const limit = (c.status === "pending" ? PENDING_DAYS : ACCEPTED_DAYS) * DAY;
-  return Math.max(1, Math.ceil((new Date(c.created_at).getTime() + limit - now) / DAY));
+  return Math.max(1, Math.ceil((expiresAt(c) - now) / DAY));
 }
+
+/** Giorni per cui chi ha lanciato una sfida vede che è stata rifiutata, annullata o è scaduta. */
+export const NOTICE_DAYS = 7;
+
+/** Momento in cui una sfida pending/accepted scade (ms). */
+export const expiresAt = (c: { status: string; created_at: string }) =>
+  new Date(c.created_at).getTime() + (c.status === "pending" ? PENDING_DAYS : ACCEPTED_DAYS) * DAY;
+
+/** Sfida scaduta da poco (entro NOTICE_DAYS): se ne avvisano i giocatori. */
+export function recentlyExpired(c: { status: string; created_at: string }, now = Date.now()) {
+  return isExpired(c, now) && now - expiresAt(c) <= NOTICE_DAYS * DAY;
+}
+
+/** Rifiutata o annullata da poco (entro NOTICE_DAYS). */
+export const recentlyClosed = (c: { updated_at: string }, now = Date.now()) =>
+  now - new Date(c.updated_at).getTime() <= NOTICE_DAYS * DAY;
