@@ -17,7 +17,7 @@ export const compPoints = dict({
   summary: (pts: string) => `Come si guadagnano e si perdono i ${pts}`,
   startTitle: (initial: number, pts: string) => `1. Si parte da ${initial} ${pts}`,
   startText: (initial: number, pts: string) => `Ogni giocatore entra in classifica con ${initial} ${pts}`,
-  podiumBonus: (list: string) => `, più un bonus per i podi dei tornei giocati prima che la lega fosse su PongFu (${list})`,
+  podiumBonus: (list: string) => `, più un bonus per i podi dei tornei giocati prima che il circuito fosse su PongFu (${list})`,
   podiumPlace: (place: number, bonus: number) => `${place}° posto +${bonus}`,
   swingTitle: (pts: string) => `2. Ogni partita sposta i ${pts}`,
   swingText: (pts: string) => `Chi vince prende ${pts}, chi perde ne cede. Quanti dipende da chi hai davanti: battere un avversario più forte vale di più, mentre perdere contro uno più forte costa poco. Al contrario, battere uno più debole vale poco e perderci costa caro. Conta solo chi vince la partita, non il punteggio dei set.`,
@@ -30,13 +30,13 @@ export const compPoints = dict({
   doublesText: (pts: string) => `La forza di una coppia è la media dei ${pts} dei due compagni. I ${pts} vinti o persi si calcolano su questa media e valgono per entrambi, ognuno con la propria velocità (punto 3).`,
   decayTitle: "Se salti un torneo",
   decayText: (pct: number, floor: number, pts: string) =>
-    `Chi non partecipa a un torneo della lega perde il ${pct}% dei ${pts} che ha sopra quota ${floor} (chi è a ${floor} o sotto non perde nulla). Per esempio, con ${floor + 200} ${pts} se ne perdono ${Math.round((pct / 100) * 200)}. Se sei infortunato o fuori per lavoro, chiedi all'amministratore di segnare l'assenza: in quel periodo non perdi nulla.`,
+    `Chi non partecipa a un torneo del circuito perde il ${pct}% dei ${pts} che ha sopra quota ${floor} (chi è a ${floor} o sotto non perde nulla). Per esempio, con ${floor + 200} ${pts} se ne perdono ${Math.round((pct / 100) * 200)}. Se sei infortunato o fuori per lavoro, chiedi all'amministratore di segnare l'assenza: in quel periodo non perdi nulla.`,
   comebackTitle: "Quando rientri",
   comebackText: (missed: number, matches: number, k: number, pts: string) =>
     `Se hai saltato ${missed === 1 ? "un torneo" : `${missed} tornei di fila`}, nelle prime ${matches} partite al rientro ti muovi alla velocità dei nuovi (${k} ${pts}), così recuperi in fretta il tuo livello.`,
   challengesTitle: "Le sfide",
   challengesText: (weight: number, perWeek: number) =>
-    `In questa lega puoi sfidare un altro membro anche fuori dai tornei. Se l'avversario conferma il risultato, la sfida sposta ${weight === 1 ? "gli stessi punti di una partita di torneo" : weight === 0.5 ? "metà dei punti di una partita di torneo" : "un quarto dei punti di una partita di torneo"}${perWeek === 0 ? "" : `; con lo stesso avversario se ne possono giocare al massimo ${perWeek} a settimana`}. Le sfide non contano come presenza ai tornei.`,
+    `In questo circuito puoi sfidare un altro membro anche fuori dai tornei. Se l'avversario conferma il risultato, la sfida sposta ${weight === 1 ? "gli stessi punti di una partita di torneo" : weight === 0.5 ? "metà dei punti di una partita di torneo" : "un quarto dei punti di una partita di torneo"}${perWeek === 0 ? "" : `; con lo stesso avversario se ne possono giocare al massimo ${perWeek} a settimana`}. Le sfide non contano come presenza ai tornei.`,
   notCountTitle: "Cosa non conta",
   notCountText: "I tornei amichevoli non toccano la classifica. Anche i «Punti» nella tabella dei gironi sono un'altra cosa: servono solo a ordinare il girone (2 per una vittoria, 1 per una sconfitta). La classifica si aggiorna quando l'organizzatore chiude il torneo.",
   moreFaq: "Altre domande frequenti",

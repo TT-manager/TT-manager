@@ -5,8 +5,8 @@ import { dict, type Locale } from "../locale";
 /** Testi della pagina Domande frequenti. */
 export const publicFaqText = dict({
   title: "Domande frequenti",
-  description: "Come funzionano PongFu, le leghe, i tornei, i punti in classifica e gli amichevoli.",
-  intro: "Come funziona PongFu, in breve. Se non trovi la risposta, chiedi a chi organizza la tua lega.",
+  description: "Come funzionano PongFu, i circuiti, i tornei, i punti in classifica e gli amichevoli.",
+  intro: "Come funziona PongFu, in breve. Se non trovi la risposta, chiedi a chi organizza il tuo circuito.",
   topics: "Argomenti",
 }, {
   title: "FAQ",
@@ -22,7 +22,7 @@ const IT: Section[] = [
   {
     title: "Per iniziare",
     items: [
-      { q: "Che cos'è PongFu?", a: <>Un sito per organizzare il tennis tavolo tra amici e nei circoli: leghe con la loro classifica a punti, tornei con gironi e tabellone seguiti in diretta, e tornei amichevoli da creare in un minuto.</> },
+      { q: "Che cos'è PongFu?", a: <>Un sito per organizzare il tennis tavolo tra amici e nei circoli: circuiti con la loro classifica a punti, tornei con gironi e tabellone seguiti in diretta, e tornei amichevoli da creare in un minuto.</> },
       { q: "Come mi registro?", a: <>Clicca <Link href="/registrati" className="link">Registrati</Link>, inserisci nome, email e password. Ti arriva un&apos;email: apri il link per confermare l&apos;indirizzo (funziona anche se la apri dal telefono). Da quel momento puoi accedere.</> },
       { q: "Non mi è arrivata l'email", a: <>Controlla nello spam o nelle promozioni e aspetta qualche minuto. Il mittente è <strong>PongFu</strong>. Se proprio non arriva, prova ad accedere o usa <Link href="/password-dimenticata" className="link">Password dimenticata</Link> con lo stesso indirizzo.</> },
       { q: "Ho dimenticato la password", a: <>Vai su <Link href="/password-dimenticata" className="link">Password dimenticata</Link>: ti mandiamo un link per sceglierne una nuova.</> },
@@ -30,33 +30,33 @@ const IT: Section[] = [
     ],
   },
   {
-    title: "Leghe",
+    title: "Circuiti",
     items: [
-      { q: "Che cos'è una lega?", a: <>Un gruppo di giocatori che gioca più tornei nel tempo. Ogni lega ha la sua classifica a punti, che si aggiorna torneo dopo torneo, e un albo d&apos;oro. Una lega è di singolare o di doppio.</> },
-      { q: "Come entro in una lega?", a: <>Se hai ricevuto un <strong>link d&apos;invito</strong>, aprilo e registrati: entri subito. Altrimenti, dalla pagina della lega o dal tuo profilo clicca <strong>Chiedi di partecipare</strong>: un amministratore della lega approva la richiesta.</> },
+      { q: "Che cos'è un circuito?", a: <>Un gruppo di giocatori che gioca più tornei nel tempo. Ogni circuito ha la sua classifica a punti, che si aggiorna torneo dopo torneo, e un albo d&apos;oro. Un circuito è di singolare o di doppio.</> },
+      { q: "Come entro in un circuito?", a: <>Se hai ricevuto un <strong>link d&apos;invito</strong>, aprilo e registrati: entri subito. Altrimenti, dalla pagina del circuito o dal tuo profilo clicca <strong>Chiedi di partecipare</strong>: un amministratore del circuito approva la richiesta.</> },
       { q: "Ero già in classifica prima di registrarmi", a: <>Quando chiedi di partecipare, scegli il tuo nome alla voce «Sei già in classifica?»: l&apos;amministratore collega il tuo account a quel giocatore, così tieni punti e storico.</> },
-      { q: "Chi vede la mia lega?", a: <>Le leghe <strong>pubbliche</strong> compaiono nella home di tutti. Le altre compaiono solo nella home di chi ne fa parte.</> },
-      { q: "Come si crea una lega?", a: <>Le leghe le crea il gestore del sito, che può poi affidarle ad altri amministratori. Se vuoi aprirne una per il tuo gruppo o il tuo circolo, contatta chi ti ha invitato su PongFu.</> },
+      { q: "Chi vede il mio circuito?", a: <>I circuiti <strong>pubblici</strong> compaiono nella home di tutti. Gli altri compaiono solo nella home di chi ne fa parte.</> },
+      { q: "Come si crea un circuito?", a: <>I circuiti li crea il gestore del sito, che può poi affidarli ad altri amministratori. Se vuoi aprirne uno per il tuo gruppo o il tuo circolo, contatta chi ti ha invitato su PongFu.</> },
     ],
   },
   {
     title: "Tornei",
     items: [
-      { q: "Come mi iscrivo a un torneo?", a: <>Quando un torneo della tua lega ha le <strong>iscrizioni aperte</strong>, nella sua pagina trovi il riquadro «Iscriviti» (in doppio scegli anche il compagno). Puoi iscriverti o ritirarti fino alla scadenza. Se le iscrizioni non sono aperte, ti iscrive l&apos;organizzatore.</> },
+      { q: "Come mi iscrivo a un torneo?", a: <>Quando un torneo del tuo circuito ha le <strong>iscrizioni aperte</strong>, nella sua pagina trovi il riquadro «Iscriviti» (in doppio scegli anche il compagno). Puoi iscriverti o ritirarti fino alla scadenza. Se le iscrizioni non sono aperte, ti iscrive l&apos;organizzatore.</> },
       { q: "Come funziona un torneo?", a: <>Di solito ci sono due fasi. Nella <strong>qualificazione</strong> si gioca a gironi, tutti contro tutti. I migliori di ogni girone passano alla <strong>fase finale</strong>, a eliminazione diretta, fino alla finale. Nella pagina del torneo le trovi in due schede separate.</> },
-      { q: "Come si ordina un girone?", a: <>Ogni vittoria vale 2 punti e ogni sconfitta 1. Se due giocatori sono a pari punti conta lo scontro diretto; altrimenti la differenza tra set vinti e persi e poi quella tra punti fatti e subiti. Questi punti servono solo per il girone: non sono i punti della classifica della lega.</> },
-      { q: "Chi inserisce i risultati?", a: <>L&apos;organizzatore del torneo: gli amministratori della lega oppure, per gli amichevoli, chi li ha creati. Tutti gli altri vedono i risultati aggiornarsi in diretta.</> },
-      { q: "Che differenza c'è tra torneo valido e amichevole?", a: <>Un torneo <strong>valido per la classifica</strong> sposta i punti della lega quando viene chiuso. Un torneo <strong>amichevole</strong> si gioca per divertimento: non tocca nessuna classifica e non entra nello storico della lega.</> },
+      { q: "Come si ordina un girone?", a: <>Ogni vittoria vale 2 punti e ogni sconfitta 1. Se due giocatori sono a pari punti conta lo scontro diretto; altrimenti la differenza tra set vinti e persi e poi quella tra punti fatti e subiti. Questi punti servono solo per il girone: non sono i punti della classifica del circuito.</> },
+      { q: "Chi inserisce i risultati?", a: <>L&apos;organizzatore del torneo: gli amministratori del circuito oppure, per gli amichevoli, chi li ha creati. Tutti gli altri vedono i risultati aggiornarsi in diretta.</> },
+      { q: "Che differenza c'è tra torneo valido e amichevole?", a: <>Un torneo <strong>valido per la classifica</strong> sposta i punti del circuito quando viene chiuso. Un torneo <strong>amichevole</strong> si gioca per divertimento: non tocca nessuna classifica e non entra nello storico del circuito.</> },
     ],
   },
   {
     title: "Punti e classifica",
     items: [
-      { q: "Come si guadagnano e si perdono i punti?", a: <>Ogni partita di un torneo valido sposta punti da chi perde a chi vince: battere un avversario più forte vale di più, perdere contro uno più debole costa di più. Nella pagina di ogni lega, sotto la classifica, trovi la spiegazione completa con i numeri di quella lega e una tabella di esempi.</> },
-      { q: "Perché ho perso punti senza giocare?", a: <>In molte leghe chi salta un torneo perde una piccola parte dei punti che ha sopra una certa soglia, così la classifica premia chi gioca. Se eri infortunato o fuori per lavoro, chiedi all&apos;amministratore di segnare l&apos;assenza: in quel periodo non perdi nulla.</> },
+      { q: "Come si guadagnano e si perdono i punti?", a: <>Ogni partita di un torneo valido sposta punti da chi perde a chi vince: battere un avversario più forte vale di più, perdere contro uno più debole costa di più. Nella pagina di ogni circuito, sotto la classifica, trovi la spiegazione completa con i numeri di quel circuito e una tabella di esempi.</> },
+      { q: "Perché ho perso punti senza giocare?", a: <>In molti circuiti chi salta un torneo perde una piccola parte dei punti che ha sopra una certa soglia, così la classifica premia chi gioca. Se eri infortunato o fuori per lavoro, chiedi all&apos;amministratore di segnare l&apos;assenza: in quel periodo non perdi nulla.</> },
       { q: "Quando si aggiorna la classifica?", a: <>Quando l&apos;organizzatore chiude il torneo. Se un risultato era sbagliato, può riaprirlo, correggerlo e richiuderlo: la classifica viene ricalcolata da capo.</> },
-      { q: "Il punteggio dei set conta?", a: <>Per la classifica della lega conta solo chi vince la partita. I set servono a ordinare i gironi.</> },
-      { q: "Cosa sono le sfide?", a: <>Nelle leghe di singolare puoi sfidare un altro membro anche fuori dai tornei: dalla pagina della lega scegli l&apos;avversario e lanci la sfida. Le sfide ci sono solo nelle leghe in cui l&apos;amministratore le ha attivate. Se accetta, giocate; poi uno dei due inserisce il risultato e l&apos;altro lo conferma (o lo contesta: in quel caso decide un amministratore della lega). Una sfida confermata sposta una parte dei punti di una partita di torneo, e l&apos;amministratore può limitare quante sfide si possono giocare a settimana con lo stesso avversario. Le sfide che trovi in attesa sono nella tua home, alla voce «Le mie sfide».</> },
+      { q: "Il punteggio dei set conta?", a: <>Per la classifica del circuito conta solo chi vince la partita. I set servono a ordinare i gironi.</> },
+      { q: "Cosa sono le sfide?", a: <>Nei circuiti di singolare puoi sfidare un altro membro anche fuori dai tornei: dalla pagina del circuito scegli l&apos;avversario e lanci la sfida. Le sfide ci sono solo nei circuiti in cui l&apos;amministratore le ha attivate. Se accetta, giocate; poi uno dei due inserisce il risultato e l&apos;altro lo conferma (o lo contesta: in quel caso decide un amministratore del circuito). Una sfida confermata sposta una parte dei punti di una partita di torneo, e l&apos;amministratore può limitare quante sfide si possono giocare a settimana con lo stesso avversario. Le sfide che trovi in attesa sono nella tua home, alla voce «Le mie sfide».</> },
       { q: "Una sfida può scadere?", a: <>Sì: se l&apos;avversario non risponde entro 7 giorni la sfida scade, e lo stesso succede se dopo averla accettata nessuno inserisce il risultato entro 3 settimane. Chi lancia la sfida lo vede nella sua home, alla voce «Le mie sfide», e può sfidare di nuovo. Chi non gioca sfide non perde punti.</> },
     ],
   },

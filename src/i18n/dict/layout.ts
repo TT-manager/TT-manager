@@ -3,7 +3,7 @@ import { dict } from "../locale";
 /** Barra in alto, footer e testi generali del sito. */
 export const layoutText = dict({
   siteTitle: "Tennis tavolo",
-  siteDescription: "Leghe amatoriali di tennis tavolo tra amici: ranking, tornei e risultati in diretta.",
+  siteDescription: "Circuiti amatoriali di tennis tavolo tra amici: ranking, tornei e risultati in diretta.",
   home: "Home",
   login: "Accedi",
   signup: "Registrati",
@@ -13,7 +13,7 @@ export const layoutText = dict({
   profileShort: "Profilo",
   logout: "Esci",
   homeAria: "home",
-  footerTagline: "Leghe amatoriali di tennis tavolo tra amici: ranking, tornei e risultati in diretta.",
+  footerTagline: "Circuiti amatoriali di tennis tavolo tra amici: ranking, tornei e risultati in diretta.",
   theSite: "Il sito",
   faq: "Domande frequenti",
   legal: "Informazioni legali",

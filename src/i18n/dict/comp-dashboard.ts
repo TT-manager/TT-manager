@@ -3,11 +3,11 @@ import { dict } from "../locale";
 /** Dashboard di chi è collegato (componente, sagoma di caricamento e testi calcolati dal server). */
 export const compDashboard = dict({
   you: "Tu",
-  kpiLeagues: "Leghe",
+  kpiLeagues: "Circuiti",
   leaguesSub: "a cui partecipi",
   leaguesSubNone: "inizia a partecipare",
   kpiLive: "Tornei in corso",
-  liveSubMany: "nelle tue leghe e amichevoli",
+  liveSubMany: "nei tuoi circuiti e amichevoli",
   liveSubNone: "nessuno adesso",
   kpiGames: "Partite giocate",
   gamesSub: "amichevoli comprese",
@@ -25,7 +25,7 @@ export const compDashboard = dict({
   youPlay: "Ci giochi",
   friendly: "Amichevole",
   progress: (played: number, total: number) => `${played} su ${total} partite`,
-  myLeagues: "Le tue leghe",
+  myLeagues: "I tuoi circuiti",
   quickActions: "Azioni rapide",
   createFriendly: "Crea un torneo amichevole",
   challengeFriends: "Sfida i tuoi amici",
