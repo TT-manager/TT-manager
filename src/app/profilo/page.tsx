@@ -3,7 +3,8 @@ import { Suspense } from "react";
 import { ActionForm } from "@/components/action-form";
 import { requireAccount } from "@/lib/account";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { statusLabel } from "@/lib/labels";
+import { pointsLabel, statusLabel } from "@/lib/labels";
+import { DEFAULT_RANKING, parseRankingSettings } from "@/lib/domain/ranking";
 import { Avatar } from "@/components/avatar";
 import { AvatarUploader } from "./avatar-uploader";
 import { formatDeadline, registrationIsOpen } from "@/lib/registration";
@@ -36,7 +37,7 @@ async function Profile() {
   const [t, l] = await Promise.all([tr(accountProfileText), getLocale()]);
   const svc = createServiceClient();
   const [{ data: memberships }, { data: requests }, { data: all }, { data: friendlies }, { count: friendRequests }, clubs, { data: clubRequest }] = await Promise.all([
-    svc.from("championship_players").select("rating, games_played, championships(id, name, slug)").eq("player_id", account.player.id),
+    svc.from("championship_players").select("rating, games_played, championships(id, name, slug, kind, settings)").eq("player_id", account.player.id),
     svc.from("championship_requests").select("id, status, created_at, championships(name, slug)").eq("user_id", account.userId)
       .neq("status", "approved").order("created_at", { ascending: false }).limit(20),
     svc.from("championships").select("id, name, slug, kind").order("name"),
@@ -49,7 +50,13 @@ async function Profile() {
       .order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
   type C = { id: string; name: string; slug: string };
-  const mine = (memberships ?? []).map((m) => ({ ...(m.championships as unknown as C), rating: m.rating as number, games: m.games_played as number }));
+  const mine = (memberships ?? []).map((m) => ({ ...(m.championships as unknown as C & { kind: string; settings: unknown }), rating: m.rating as number, games: m.games_played as number }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  // Posizione in classifica di ogni lega (chi non ha ancora giocato non ha posizione).
+  const { data: positions } = mine.length ? await svc.from("championship_ranking").select("championship_id, position, games_played")
+    .eq("player_id", account.player.id).in("championship_id", mine.map((m) => m.id)) : { data: [] };
+  const posOf = new Map((positions ?? []).map((p) => [p.championship_id as string, (p.games_played as number) > 0 ? p.position as number : null]));
+
   const mineIds = new Set(mine.map((m) => m.id));
   const { data: openRows } = mine.length ? await svc.from("tournaments")
     .select("id, name, starts_on, status, public_code, championship_id, registration_open, registration_deadline")
@@ -94,12 +101,26 @@ async function Profile() {
       <section>
         <h2 className="text-xl font-semibold">{t.myLeagues}</h2>
         {mine.length === 0 ? <p className={`mt-2 ${muted}`}>{t.noLeagues}</p> : (
-          <ul className="mt-2 divide-y">
-            {mine.map((m) => (
-              <li key={m.id} className="flex justify-between py-2">
-                <Link href={`/c/${m.slug}`} className="font-medium hover:underline">{m.name}</Link>
-                <span className="tabular-nums">{m.rating} · {t.games(m.games)}</span>
-              </li>))}
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+            {mine.map((m) => {
+              const pos = posOf.get(m.id) ?? null;
+              const s = parseRankingSettings(m.settings);
+              const label = pointsLabel(("settings" in s ? s.settings : DEFAULT_RANKING).label, l).toLowerCase();
+              return (
+                <li key={m.id}>
+                  <Link href={`/c/${m.slug}`} className="card flex h-full items-center gap-4 border-l-4 !border-l-brand transition hover:border-brand">
+                    <span className="w-12 shrink-0 text-center font-display text-3xl font-bold leading-none">{pos ? `#${pos}` : "—"}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display text-lg font-bold uppercase">{m.name}</span>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-muted">
+                        <span className="badge-muted">{m.kind === "doubles" ? t.doubles : t.singles}</span>
+                        <span className="tabular-nums"><strong className="text-ink dark:text-white">{m.rating}</strong> {label} · {t.games(m.games)}</span>
+                      </span>
+                    </span>
+                    <span aria-hidden="true" className="text-2xl text-muted">›</span>
+                  </Link>
+                </li>);
+            })}
           </ul>)}
         {pending.length > 0 && (
           <>

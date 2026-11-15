@@ -15,7 +15,7 @@ export const accountProfileText = dict({
   closes: (when: string) => ` · chiude ${when}`,
   myLeagues: "Le mie leghe",
   noLeagues: "Non partecipi ancora a nessuna lega.",
-  games: (n: number) => `${n} partite`,
+  games: (n: number): string => (n === 1 ? "1 partita" : `${n} partite`),
   pendingRequests: "Richieste in attesa",
   cancel: "Annulla",
   rejectedRequests: (names: string) => `Richieste non accettate: ${names}.`,
