@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseUrl } from "./env";
+import { timedFetch } from "./timed-fetch";
 
 /**
  * Client con la chiave segreta: aggira la RLS. Usare SOLO nel server
@@ -12,5 +13,6 @@ export function createServiceClient() {
   if (!key) throw new Error("SUPABASE_SECRET_KEY non configurata");
   return createClient(supabaseUrl, key, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: timedFetch },
   });
 }

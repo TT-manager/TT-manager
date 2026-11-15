@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/env";
+import { timedFetch } from "@/lib/supabase/timed-fetch";
 import { isLocale, LOCALE_COOKIE, localeFromAcceptLanguage } from "@/i18n/locale";
 
 // Rinnova la sessione di login (cookie) e manda al login chi non è entrato in /admin.
@@ -10,7 +11,9 @@ export async function proxy(request: NextRequest) {
   const newLocale = isLocale(request.cookies.get(LOCALE_COOKIE)?.value) ? null : localeFromAcceptLanguage(request.headers.get("accept-language"));
   if (newLocale) request.cookies.set(LOCALE_COOKIE, newLocale);
   let response = NextResponse.next({ request });
+  const t0 = performance.now();
   const supabase = createServerClient(supabaseUrl, supabasePublishableKey, {
+    global: { fetch: timedFetch },
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll(items) {
@@ -21,6 +24,7 @@ export async function proxy(request: NextRequest) {
     },
   });
   const { data } = await supabase.auth.getClaims();
+  console.log(`[perf] proxy ${Math.round(performance.now() - t0)}ms ${request.nextUrl.pathname}`);
   if (!data?.claims && request.nextUrl.pathname.startsWith("/admin")) {
     response = NextResponse.redirect(new URL("/login", request.url));
   }
