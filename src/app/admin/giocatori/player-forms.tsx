@@ -59,12 +59,13 @@ export function PlayersTable({ players, clubs }: { players: AdminPlayer[]; clubs
           <option value="inactive">{t.filterInactive}</option>
         </select>
       </div>
-      <p className="mt-2 text-sm text-muted">{t.playersShown(shown.length, players.length)} {t.playersHint}</p>
+      <p className="mt-2 text-sm text-muted">{t.playersShown(shown.length, players.length)} {t.playersHint}
+        <span className="ml-1 inline-flex items-center gap-1 whitespace-nowrap"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> {t.hasAccount}</span></p>
       <div className="mt-3 overflow-x-auto rounded-lg border border-line bg-surface">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full min-w-[680px] text-left text-sm">
           <thead className="bg-surface text-xs uppercase tracking-wide text-muted">
             <tr>
-              <th className="sticky left-0 z-10 bg-surface px-3 py-2">{t.name}</th>
+              <th className="sticky left-0 z-10 bg-surface px-2 py-2 shadow-[1px_0_0_var(--line)] sm:px-3">{t.name}</th>
               <th className="px-2 py-2">{t.club}</th>
               <th className="px-2 py-2">{t.leagues}</th>
               <th className="px-2 py-2 text-center">{t.active}</th>
@@ -89,20 +90,23 @@ function PlayerRow({ player: p, clubs }: { player: AdminPlayer; clubs: Club[] })
   const form = `player-${p.id}`;
   return (
     <tr className={p.active ? "" : "opacity-60"}>
-      <td className="sticky left-0 z-10 bg-surface px-3 py-2">
+      {/* Colonna fissa: su telefono solo il nome (stretto), così resta spazio per il resto della riga. */}
+      <td className="sticky left-0 z-10 bg-surface px-2 py-2 shadow-[1px_0_0_var(--line)] sm:px-3">
         <div className="flex items-center gap-2">
-          <Avatar name={p.full_name} path={p.avatar_path} size="h-8 w-8" />
-          <input form={form} name="full_name" defaultValue={p.full_name} required aria-label={t.name} className={`${cell} w-40`} />
-          {p.hasAccount && <span title={t.hasAccount} className="text-xs text-muted">👤</span>}
+          <span className="hidden sm:block"><Avatar name={p.full_name} path={p.avatar_path} size="h-8 w-8" /></span>
+          <span className="relative">
+            <input form={form} name="full_name" defaultValue={p.full_name} required aria-label={t.name} className={`${cell} w-32 sm:w-44`} />
+            {p.hasAccount && <span title={t.hasAccount} aria-label={t.hasAccount} className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-surface" />}
+          </span>
         </div>
       </td>
       <td className="px-2 py-2">
-        <select form={form} name="club_id" defaultValue={p.club_id ?? ""} aria-label={t.club} className={`select-arrow ${cell} w-44`}>
+        <select form={form} name="club_id" defaultValue={p.club_id ?? ""} aria-label={t.club} className={`select-arrow ${cell} w-40`}>
           <option value="">{t.noClub}</option>
           {clubs.map((c) => <option key={c.id} value={c.id}>{clubLabel(c)}</option>)}
         </select>
       </td>
-      <td className="max-w-48 px-2 py-2 text-muted">{p.championships.length ? p.championships.join(", ") : "—"}</td>
+      <td className="whitespace-nowrap px-2 py-2 text-muted">{p.championships.length ? p.championships.join(", ") : "—"}</td>
       <td className="px-2 py-2 text-center"><input form={form} type="checkbox" name="active" defaultChecked={p.active} aria-label={t.active} className="h-4 w-4" /></td>
       <td className="whitespace-nowrap px-2 py-2">
         <div className="flex items-center gap-3">
