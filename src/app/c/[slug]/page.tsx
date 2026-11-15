@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { getChampionshipBySlug, getChampionshipTournaments, getRanking } from "@/lib/data";
+import { canSeeChampionship, getChampionshipBySlug, getChampionshipTournaments, getRanking } from "@/lib/data";
 import { statusLabel } from "@/lib/labels";
 import { registrationIsOpen } from "@/lib/registration";
 import { RankingTable } from "@/components/ranking-table";
@@ -32,6 +32,14 @@ async function Championship({ params }: { params: PageProps<"/c/[slug]">["params
   const c = await getChampionshipBySlug(slug);
   if (!c) notFound();
   const [tx, l] = [await tr(publicLeagueText), await getLocale()];
+  // Circuito non pubblico e chi guarda non ne fa parte: solo il nome e come entrare.
+  if (!(await canSeeChampionship(c))) return (
+    <header className="mt-4 rounded-2xl bg-ink p-6 text-white shadow-lg">
+      <p className="text-sm uppercase tracking-widest text-white/60">{tx.leagueKind(c.kind === "doubles")}</p>
+      <h1 className="text-4xl font-bold">{c.name}</h1>
+      <p className="mt-3 text-white/80">{tx.membersOnly}</p>
+      <Link href={`/partecipa/${c.slug}`} className="btn-primary mt-4">{tx.wantToPlay}</Link>
+    </header>);
   const [rows, { tournaments, past }] = await Promise.all([getRanking(c.id), getChampionshipTournaments(c.id)]);
   return (
     <>

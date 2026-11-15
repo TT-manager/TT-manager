@@ -28,7 +28,7 @@ async function Join({ params, searchParams }: Pick<PageProps<"/partecipa/[slug]"
   if (!/^[a-z0-9-]{1,60}$/.test(slug)) notFound();
   const token = typeof sp.invito === "string" ? sp.invito.slice(0, 64) : "";
   const svc = createServiceClient();
-  const { data: c } = await svc.from("championships").select("id, name, kind").eq("slug", slug).maybeSingle();
+  const { data: c } = await svc.from("championships").select("id, name, kind, is_public").eq("slug", slug).maybeSingle();
   if (!c) notFound();
   const { data: inv } = await svc.from("championship_invites").select("token").eq("championship_id", c.id).maybeSingle();
   const validInvite = Boolean(token && inv?.token === token);
@@ -58,7 +58,8 @@ async function Join({ params, searchParams }: Pick<PageProps<"/partecipa/[slug]"
   ]);
   if (member) return <>{header}<p className="mt-6">{t.alreadyMember} <Link href={`/c/${slug}`} className="underline">{t.goToRanking}</Link></p></>;
   if (pending) return <>{header}<p className="mt-6">{t.pending} <Link href="/profilo" className="underline">{t.myProfile}</Link></p></>;
-  const names = (unclaimed ?? []).map((u) => ({ id: u.player_id as string, name: (u.players as unknown as { full_name: string }).full_name }))
+  // Nei circuiti non pubblici i nomi dei giocatori si mostrano solo a chi ha il link d'invito.
+  const names = (c.is_public || validInvite ? unclaimed ?? [] : []).map((u) => ({ id: u.player_id as string, name: (u.players as unknown as { full_name: string }).full_name }))
     .sort((a, b) => a.name.localeCompare(b.name, l));
   // Stesso nome di un giocatore già in classifica senza account: chiediamo esplicitamente se è lui.
   const match = sameNameMatch(account.player.full_name, names);

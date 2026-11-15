@@ -1,4 +1,5 @@
 import { createPublicClient } from "./supabase/public";
+import { createServerSupabase } from "./supabase/server";
 import { createServiceClient } from "./supabase/admin";
 import { hasServiceKey } from "./organizer";
 import { entryName, loadEntries } from "./entries";
@@ -34,8 +35,19 @@ export async function getChampionshipBySlug(slug: string): Promise<Championship 
   return data ? toChampionship(data) : null;
 }
 
+/**
+ * Si può vedere il circuito? Sì se è pubblico, se chi guarda ne fa parte o è amministratore.
+ * Classifica, storico e albo d'oro dei circuiti non pubblici sono protetti anche nel database.
+ */
+export async function canSeeChampionship(c: Pick<Championship, "id" | "isPublic">): Promise<boolean> {
+  if (c.isPublic) return true;
+  const { data } = await (await createServerSupabase()).rpc("championship_visible", { cid: c.id });
+  return data === true;
+}
+
 export async function getRanking(championshipId: string): Promise<RankingRow[]> {
-  const { data, error } = await createPublicClient()
+  // Con la sessione di chi guarda: nei circuiti non pubblici la classifica la vedono solo i membri.
+  const { data, error } = await (await createServerSupabase())
     .from("championship_ranking").select("player_id, full_name, club, rating, games_played, position, avatar_path")
     .eq("championship_id", championshipId).order("position").order("full_name");
   if (error) throw new Error("Impossibile leggere la classifica");
@@ -44,7 +56,7 @@ export async function getRanking(championshipId: string): Promise<RankingRow[]> 
 
 /** Tornei della lega (pubblici) e albo d'oro dei tornei passati. */
 export async function getChampionshipTournaments(championshipId: string) {
-  const supabase = createPublicClient();
+  const supabase = await createServerSupabase();
   const [{ data: tournaments }, { data: past }] = await Promise.all([
     supabase.from("tournaments_public").select("id, name, starts_on, status, public_code, closed_at, ranked, championship_id, registration_open, registration_deadline").eq("championship_id", championshipId)
       // Storico: solo i tornei validi per i punti; gli amichevoli si vedono finché non sono chiusi.
@@ -86,7 +98,7 @@ async function challengeOpponents(playerId: string, ids: (string | null)[]) {
 
 /** Giocatore con punti e storico in ogni lega. */
 export async function getPlayer(id: string) {
-  const supabase = createPublicClient();
+  const supabase = await createServerSupabase();
   const { data: player } = await supabase.from("players").select("id, full_name, club, active, avatar_path").eq("id", id).maybeSingle();
   if (!player) return null;
   const [{ data: memberships }, { data: history }] = await Promise.all([
