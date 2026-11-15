@@ -36,7 +36,7 @@ async function done(cid: string, ok: string): Promise<ActionState> {
 
 function slugify(name: string) {
   return name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50) || "lega";
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50) || "circuito";
 }
 
 export async function createChampionship(_prev: ActionState, formData: FormData): Promise<ActionState> {
