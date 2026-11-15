@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { addPlayer, deletePlayer, removePlayerAvatar, updatePlayer, type FormState } from "./actions";
 import { Avatar } from "@/components/avatar";
@@ -9,10 +10,9 @@ import { useTr } from "@/i18n/client";
 import { adminShellText } from "@/i18n/dict/admin-shell";
 
 const input = "rounded border bg-transparent px-3 py-2";
-const cell = "rounded border border-line bg-transparent px-2 py-1.5 text-sm";
 const msg = (s: FormState) =>
-  s.error ? <span role="alert" className="text-xs text-red-700 dark:text-red-400">{s.error}</span>
-  : s.ok ? <span className="text-xs text-green-700 dark:text-green-400">{s.ok}</span> : null;
+  s.error ? <p role="alert" className="text-sm text-red-700 dark:text-red-400">{s.error}</p>
+  : s.ok ? <p className="text-sm text-green-700 dark:text-green-400">{s.ok}</p> : null;
 
 export type AdminPlayer = {
   id: string; full_name: string; club_id: string | null; active: boolean; championships: string[]; avatar_path: string | null; hasAccount: boolean;
@@ -35,7 +35,7 @@ export function AddPlayerForm({ clubs }: { clubs: Club[] }) {
   );
 }
 
-/** Tabella dei giocatori: una riga per giocatore, ricerca e filtro; su telefono scorre di lato. */
+/** Elenco dei giocatori in sola lettura, con ricerca e filtro: ogni riga apre la scheda del giocatore. */
 export function PlayersTable({ players, clubs }: { players: AdminPlayer[]; clubs: Club[] }) {
   const t = useTr(adminShellText);
   const [q, setQ] = useState("");
@@ -59,73 +59,79 @@ export function PlayersTable({ players, clubs }: { players: AdminPlayer[]; clubs
           <option value="inactive">{t.filterInactive}</option>
         </select>
       </div>
-      <p className="mt-2 text-sm text-muted">{t.playersShown(shown.length, players.length)} {t.playersHint}
-        <span className="ml-1 inline-flex items-center gap-1 whitespace-nowrap"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> {t.hasAccount}</span></p>
-      <div className="mt-3 overflow-x-auto rounded-lg border border-line bg-surface">
-        <table className="w-full min-w-[680px] text-left text-sm">
-          <thead className="bg-surface text-xs uppercase tracking-wide text-muted">
-            <tr>
-              <th className="sticky left-0 z-10 bg-surface px-2 py-2 shadow-[1px_0_0_var(--line)] sm:px-3">{t.name}</th>
-              <th className="px-2 py-2">{t.club}</th>
-              <th className="px-2 py-2">{t.leagues}</th>
-              <th className="px-2 py-2 text-center">{t.active}</th>
-              <th className="px-2 py-2"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {shown.map((p) => <PlayerRow key={p.id} player={p} clubs={clubs} />)}
-            {shown.length === 0 && <tr><td colSpan={5} className="px-3 py-6 text-center text-muted">{t.noPlayersFound}</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      <p className="mt-2 text-sm text-muted">{t.playersShown(shown.length, players.length)} {t.playersTapHint}</p>
+      <ul className="mt-3 divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
+        {shown.map((p) => {
+          const club = clubName.get(p.club_id ?? "");
+          return (
+            <li key={p.id}>
+              <Link href={`/admin/giocatori/${p.id}`} className={`flex items-center gap-3 px-3 py-2.5 transition hover:bg-brand/5 ${p.active ? "" : "opacity-60"}`}>
+                <span className="relative">
+                  <Avatar name={p.full_name} path={p.avatar_path} size="h-10 w-10 text-xs" />
+                  {p.hasAccount && <span title={t.hasAccount} aria-label={t.hasAccount} className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-surface" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{p.full_name}</span>
+                  <span className="block truncate text-xs text-muted">
+                    {[club, p.championships.length ? p.championships.join(", ") : t.inNoLeague].filter(Boolean).join(" · ")}</span>
+                </span>
+                {!p.active && <span className="badge-muted shrink-0">{t.inactive}</span>}
+                <span aria-hidden="true" className="text-xl text-muted">›</span>
+              </Link>
+            </li>);
+        })}
+        {shown.length === 0 && <li className="px-3 py-6 text-center text-muted">{t.noPlayersFound}</li>}
+      </ul>
+      <p className="mt-2 flex items-center gap-1.5 text-xs text-muted"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> {t.hasAccount}</p>
     </section>
   );
 }
 
-function PlayerRow({ player: p, clubs }: { player: AdminPlayer; clubs: Club[] }) {
+/** Scheda del giocatore: modifica di nome, circolo e stato. */
+export function EditPlayerForm({ player, clubs }: { player: { id: string; full_name: string; club_id: string | null; active: boolean }; clubs: Club[] }) {
   const t = useTr(adminShellText);
   const [state, action, pending] = useActionState<FormState, FormData>(updatePlayer, {});
-  const [delState, delAction, delPending] = useActionState<FormState, FormData>(deletePlayer, {});
-  const [photoState, photoAction, photoPending] = useActionState<FormState, FormData>(removePlayerAvatar, {});
-  const form = `player-${p.id}`;
   return (
-    <tr className={p.active ? "" : "opacity-60"}>
-      {/* Colonna fissa: su telefono solo il nome (stretto), così resta spazio per il resto della riga. */}
-      <td className="sticky left-0 z-10 bg-surface px-2 py-2 shadow-[1px_0_0_var(--line)] sm:px-3">
-        <div className="flex items-center gap-2">
-          <span className="hidden sm:block"><Avatar name={p.full_name} path={p.avatar_path} size="h-8 w-8" /></span>
-          <span className="relative">
-            <input form={form} name="full_name" defaultValue={p.full_name} required aria-label={t.name} className={`${cell} w-32 sm:w-44`} />
-            {p.hasAccount && <span title={t.hasAccount} aria-label={t.hasAccount} className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-surface" />}
-          </span>
-        </div>
-      </td>
-      <td className="px-2 py-2">
-        <select form={form} name="club_id" defaultValue={p.club_id ?? ""} aria-label={t.club} className={`select-arrow ${cell} w-40`}>
-          <option value="">{t.noClub}</option>
-          {clubs.map((c) => <option key={c.id} value={c.id}>{clubLabel(c)}</option>)}
-        </select>
-      </td>
-      <td className="whitespace-nowrap px-2 py-2 text-muted">{p.championships.length ? p.championships.join(", ") : "—"}</td>
-      <td className="px-2 py-2 text-center"><input form={form} type="checkbox" name="active" defaultChecked={p.active} aria-label={t.active} className="h-4 w-4" /></td>
-      <td className="whitespace-nowrap px-2 py-2">
-        <div className="flex items-center gap-3">
-          <form id={form} action={action}>
-            <input type="hidden" name="id" value={p.id} />
-            <button disabled={pending} className="btn-outline px-3 py-1 text-sm">{pending ? "…" : t.save}</button>
-          </form>
-          {p.avatar_path && (
-            <form action={photoAction} onSubmit={(e) => { if (!confirm(t.confirmRemovePhoto)) e.preventDefault(); }}>
-              <input type="hidden" name="id" value={p.id} />
-              <button disabled={photoPending} className="text-xs underline">{t.removePhoto}</button>
-            </form>)}
-          <form action={delAction} onSubmit={(e) => { if (!confirm(t.confirmDeletePlayer(p.full_name))) e.preventDefault(); }}>
-            <input type="hidden" name="id" value={p.id} />
-            <button disabled={delPending} className="text-xs text-red-700 underline dark:text-red-400">{t.delete}</button>
-          </form>
-          {msg(state)}{msg(delState)}{msg(photoState)}
-        </div>
-      </td>
-    </tr>
+    <form action={action} className="grid gap-3">
+      <input type="hidden" name="id" value={player.id} />
+      <label className="grid gap-1 text-sm">{t.name}
+        <input name="full_name" defaultValue={player.full_name} required className={input} /></label>
+      <div className="grid gap-1 text-sm">{t.club}
+        <ClubPicker clubs={clubs} defaultValue={player.club_id ?? ""} className={`${input} w-full`} /></div>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={player.active} className="h-4 w-4" /> {t.activeLong}</label>
+      <div className="flex flex-wrap items-center gap-3">
+        <button disabled={pending} className="btn-primary">{pending ? "…" : t.save}</button>
+        {msg(state)}
+      </div>
+    </form>
+  );
+}
+
+export function RemovePhotoButton({ id }: { id: string }) {
+  const t = useTr(adminShellText);
+  const [state, action, pending] = useActionState<FormState, FormData>(removePlayerAvatar, {});
+  return (
+    <form action={action} onSubmit={(e) => { if (!confirm(t.confirmRemovePhoto)) e.preventDefault(); }} className="space-y-1">
+      <input type="hidden" name="id" value={id} />
+      <button disabled={pending} className="btn-outline px-3 py-1.5 text-sm">{pending ? "…" : t.removePhoto}</button>
+      {msg(state)}
+    </form>
+  );
+}
+
+export function DeletePlayerBox({ id, name }: { id: string; name: string }) {
+  const t = useTr(adminShellText);
+  const [state, action, pending] = useActionState<FormState, FormData>(deletePlayer, {});
+  return (
+    <section className="rounded-lg border-2 border-red-600 p-4">
+      <h2 className="font-semibold text-red-700 dark:text-red-400">{t.deletePlayerTitle}</h2>
+      <p className="mt-1 text-sm text-muted">{t.deletePlayerNote}</p>
+      <form action={action} className="mt-3" onSubmit={(e) => { if (!confirm(t.confirmDeletePlayer(name))) e.preventDefault(); }}>
+        <input type="hidden" name="id" value={id} />
+        <input type="hidden" name="back_to_list" value="1" />
+        <button disabled={pending} className="rounded border border-red-600 px-4 py-2 text-red-700 hover:bg-red-600 hover:text-white dark:text-red-400">{pending ? "…" : t.delete}</button>
+      </form>
+      <div className="mt-2">{msg(state)}</div>
+    </section>
   );
 }

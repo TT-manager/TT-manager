@@ -1,5 +1,6 @@
 "use server";
 import { refresh, revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { clearAvatar } from "@/lib/avatar-server";
@@ -29,7 +30,7 @@ export async function addPlayer(_prev: FormState, formData: FormData): Promise<F
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("players").insert(parsed.value);
   if (error) return { error: t.cantSavePlayer };
-  revalidatePath("/admin/giocatori");
+  revalidatePath("/admin/giocatori", "layout");
   refresh(); // aggiorna subito la pagina aperta
   return { ok: t.playerAdded(parsed.value.full_name) };
 }
@@ -44,7 +45,7 @@ export async function updatePlayer(_prev: FormState, formData: FormData): Promis
   const supabase = await createServerSupabase();
   const { error } = await supabase.from("players").update({ ...parsed.value, active }).eq("id", id);
   if (error) return { error: t.cantSaveChanges };
-  revalidatePath("/admin/giocatori");
+  revalidatePath("/admin/giocatori", "layout");
   refresh(); // aggiorna subito la pagina aperta
   return { ok: t.saved };
 }
@@ -58,6 +59,8 @@ export async function deletePlayer(_prev: FormState, formData: FormData): Promis
   if (error)
     return { error: t.playerInUse };
   revalidatePath("/admin/giocatori");
+  // Dalla scheda del giocatore si torna all'elenco.
+  if (formData.get("back_to_list") === "1") redirect("/admin/giocatori");
   refresh(); // aggiorna subito la pagina aperta
   return { ok: t.deleted };
 }
@@ -70,7 +73,7 @@ export async function removePlayerAvatar(_prev: FormState, formData: FormData): 
   const id = String(formData.get("id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { error: t.invalidPlayer };
   await clearAvatar(id);
-  revalidatePath("/admin/giocatori");
+  revalidatePath("/admin/giocatori", "layout");
   refresh();
   return { ok: t.photoRemoved };
 }
