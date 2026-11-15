@@ -123,6 +123,9 @@ export async function setEnrollment(_prev: EnrollState, formData: FormData): Pro
   if (t.status !== "draft") return { error: tx.entriesClosedGenerated };
   const ch = { kind: access.kind };
   const allowed = new Set(await enrollablePlayerIds(access));
+  // Chi era già iscritto resta valido anche se nel frattempo è stato disattivato (l'organizzatore può toglierlo).
+  const { data: current } = await supabase.from("entry_members").select("player_id").eq("tournament_id", tournamentId);
+  for (const m of current ?? []) allowed.add(m.player_id as string);
 
   let groups: string[][] = ch.kind === "doubles"
     ? formData.getAll("pair").map((v) => String(v).split(",").map((x) => x.trim()).filter(Boolean))
@@ -337,7 +340,9 @@ export async function reopenTournamentAction(_prev: CloseState, formData: FormDa
 async function enrollablePlayerIds(access: Awaited<ReturnType<typeof requireTournamentManager>>): Promise<string[]> {
   if (access.championshipId) {
     const supabase = await createServerSupabase();
-    const { data } = await supabase.from("championship_players").select("player_id").eq("championship_id", access.championshipId);
+    // Solo i giocatori attivi della lega (chi è disattivato non si può iscrivere).
+    const { data } = await supabase.from("championship_players").select("player_id, players!inner(active)")
+      .eq("championship_id", access.championshipId).eq("players.active", true);
     return (data ?? []).map((m) => m.player_id as string);
   }
   if (!access.ownerUserId || !hasServiceKey()) return [];

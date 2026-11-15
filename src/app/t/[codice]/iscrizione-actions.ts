@@ -26,6 +26,12 @@ async function load(formData: FormData) {
   return { svc, t, account, tx } as const;
 }
 
+/** Vero se il giocatore è attivo (un amministratore può averlo disattivato). */
+async function isActive(svc: ReturnType<typeof createServiceClient>, playerId: string) {
+  const { data } = await svc.from("players").select("active").eq("id", playerId).maybeSingle();
+  return Boolean(data?.active);
+}
+
 export async function selfEnroll(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const ctx = await load(formData);
   if ("error" in ctx) return { error: ctx.error };
@@ -33,12 +39,14 @@ export async function selfEnroll(_prev: ActionState, formData: FormData): Promis
   const me = account.player.id;
   const { data: mine } = await svc.from("entry_members").select("entry_id").eq("tournament_id", t.id).eq("player_id", me).maybeSingle();
   if (mine) return { ok: tx.alreadyEnrolled };
+  if (!(await isActive(svc, me))) return { error: tx.deactivatedSelf };
 
   const partner = String(formData.get("partner_id") ?? "");
   if (t.kind === "doubles" && partner) {
     if (!UUID.test(partner) || partner === me) return { error: tx.invalidPartner };
     const { data: pm } = await svc.from("championship_players").select("player_id").eq("championship_id", t.championship_id).eq("player_id", partner).maybeSingle();
     if (!pm) return { error: tx.partnerNotMember };
+    if (!(await isActive(svc, partner))) return { error: tx.partnerDeactivated };
     const { data: pe } = await svc.from("entry_members").select("entry_id").eq("tournament_id", t.id).eq("player_id", partner).maybeSingle();
     if (pe) {
       // Il compagno è già iscritto: va bene solo se è da solo, e allora completiamo la sua coppia.

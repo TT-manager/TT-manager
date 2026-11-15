@@ -29,6 +29,7 @@ export async function SelfEnroll({ t, slug }: { t: T; slug: string | null }) {
     <div className={box}><p className="font-semibold">{tx.registrationOpen}</p>{deadline}
       <p className="mt-2">{tx.mustBeMember} {slug && <Link href={`/partecipa/${slug}`} className="underline">{tx.askToJoin}</Link>}</p></div>);
   const hidden = <input type="hidden" name="public_code" value={t.public_code} />;
+  const { data: me } = await svc.from("players").select("active").eq("id", account.player.id).maybeSingle();
   if (mine) {
     const { data: mates } = await svc.from("entry_members").select("player_id, players(full_name)").eq("entry_id", mine.entry_id).neq("player_id", account.player.id);
     const mate = (mates?.[0]?.players as unknown as { full_name: string } | undefined)?.full_name;
@@ -38,10 +39,14 @@ export async function SelfEnroll({ t, slug }: { t: T; slug: string | null }) {
         <ActionForm action={selfWithdraw} submitLabel={tx.withdraw} primary={false} confirmText={tx.withdrawConfirm} className="mt-2">{hidden}</ActionForm>
       </div>);
   }
+  // Disattivato da un amministratore: niente nuove iscrizioni (ritirarsi resta possibile, sopra).
+  if (!me?.active) return (
+    <div className={box}><p className="font-semibold">{tx.registrationOpen}</p>{deadline}
+      <p className="mt-2 text-sm text-muted">{tx.deactivatedSelf}</p></div>);
   let partners: { id: string; name: string; solo: boolean }[] = [];
   if (t.kind === "doubles") {
     const [{ data: all }, { data: enrolled }] = await Promise.all([
-      svc.from("championship_players").select("player_id, players(full_name)").eq("championship_id", t.championship_id),
+      svc.from("championship_players").select("player_id, players!inner(full_name, active)").eq("championship_id", t.championship_id).eq("players.active", true),
       svc.from("entry_members").select("entry_id, player_id").eq("tournament_id", t.id),
     ]);
     const size = new Map<string, number>();
