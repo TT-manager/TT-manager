@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { Avatar } from "./avatar";
 import type { loadDashboard, Side } from "@/lib/dashboard";
 import { timeAgo } from "@/lib/time";
+import { formatDeadline } from "@/lib/registration";
+import { intlTag } from "@/i18n/locale";
 import { getLocale, tr } from "@/i18n/server";
 import { compDashboard } from "@/i18n/dict/comp-dashboard";
 
@@ -38,7 +40,28 @@ export async function DashboardView({ d, me, children }: { d: DashboardData; me:
   ];
   return (
     <>
-      <section className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {d.open.length > 0 && (
+        <section className="mt-6">
+          <h2 className="flex items-center gap-2 text-2xl font-bold uppercase">{t.openTitle}
+            <span className="rounded-full bg-green-600 px-2.5 text-base text-white">{d.open.length}</span></h2>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+            {d.open.map((x) => (
+              <li key={x.code}><Link href={`/t/${x.code}`}
+                className={`card flex items-center justify-between gap-3 border-2 transition hover:-translate-y-0.5 ${x.enrolled ? "" : "border-green-600"}`}>
+                <span className="min-w-0">
+                  <span className="block truncate font-display text-xl font-bold uppercase">{x.name}</span>
+                  <span className="block text-sm text-muted">{x.league}
+                    {x.startsOn && ` · ${new Date(x.startsOn).toLocaleDateString(intlTag(l), { weekday: "short", day: "numeric", month: "long" })}`}</span>
+                  {x.deadline && <span className="block text-xs text-muted">{t.closesOn(formatDeadline(x.deadline, l))}</span>}
+                </span>
+                {x.enrolled
+                  ? <span className="badge shrink-0 bg-green-600/15 text-green-700 dark:text-green-400">{t.enrolled}</span>
+                  : <span className="btn-primary shrink-0 py-1.5 text-sm">{t.signUp}</span>}
+              </Link></li>))}
+          </ul>
+        </section>)}
+
+      <section className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map((k) => {
           const body = (
             <div className="card flex h-full items-start justify-between gap-2">

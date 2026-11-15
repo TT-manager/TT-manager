@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RegistrationToggle } from "./registration-toggle";
 import { notFound } from "next/navigation";
 import { requireTournamentManager } from "@/lib/auth";
 import { loadEntries } from "@/lib/entries";
@@ -13,7 +14,7 @@ import { hasServiceKey } from "@/lib/organizer";
 import { friendlyCandidates } from "@/lib/friends";
 import { ActionForm } from "@/components/action-form";
 import { formatDeadline, isoToRomeLocal, registrationIsOpen } from "@/lib/registration";
-import { setPlayerResults, setPublicAndStream, setRegistration } from "@/app/gestione/actions";
+import { setPlayerResults, setPublicAndStream } from "@/app/gestione/actions";
 import { disputedCount } from "@/lib/results";
 import { ClosingControl, DeleteTournament, EnrollmentForm, GroupsControl, GuestForm, PairsForm, RegenerateCode } from "./tournament-forms";
 
@@ -83,20 +84,15 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
       </section>
 
       {championshipId && t.status === "draft" && (
-        <section className="rounded-lg border p-4">
+        <section className="card">
           <h2 className="text-lg font-semibold">{tx.registrationTitle}</h2>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
             {registrationIsOpen({ ...t, championship_id: championshipId })
               ? <>{tx.regOpenA}{t.registration_deadline ? tx.regOpenUntil(formatDeadline(t.registration_deadline, l)) : ""}{tx.regOpenB} <a href={`/t/${t.public_code}`} className="underline">{tx.regPublicPage}</a>{doubles ? tx.regDoublesNote : ""}.</>
               : t.registration_open ? tx.regExpired : tx.regClosed}
             {" "}{tx.regClosesOnGenerate(knockoutOnly ? "knockout" : mode === "league" ? "league" : "groups")}</p>
-          <ActionForm action={setRegistration} submitLabel={tx.save} primary={false} className="mt-3 flex flex-wrap items-end gap-4">
-            <input type="hidden" name="tournament_id" value={t.id} />
-            <label className="flex items-center gap-2"><input type="checkbox" name="open" defaultChecked={t.registration_open} /> {tx.regOpenCheckbox}</label>
-            <label className="grid gap-1 text-sm">{tx.regDeadline}
-              <input type="datetime-local" name="deadline" defaultValue={t.registration_deadline ? isoToRomeLocal(t.registration_deadline) : ""}
-                className="rounded border bg-transparent px-3 py-1.5" /></label>
-          </ActionForm>
+          <RegistrationToggle tournamentId={t.id} open={t.registration_open}
+            deadline={t.registration_deadline ? isoToRomeLocal(t.registration_deadline) : ""} />
           <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{tx.reloadToSee}</p>
         </section>)}
 

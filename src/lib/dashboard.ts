@@ -45,6 +45,7 @@ export type LiveTournament = {
   played: number; total: number; playing: boolean;
 };
 export type NextMatch = { tournament: string; code: string; phase: string; me: Side; opponent: Side; ranked: boolean };
+export type OpenTournament = { name: string; code: string; league: string; startsOn: string | null; deadline: string | null; enrolled: boolean };
 export type Activity = { at: string; text: string; detail: string; href: string; who: string };
 
 export async function loadDashboard(account: Account) {
@@ -119,11 +120,17 @@ export async function loadDashboard(account: Account) {
   };
 
   // Iscrizioni aperte a cui non sei ancora iscritto.
-  const openCount = async () => {
+  // Tornei dei miei circuiti con le iscrizioni aperte (anche quelli a cui sono già iscritto).
+  const openList = async (): Promise<OpenTournament[]> => {
     const { data: openRows } = championshipIds.length ? await svc.from("tournaments")
-      .select("id, status, championship_id, registration_open, registration_deadline")
-      .in("championship_id", championshipIds).eq("status", "draft").eq("registration_open", true) : { data: [] };
-    return (openRows ?? []).filter((t) => registrationIsOpen(t) && !tids.includes(t.id as string)).length;
+      .select("id, name, public_code, starts_on, status, championship_id, registration_open, registration_deadline, championships(name)")
+      .in("championship_id", championshipIds).eq("status", "draft").eq("registration_open", true)
+      .order("starts_on", { ascending: true, nullsFirst: false }) : { data: [] };
+    return (openRows ?? []).filter((t) => registrationIsOpen(t)).map((t) => ({
+      name: t.name as string, code: t.public_code as string, startsOn: (t.starts_on as string | null) ?? null,
+      deadline: (t.registration_deadline as string | null) ?? null, enrolled: tids.includes(t.id as string),
+      league: (t.championships as unknown as { name: string } | null)?.name ?? "",
+    }));
   };
 
   // Attività degli amici: ultimi risultati e tornei amichevoli creati.
@@ -161,11 +168,12 @@ export async function loadDashboard(account: Account) {
     return activity;
   };
 
-  const [{ games, wins }, next, liveTournaments, openToJoin, activity] =
-    await Promise.all([stats(), nextMatch(), liveList(), openCount(), friendActivity()]);
+  const [{ games, wins }, next, liveTournaments, openTournaments, activity] =
+    await Promise.all([stats(), nextMatch(), liveList(), openList(), friendActivity()]);
 
   return {
-    kpi: { championships: championshipIds.length, games, wins, friendRequests: friendRequests ?? 0, openToJoin },
+    kpi: { championships: championshipIds.length, games, wins, friendRequests: friendRequests ?? 0, openToJoin: openTournaments.filter((t) => !t.enrolled).length },
+    open: openTournaments,
     next, live: liveTournaments, activity: activity.slice(0, 6), hasFriends: friends.length > 0,
   };
 }
