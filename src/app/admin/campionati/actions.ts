@@ -358,3 +358,20 @@ export async function settleChallengeAction(_prev: ActionState, formData: FormDa
   revalidatePath("/", "layout"); refresh();
   return { error: r.error, ok: r.ok };
 }
+
+// ── Eliminazione della lega (solo gestore del sito) ───────────────────────
+/** Elimina la lega con tutto ciò che le appartiene; i giocatori e i loro account restano. */
+export async function deleteChampionshipAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireOwner();
+  const t = await tr(adminLeaguesText);
+  const cid = str(formData, "championship_id");
+  if (!hasServiceKey()) return { error: t.cantDeleteLeague };
+  const svc = createServiceClient();
+  const { data: c } = await svc.from("championships").select("name").eq("id", cid).maybeSingle();
+  if (!c) return { error: t.cantDeleteLeague };
+  if (str(formData, "confirm_name") !== String(c.name).trim()) return { error: t.leagueNameMismatch };
+  const { error } = await svc.from("championships").delete().eq("id", cid);
+  if (error) return { error: t.cantDeleteLeague };
+  revalidatePath("/", "layout");
+  redirect("/admin/campionati");
+}

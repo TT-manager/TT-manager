@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { DisputedChallenges } from "@/components/challenges";
+import { DeleteLeague } from "./delete-league";
 import { CopyField } from "@/components/copy-field";
 import { siteOrigin } from "@/lib/origin";
 import { hasServiceKey } from "@/lib/organizer";
@@ -223,6 +224,8 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
           ) : <p className={`mt-2 ${muted}`}>{tx.toAddFirstCreate} <Link href="/admin/amministratori" className="underline">{tx.administrators}</Link>.</p>}
         </section>
       )}
+
+      {admin.role === "owner" && hasServiceKey() && <DeleteLeague id={id} name={c.name} lost={await lostSummary(id, (ranking ?? []).length, (tournaments ?? []).length)} />}
     </main>
   );
 }
@@ -245,4 +248,11 @@ async function loadJoinData(cid: string) {
   const unclaimed = (free ?? []).map((f) => ({ id: f.player_id as string, name: (f.players as unknown as { full_name: string }).full_name }))
     .sort((a, b) => a.name.localeCompare(b.name, "it"));
   return { requests, unclaimed, invite: (inv?.token as string | undefined) ?? null };
+}
+
+/** Cosa si perde eliminando la lega, in breve. */
+async function lostSummary(id: string, players: number, tournaments: number) {
+  const tx = await tr(adminLeaguesText);
+  const { count } = await createServiceClient().from("challenges").select("id", { count: "exact", head: true }).eq("championship_id", id);
+  return tx.lostSummary(players, tournaments, count ?? 0);
 }
