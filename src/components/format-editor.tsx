@@ -2,7 +2,7 @@
 import { startTransition, useActionState, useState } from "react";
 import {
   crossCriteria, DEFAULT_CROSS_CRITERIA, describeFormat, groupSizes, knockoutFirstStage, modeLabels, stageName, suggestGroupCounts,
-  validateFormat, VALID_BEST_OF, type BestOf, type CrossCriterion, type TournamentFormat, type TournamentMode,
+  validateFormat, VALID_BEST_OF, type BestOf, type CrossCriterion, type TournamentFormat, type TournamentMode, THIRD_PLACE_OPTIONS, type ThirdPlace,
 } from "@/lib/domain/format";
 import { DEFAULT_SET_RULES, type SetRules } from "@/lib/domain/score";
 import { useLocale, useTr } from "@/i18n/client";
@@ -19,13 +19,14 @@ const STAGES = [4, 3, 2, 1, 0];
 type Rule = { positions: string; stage: number; best: number | null };
 
 function toFormat(mode: TournamentMode, groupCount: number, groupBestOf: BestOf, rules: Rule[], ko: Record<number, BestOf>, def: BestOf,
-  groupLegs: 1 | 2, groupSet: SetRules, koSet: Record<number, SetRules>, crossCriteria: CrossCriterion[]): TournamentFormat {
+  groupLegs: 1 | 2, groupSet: SetRules, koSet: Record<number, SetRules>, crossCriteria: CrossCriterion[],
+  third: { thirdPlace: ThirdPlace; thirdPlaceFallback: Exclude<ThirdPlace, "match"> }): TournamentFormat {
   if (mode === "league")
     return { mode, groupCount: 1, groupBestOf, groupLegs, groupSet, defaultKnockoutBestOf: def, knockoutBestOf: {}, qualification: [] };
   if (mode === "knockout")
-    return { mode, groupCount: 0, groupBestOf, defaultKnockoutBestOf: def, knockoutBestOf: ko, knockoutSet: koSet, qualification: [] };
+    return { mode, groupCount: 0, groupBestOf, defaultKnockoutBestOf: def, knockoutBestOf: ko, knockoutSet: koSet, qualification: [], ...third };
   return {
-    mode, groupCount, groupBestOf, defaultKnockoutBestOf: def, knockoutBestOf: ko, groupLegs, groupSet, knockoutSet: koSet, crossCriteria,
+    mode, groupCount, groupBestOf, defaultKnockoutBestOf: def, knockoutBestOf: ko, groupLegs, groupSet, knockoutSet: koSet, crossCriteria, ...third,
     qualification: rules.map((r) => ({
       stage: r.stage,
       positions: r.positions.split(/[\s,;]+/).filter(Boolean).map(Number),
@@ -90,8 +91,11 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
   const [groupLegs, setGroupLegs] = useState<1 | 2>(i0?.groupLegs ?? 1);
   const [groupSet, setGroupSet] = useState<SetRules>(i0?.groupSet ?? DEFAULT_SET_RULES);
   const [koSet, setKoSet] = useState<Record<number, SetRules>>(i0?.knockoutSet ?? {});
+  const [thirdPlace, setThirdPlace] = useState<ThirdPlace>(i0?.thirdPlace ?? "shared");
+  const [thirdFallback, setThirdFallback] = useState<Exclude<ThirdPlace, "match">>(i0?.thirdPlaceFallback ?? "shared");
 
-  const format = toFormat(mode, groupCount, groupBestOf, rules, ko, def, groupLegs, groupSet, koSet, criteria);
+  const format = toFormat(mode, groupCount, groupBestOf, rules, ko, def, groupLegs, groupSet, koSet, criteria,
+    { thirdPlace, thirdPlaceFallback: thirdFallback });
   const hasBest = mode === "groups" && rules.some((r) => r.best !== null);
   const moveCriterion = (i: number, d: -1 | 1) => {
     const next = [...criteria];
@@ -231,6 +235,19 @@ export default function FormatEditor({ action: submit, hidden, initial, enrolled
               <PhaseRow key={s} label={stageName(s, l)} bestOf={ko[s] ?? def} onBestOf={(b) => setKo({ ...ko, [s]: b })}
                 rules={koSet[s] ?? DEFAULT_SET_RULES} onRules={(r) => setKoSet({ ...koSet, [s]: r })} />
             ))}</div>}
+        <div className="grid gap-3 pt-3 sm:grid-cols-2">
+          <label className="grid min-w-0 gap-1">{t.thirdPlace}
+            <select value={thirdPlace} onChange={(e) => setThirdPlace(e.target.value as ThirdPlace)} className={`${select} w-full max-w-full`}>
+              {THIRD_PLACE_OPTIONS.map((o) => <option key={o} value={o}>{t.thirdPlaceOption(o)}</option>)}
+            </select></label>
+          {thirdPlace === "match" && (
+            <label className="grid min-w-0 gap-1">{t.thirdPlaceSkipped}
+              <select value={thirdFallback} onChange={(e) => setThirdFallback(e.target.value as Exclude<ThirdPlace, "match">)} className={`${select} w-full max-w-full`}>
+                <option value="shared">{t.thirdPlaceOption("shared")}</option>
+                <option value="byFinalist">{t.thirdPlaceOption("byFinalist")}</option>
+              </select></label>)}
+        </div>
+        <p className="text-sm text-muted">{t.thirdPlaceHelp}</p>
       </section>}
 
       <section className="rounded-lg border p-4">

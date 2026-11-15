@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { normalizeCode } from "@/lib/codes";
 import { getPublicTournament } from "@/lib/data";
-import { stageName } from "@/lib/domain/format";
+import { isThirdPlaceMatch, matchStageName, stageName } from "@/lib/domain/format";
 import { groupLabel, isPlayed } from "@/lib/domain/tournament";
 import { hasServiceKey, organizerTournamentId } from "@/lib/organizer";
 import { MatchForm } from "@/components/match-form";
@@ -51,7 +51,7 @@ async function Content({ params }: { params: PageProps<"/t/[codice]/organizzator
   const done = sorted.filter(isPlayed).reverse();
   const waiting = matches.length - ready.length;
   const label = (m: (typeof matches)[number]) =>
-    m.phase === "group" ? tx.groupRound(groupLabel(m.group_no ?? 0), m.round) : `${stageName(m.stage ?? 0, l)} ${m.position + 1}`;
+    m.phase === "group" ? tx.groupRound(groupLabel(m.group_no ?? 0), m.round) : (isThirdPlaceMatch(m) || m.stage === 0 ? matchStageName(m, l) : `${stageName(m.stage ?? 0, l)} ${m.position + 1}`);
 
   const Row = ({ m }: { m: (typeof matches)[number] }) => (
     <li className="border-t py-3">

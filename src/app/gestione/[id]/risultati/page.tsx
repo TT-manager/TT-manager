@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { MatchForm } from "@/components/match-form";
 import { requireTournamentManager } from "@/lib/auth";
 import { getPublicTournament } from "@/lib/data";
-import { stageName } from "@/lib/domain/format";
+import { isThirdPlaceMatch, matchStageName, stageName } from "@/lib/domain/format";
 import { groupLabel, isPlayed } from "@/lib/domain/tournament";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { adminSubmitResult, confirmDisputedAction } from "@/app/gestione/actions";
@@ -47,7 +47,7 @@ export default async function AdminResultsPage({ params }: PageProps<"/gestione/
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span>
                 <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                  {m.phase === "group" ? tx.groupRound(groupLabel(m.group_no ?? 0), m.round) : `${stageName(m.stage ?? 0, l)} ${m.position + 1}`}
+                  {m.phase === "group" ? tx.groupRound(groupLabel(m.group_no ?? 0), m.round) : (isThirdPlaceMatch(m) || m.stage === 0 ? matchStageName(m, l) : `${stageName(m.stage ?? 0, l)} ${m.position + 1}`)}
                 </span><br />
                 {name(m.player_a) ?? tx.tbd} – {name(m.player_b) ?? tx.tbd}
               </span>

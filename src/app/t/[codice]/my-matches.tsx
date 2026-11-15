@@ -1,7 +1,7 @@
 import { ActionForm } from "@/components/action-form";
 import { MatchForm } from "@/components/match-form";
 import { getAccount } from "@/lib/account";
-import { stageName } from "@/lib/domain/format";
+import { matchStageName } from "@/lib/domain/format";
 import { groupLabel, isPlayed, type MatchRow } from "@/lib/domain/tournament";
 import { playerContestResult, playerSubmitResult } from "./risultati-actions";
 import { getLocale, tr } from "@/i18n/server";
@@ -49,7 +49,7 @@ export async function MyMatchesList({ t, matches, entryPlayers, playerNames, nam
           const byUs = m.reported_by !== null && mates.includes(m.reported_by);
           const reporter = m.reported_by ? (m.reported_by === me ? tx.you : playerNames.get(m.reported_by) ?? tx.aPlayer) : null;
           const played = isPlayed(m);
-          const label = m.phase === "group" ? tx.groupRound(groupLabel(m.group_no ?? 0), m.round) : stageName(m.stage ?? 0, l);
+          const label = m.phase === "group" ? tx.groupRound(groupLabel(m.group_no ?? 0), m.round) : matchStageName(m, l);
           return (
             <li key={m.id} className="py-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">

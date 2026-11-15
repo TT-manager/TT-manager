@@ -70,7 +70,8 @@ export function buildTournament(players: SeededPlayer[], f: TournamentFormat): G
   if (isKnockoutOnly(f)) {
     const errors = validateFormat(f);
     if (errors.length) throw new Error(errors.join(" "));
-    return buildKnockoutOnly([...players].sort((x, y) => y.rating - x.rating || x.id.localeCompare(y.id)), f);
+    const plan = buildKnockoutOnly([...players].sort((x, y) => y.rating - x.rating || x.id.localeCompare(y.id)), f);
+    return { ...plan, knockout: withThirdPlace(plan.knockout, f) };
   }
   // Girone unico: un solo girone, nessun tabellone.
   if (isLeague(f)) f = { ...f, groupCount: 1, qualification: [] };
@@ -96,7 +97,22 @@ export function buildTournament(players: SeededPlayer[], f: TournamentFormat): G
   });
   const knockout = league ? [] : planBracket(f).rounds.flatMap((r) =>
     r.matches.map((m) => ({ stage: m.stage, position: m.match, a: m.a, b: m.b, bestOf: m.bestOf, set: m.set })));
-  return { assignments, matches, knockout };
+  return { assignments, matches, knockout: withThirdPlace(knockout, f) };
+}
+
+/**
+ * Con la finale per il 3° posto e due semifinali vere (non passaggi diretti), aggiunge la partita
+ * tra i due semifinalisti sconfitti, con le stesse regole della finale.
+ */
+function withThirdPlace(knockout: KnockoutPlanMatch[], f: TournamentFormat): KnockoutPlanMatch[] {
+  if (f.thirdPlace !== "match") return knockout;
+  const semis = knockout.filter((k) => k.stage === 1);
+  const final = knockout.find((k) => k.stage === 0 && k.position === 0);
+  if (semis.length !== 2 || !final) return knockout;
+  return [...knockout, {
+    stage: 0, position: 1, bestOf: final.bestOf, set: final.set,
+    a: { kind: "loser", stage: 1, match: 0 }, b: { kind: "loser", stage: 1, match: 1 },
+  }];
 }
 
 /** Una partita come arriva dal database (campi usati qui). */
@@ -197,16 +213,23 @@ export function resolveSource(src: SlotSource, groups: GroupView[], knockout: Ma
     return g.standings.find((s) => s.rank === src.position)?.playerId ?? null;
   }
   const m = knockout.find((k) => k.stage === src.stage && k.position === src.match);
-  return m ? winnerOf(m) : null;
+  if (!m) return null;
+  if (src.kind === "loser") {
+    const w = winnerOf(m);
+    return w ? (w === m.player_a ? m.player_b : m.player_a) : null;
+  }
+  return winnerOf(m);
 }
 
 /** Etichetta leggibile di un posto ancora da definire. */
 export function sourceLabel(src: SlotSource, l: Locale = "it"): string {
   if (l === "en") {
     if (src.kind === "best") return `Lucky loser: ${src.rank}. best ${src.position}. place`;
+    if (src.kind === "loser") return `Loser semi-final ${src.match + 1}`;
     return src.kind === "group" ? `Group ${groupLabel(src.group)} #${src.position}` : `Winner ${stageName(src.stage, "en").toLowerCase()} ${src.match + 1}`;
   }
   if (src.kind === "best") return `Ripescato: ${src.rank}° miglior ${src.position}° classificato`;
+  if (src.kind === "loser") return `Perdente semifinale ${src.match + 1}`;
   return src.kind === "group"
     ? `${src.position}° girone ${groupLabel(src.group)}`
     : `Vincente ${stageName(src.stage).toLowerCase()} ${src.match + 1}`;

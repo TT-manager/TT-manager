@@ -266,3 +266,33 @@ describe("risultati contestati", () => {
     expect(final(decided.map((m) => (m.id === semi.id ? { ...m, disputed: true } : m))).player_a).toBeNull();
   });
 });
+
+describe("finale per il 3° posto", () => {
+  it("si crea solo se richiesta, tra i perdenti delle semifinali", () => {
+    expect(buildTournament(players, fmt).knockout.some((k) => k.stage === 0 && k.position === 1)).toBe(false);
+    const plan = buildTournament(players, { ...fmt, thirdPlace: "match" });
+    const third = plan.knockout.find((k) => k.stage === 0 && k.position === 1)!;
+    expect([third.a, third.b]).toEqual([{ kind: "loser", stage: 1, match: 0 }, { kind: "loser", stage: 1, match: 1 }]);
+    expect(third.bestOf).toBe(5);
+    expect(sourceLabel({ kind: "loser", stage: 1, match: 1 })).toBe("Perdente semifinale 2");
+  });
+
+  it("si riempie con i perdenti delle semifinali", () => {
+    const plan = buildTournament(players, { ...fmt, mode: "knockout", groupCount: 0, qualification: [], thirdPlace: "match" });
+    const db = rows(plan).map((m) => (m.stage === 1 ? { ...m, sets_a: 3, sets_b: 0 } : m));
+    // Nel tabellone a 8 i quarti vanno giocati prima: li simuliamo vinti dal giocatore A.
+    const played = db.map((m) => (m.stage === 2 ? { ...m, player_a: `w${m.position}a`, player_b: `w${m.position}b`, sets_a: 3, sets_b: 0 } : m));
+    const ko = played.filter((m) => m.phase === "knockout").map((m) => {
+      if (m.stage !== 1) return m;
+      const a = `w${m.position * 2}a`, b = `w${m.position * 2 + 1}a`;
+      return { ...m, player_a: a, player_b: b };
+    });
+    const third = resolveKnockout([], ko).find((r) => r.id === "k0-1")!;
+    expect([third.player_a, third.player_b]).toEqual(["w1a", "w3a"]);
+  });
+
+  it("niente finale per il 3° posto se una semifinale è un passaggio diretto", () => {
+    const plan = buildTournament(players.slice(0, 3), { ...fmt, mode: "knockout", groupCount: 0, qualification: [], thirdPlace: "match" });
+    expect(plan.knockout.some((k) => k.stage === 0 && k.position === 1)).toBe(false);
+  });
+});

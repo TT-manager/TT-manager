@@ -3,6 +3,7 @@ import { createServiceClient } from "./supabase/admin";
 import { computeRanking, parseRankingSettings, DEFAULT_RANKING, type RankingInput } from "./domain/ranking";
 import { isPlayed, type MatchRow } from "./domain/tournament";
 import { placementPoints, tournamentPlacements } from "./domain/placement";
+import type { ThirdPlace } from "./domain/format";
 import { romeDay } from "./domain/challenges";
 import { tr } from "@/i18n/server";
 import { adminManageText } from "@/i18n/dict/admin-manage";
@@ -20,9 +21,10 @@ const dbError = (t: T, msg: string | undefined) =>
 /** Stato della chiusura: partite giocate e partite ancora da giocare. */
 export async function closingSummary(tournamentId: string) {
   const svc = createServiceClient();
-  const { data } = await svc.from("matches").select("sets_a, sets_b, player_a, player_b, rated, phase, stage").eq("tournament_id", tournamentId);
+  const { data } = await svc.from("matches").select("sets_a, sets_b, player_a, player_b, rated, phase, stage, position").eq("tournament_id", tournamentId);
   const rows = data ?? [];
-  const finalPlayed = rows.some((m) => m.phase === "knockout" && m.stage === 0 && isPlayed(m));
+  // La finale è la partita 0 dell'ultimo turno (la 1 è l'eventuale finale per il 3° posto).
+  const finalPlayed = rows.some((m) => m.phase === "knockout" && m.stage === 0 && m.position === 0 && isPlayed(m));
   const hasKnockout = rows.some((m) => m.phase === "knockout");
   return {
     toRate: rows.filter((m) => isPlayed(m) && !m.rated).length,
@@ -49,7 +51,7 @@ export async function recomputeChampionship(championshipId: string, opts: { clos
     svc.from("championship_players").select("player_id, start_override, joined_on").eq("championship_id", championshipId),
     svc.from("past_results").select("player_id, position, past_tournaments!inner(championship_id)").eq("past_tournaments.championship_id", championshipId),
     svc.from("player_absences").select("player_id, from_date, to_date").eq("championship_id", championshipId),
-    svc.from("tournaments").select("id, status, starts_on, closed_at, created_at").eq("championship_id", championshipId).eq("ranked", true),
+    svc.from("tournaments").select("id, status, starts_on, closed_at, created_at, format").eq("championship_id", championshipId).eq("ranked", true),
     svc.from("challenges").select("id, challenger_id, opponent_id, sets_a, sets_b, played_at")
       .eq("championship_id", championshipId).eq("status", "confirmed").eq("ranked", true).order("played_at"),
   ]);
@@ -77,7 +79,8 @@ export async function recomputeChampionship(championshipId: string, opts: { clos
     const groupMembers = tEntries.filter((e) => e.group_no !== null)
       .map((e) => ({ playerId: e.id as string, group: e.group_no as number, seed: e.seed as number | null }));
     const rows = (matches ?? []).filter((m) => m.tournament_id === tid) as unknown as MatchRow[];
-    return tournamentPlacements(rows, groupMembers).flatMap((p) => {
+    const f = ((tournaments ?? []).find((t) => t.id === tid)?.format ?? {}) as { thirdPlace?: ThirdPlace; thirdPlaceFallback?: Exclude<ThirdPlace, "match"> };
+    return tournamentPlacements(rows, groupMembers, { mode: f.thirdPlace, fallback: f.thirdPlaceFallback }).flatMap((p) => {
       const points = placementPoints(settings.placement.podium, p.place, tEntries.length, p.shared3);
       return (playersOf.get(p.entryId) ?? []).filter((id) => memberIds.has(id)).map((playerId) => ({ playerId, points }));
     }).filter((p) => p.points > 0);

@@ -166,7 +166,7 @@ export async function contestResult(tournamentId: string, matchId: string, playe
     return { error: tx.groupStageOver };
   if (match.phase === "knockout") {
     const nextPlayed = all.some((m) => isPlayed(m) && [m.source_a, m.source_b].some((src) =>
-      src?.kind === "winner" && src.stage === match.stage && src.match === match.position));
+      (src?.kind === "winner" || src?.kind === "loser") && src.stage === match.stage && src.match === match.position));
     if (nextPlayed) return { error: tx.nextRoundPlayed };
   }
   const { data, error } = await createServiceClient().from("matches")

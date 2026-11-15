@@ -1,6 +1,6 @@
 import "server-only";
 import type { Account } from "./account";
-import { stageName } from "./domain/format";
+import { matchStageName } from "./domain/format";
 import { groupLabel } from "./domain/tournament";
 import { friendUserIds } from "./friends";
 import { registrationIsOpen } from "./registration";
@@ -94,7 +94,7 @@ export async function loadDashboard(account: Account) {
     return {
       tournament: t.name as string, code: t.public_code as string, ranked: t.ranked as boolean,
       me: meSide, opponent: sides.get(opp) ?? [{ id: opp, name: "?", avatar: null }],
-      phase: m.phase === "group" ? tx.groupRound(groupLabel(m.group_no as number), m.round as number) : stageName(m.stage as number, l),
+      phase: m.phase === "group" ? tx.groupRound(groupLabel(m.group_no as number), m.round as number) : matchStageName({ stage: m.stage as number, position: m.position as number }, l),
     };
   };
 

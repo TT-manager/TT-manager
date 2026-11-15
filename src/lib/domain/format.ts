@@ -14,6 +14,13 @@ import { DEFAULT_SET_RULES, type SetRules } from "./score";
  */
 
 export const VALID_BEST_OF = [1, 3, 5, 7] as const;
+export type ThirdPlace = "match" | "shared" | "byFinalist";
+export const THIRD_PLACE_OPTIONS: ThirdPlace[] = ["match", "shared", "byFinalist"];
+/** La finale per il 3° posto è la seconda partita dell'ultimo turno (turno 0, posizione 1). */
+export const isThirdPlaceMatch = (m: { stage: number | null; position: number }) => m.stage === 0 && m.position === 1;
+/** Nome del turno di una partita del tabellone, con la finale per il 3° posto. */
+export const matchStageName = (m: { stage: number | null; position: number }, l: Locale = "it") =>
+  isThirdPlaceMatch(m) ? (l === "en" ? "Third-place match" : "Finale 3° posto") : stageName(m.stage ?? 0, l);
 export type BestOf = (typeof VALID_BEST_OF)[number];
 
 export interface QualificationRule {
@@ -64,6 +71,14 @@ export interface TournamentFormat {
   knockoutSet?: Record<number, SetRules>;
   /** Ordine dei criteri per i ripescaggi (default: % vittorie, differenza set, differenza punti). */
   crossCriteria?: CrossCriterion[];
+  /**
+   * 3° e 4° posto (solo con tabellone): «match» = finale per il 3° posto tra i semifinalisti sconfitti;
+   * «shared» = pari merito; «byFinalist» = 3° chi ha perso con il vincitore, 4° chi ha perso con il finalista.
+   * Default «shared».
+   */
+  thirdPlace?: ThirdPlace;
+  /** Con la finale per il 3° posto: come si decide se non viene giocata (default «shared»). */
+  thirdPlaceFallback?: Exclude<ThirdPlace, "match">;
 }
 
 export const groupSetRules = (f: TournamentFormat): SetRules => f.groupSet ?? DEFAULT_SET_RULES;
@@ -94,6 +109,8 @@ export function bestOfForStage(f: TournamentFormat, stage: number): BestOf {
 export type SlotSource =
   | { kind: "group"; group: number; position: number } // gruppo 1-based, posizione 1-based
   | { kind: "winner"; stage: number; match: number }
+  /** Chi ha perso una partita del tabellone (per la finale del 3° posto). */
+  | { kind: "loser"; stage: number; match: number }
   /** Ripescaggio: il `rank`-esimo migliore tra i classificati in `position`, con i criteri indicati. */
   | { kind: "best"; position: number; rank: number; criteria: CrossCriterion[] };
 
@@ -154,6 +171,9 @@ export function suggestGroupCounts(n: number): { groups: number; sizes: string }
 export function validateFormat(f: TournamentFormat, playersPerGroup?: number[]): string[] {
   const errors: string[] = [];
   if (f.mode !== undefined && !(f.mode in MODE_LABELS)) errors.push("Modalità del torneo non valida.");
+  if ((f.thirdPlace !== undefined && !THIRD_PLACE_OPTIONS.includes(f.thirdPlace))
+    || (f.thirdPlaceFallback !== undefined && f.thirdPlaceFallback !== "shared" && f.thirdPlaceFallback !== "byFinalist"))
+    errors.push("Regola del 3° posto non valida.");
   if (isLeague(f)) {
     if (!VALID_BEST_OF.includes(f.groupBestOf)) errors.push("Set delle partite non valido (1, 3, 5 o 7).");
     if (f.groupLegs !== undefined && f.groupLegs !== 1 && f.groupLegs !== 2) errors.push("Solo andata oppure andata e ritorno.");
@@ -337,6 +357,8 @@ export function parseFormat(raw: unknown): { format: TournamentFormat } | { erro
     knockoutSet: Object.fromEntries(Object.entries(ks as Record<string, unknown>).map(([k, v]) => [Number(k), rules(v)!])),
     defaultKnockoutBestOf: int(o.defaultKnockoutBestOf) as BestOf,
     ...(Array.isArray(o.crossCriteria) ? { crossCriteria: o.crossCriteria.map(String) as CrossCriterion[] } : {}),
+    ...(o.thirdPlace === undefined ? {} : { thirdPlace: String(o.thirdPlace) as ThirdPlace }),
+    ...(o.thirdPlaceFallback === undefined ? {} : { thirdPlaceFallback: String(o.thirdPlaceFallback) as Exclude<ThirdPlace, "match"> }),
     knockoutBestOf: Object.fromEntries(
       Object.entries(kb as Record<string, unknown>).map(([k, v]) => [Number(k), int(v) as BestOf])),
     qualification: (o.qualification as unknown[]).map((r) => {
@@ -364,6 +386,21 @@ export const describeSetRules = (r: SetRules, l: Locale = "it") => l === "en"
   ? `sets to ${r.points}${r.golden !== null ? `, golden point at ${r.golden}-all` : ""}`
   : `set a ${r.points}${r.golden !== null ? `, golden point sul ${r.golden} pari` : ""}`;
 
+/** Riga sul 3° e 4° posto (solo con tabellone). */
+function thirdPlaceLine(f: TournamentFormat, l: Locale): string {
+  const fb = f.thirdPlaceFallback ?? "shared";
+  if (l === "en") {
+    const rule = (r: string) => (r === "byFinalist" ? "3rd is the semi-finalist who lost to the winner, 4th the one who lost to the runner-up" : "the two losing semi-finalists share 3rd place");
+    return f.thirdPlace === "match"
+      ? `Third-place match between the losing semi-finalists (same rules as the final); if it isn't played, ${rule(fb)}.`
+      : `No third-place match: ${rule(f.thirdPlace ?? "shared")}.`;
+  }
+  const rule = (r: string) => (r === "byFinalist" ? "3° chi ha perso in semifinale con il vincitore, 4° chi ha perso con il finalista" : "i due semifinalisti sconfitti sono 3° a pari merito");
+  return f.thirdPlace === "match"
+    ? `Finale per il 3° posto tra i semifinalisti sconfitti (stesse regole della finale); se non si gioca, ${rule(fb)}.`
+    : `Niente finale per il 3° posto: ${rule(f.thirdPlace ?? "shared")}.`;
+}
+
 /** Descrizione del formato, una riga per punto (italiano o inglese). */
 export function describeFormat(f: TournamentFormat, players?: number, l: Locale = "it"): string[] {
   if (l === "en") return describeFormatEn(f, players);
@@ -379,6 +416,7 @@ export function describeFormat(f: TournamentFormat, players?: number, l: Locale 
     const first = players && players >= 2 ? knockoutFirstStage(players) : Math.max(0, ...Object.keys(f.knockoutBestOf).map(Number));
     for (let st = first; st >= 0; st--)
       lines.push(`${stageName(st)}: ${sets(bestOfForStage(f, st))} (${describeSetRules(stageSetRules(f, st))}).`);
+    lines.push(thirdPlaceLine(f, "it"));
     return lines;
   }
   const legs = f.groupLegs === 2 ? " con andata e ritorno" : "";
@@ -397,6 +435,7 @@ export function describeFormat(f: TournamentFormat, players?: number, l: Locale 
   }
   for (const round of planBracket(f).rounds)
     lines.push(`${stageName(round.stage)}: ${round.matches.length} ${round.matches.length === 1 ? "partita" : "partite"} ${sets(round.matches[0].bestOf)} (${describeSetRules(round.matches[0].set)}).`);
+  if (planBracket(f).rounds.some((r) => r.stage === 1)) lines.push(thirdPlaceLine(f, "it"));
   return lines;
 }
 
@@ -418,6 +457,7 @@ function describeFormatEn(f: TournamentFormat, players?: number): string[] {
     const first = players && players >= 2 ? knockoutFirstStage(players) : Math.max(0, ...Object.keys(f.knockoutBestOf).map(Number));
     for (let st = first; st >= 0; st--)
       lines.push(`${stageName(st, "en")}: ${setsEn(bestOfForStage(f, st))} (${rules(stageSetRules(f, st))}).`);
+    lines.push(thirdPlaceLine(f, "en"));
     return lines;
   }
   const legs = f.groupLegs === 2 ? ", home and away" : "";
@@ -436,5 +476,6 @@ function describeFormatEn(f: TournamentFormat, players?: number): string[] {
   }
   for (const round of planBracket(f).rounds)
     lines.push(`${stageName(round.stage, "en")}: ${round.matches.length} ${round.matches.length === 1 ? "match" : "matches"}, ${setsEn(round.matches[0].bestOf)} (${rules(round.matches[0].set)}).`);
+  if (planBracket(f).rounds.some((r) => r.stage === 1)) lines.push(thirdPlaceLine(f, "en"));
   return lines;
 }

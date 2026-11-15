@@ -1,4 +1,4 @@
-import { stageName } from "@/lib/domain/format";
+import { matchStageName, stageName } from "@/lib/domain/format";
 import { isPlayed, sourceLabel, type MatchRow } from "@/lib/domain/tournament";
 import type { Locale } from "@/i18n/locale";
 import { getLocale, tr } from "@/i18n/server";
@@ -21,6 +21,7 @@ export async function Bracket({ knockout, resolved, name }: {
   const first = stages[0];
   const at = (s: number, p: number) => knockout.find((k) => k.stage === s && k.position === p);
   const final = at(0, 0);
+  const third = at(0, 1); // finale per il 3° posto, se prevista
   const champion = final && isPlayed(final) && !final.disputed
     ? name(((final.sets_a as number) > (final.sets_b as number) ? final.player_a ?? resolved.get(final.id)?.player_a : final.player_b ?? resolved.get(final.id)?.player_b) ?? null)
     : null;
@@ -60,6 +61,11 @@ export async function Bracket({ knockout, resolved, name }: {
           })}
         </div>
       </div>
+      {third && (
+        <div className="mt-2 w-52">
+          <p className="mb-3 text-center font-display text-sm font-bold uppercase tracking-wider text-bronze">🥉 {matchStageName(third, l)}</p>
+          <Slot m={third} s={0} p={1} first at={at} resolved={resolved} name={name} t={t} l={l} />
+        </div>)}
     </div>
   );
 }
@@ -92,7 +98,7 @@ function Slot({ m, s, p, first, at, resolved, name, t, l }: {
   return (
     <div className={`relative w-full ${stub}`}>
       {m.disputed && <span className="badge-contested absolute -top-2.5 right-2 z-10 !px-1.5 !text-[0.6rem]">{t.disputed}</span>}
-      <div className={`overflow-hidden rounded-lg border bg-surface text-sm shadow-sm ${m.disputed ? "border-2 border-amber-400" : s === 0 ? "border-2 border-gold" : "border-line"}`}>
+      <div className={`overflow-hidden rounded-lg border bg-surface text-sm shadow-sm ${m.disputed ? "border-2 border-amber-400" : s === 0 && p === 1 ? "border-2 border-bronze" : s === 0 ? "border-2 border-gold" : "border-line"}`}>
         {row(a, m.source_a, m.sets_a, winA)}
         <div className="border-t border-line" />
         {row(b, m.source_b, m.sets_b, played && !winA)}
