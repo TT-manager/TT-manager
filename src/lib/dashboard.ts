@@ -60,68 +60,76 @@ export async function loadDashboard(account: Account) {
   ]);
   const entryIds = (myEntries ?? []).map((e) => e.entry_id as string);
   const championshipIds = (memberships ?? []).map((m) => m.championship_id as string);
+  const mine = new Set(entryIds);
+  const tids = [...new Set((myEntries ?? []).map((e) => e.tournament_id as string))];
+
+  // Le parti della dashboard sono indipendenti: si leggono tutte insieme invece che una dopo l'altra.
 
   // Partite giocate e vittorie (tutte, amichevoli comprese).
-  const { data: played } = entryIds.length ? await svc.from("matches").select("player_a, player_b, sets_a, sets_b")
-    .or(`player_a.in.(${entryIds.join(",")}),player_b.in.(${entryIds.join(",")})`).not("sets_a", "is", null) : { data: [] };
-  const mine = new Set(entryIds);
-  const games = (played ?? []).length;
-  const wins = (played ?? []).filter((m) => won(m as never, mine.has(m.player_a as string) ? m.player_a as string : m.player_b as string)).length;
+  const stats = async () => {
+    const { data: played } = entryIds.length ? await svc.from("matches").select("player_a, player_b, sets_a, sets_b")
+      .or(`player_a.in.(${entryIds.join(",")}),player_b.in.(${entryIds.join(",")})`).not("sets_a", "is", null) : { data: [] };
+    const games = (played ?? []).length;
+    const wins = (played ?? []).filter((m) => won(m as never, mine.has(m.player_a as string) ? m.player_a as string : m.player_b as string)).length;
+    return { games, wins };
+  };
 
   // Prossima partita: la prima da giocare nei tornei in corso, con l'avversario già noto.
-  const tids = [...new Set((myEntries ?? []).map((e) => e.tournament_id as string))];
-  const { data: live } = tids.length ? await svc.from("tournaments").select("id, name, public_code, ranked")
-    .in("id", tids).in("status", ["groups", "knockout"]) : { data: [] };
-  let next: NextMatch | null = null;
-  if (live?.length) {
-    const liveIds = live.map((t) => t.id as string);
+  const nextMatch = async (): Promise<NextMatch | null> => {
+    if (!tids.length) return null;
+    const { data: live } = await svc.from("tournaments").select("id, name, public_code, ranked").in("id", tids).in("status", ["groups", "knockout"]);
+    if (!live?.length) return null;
     const { data: todo } = await svc.from("matches").select("tournament_id, phase, group_no, stage, round, position, player_a, player_b")
-      .in("tournament_id", liveIds).is("sets_a", null).not("player_a", "is", null).not("player_b", "is", null)
+      .in("tournament_id", live.map((t) => t.id as string)).is("sets_a", null).not("player_a", "is", null).not("player_b", "is", null)
       .or(`player_a.in.(${entryIds.join(",")}),player_b.in.(${entryIds.join(",")})`)
       .order("phase", { ascending: true }).order("stage", { ascending: false }).order("round").order("position").limit(1);
     const m = todo?.[0];
-    if (m) {
-      const t = live.find((x) => x.id === m.tournament_id)!;
-      const myEntry = mine.has(m.player_a as string) ? m.player_a as string : m.player_b as string;
-      const opp = myEntry === m.player_a ? m.player_b as string : m.player_a as string;
-      const sides = await entrySides(svc, [myEntry, opp]);
-      // Tu per primo; il compagno (nel doppio) dopo.
-      const meSide = [...(sides.get(myEntry) ?? [])].sort((a, b) => Number(b.id === me) - Number(a.id === me));
-      next = {
-        tournament: t.name as string, code: t.public_code as string, ranked: t.ranked as boolean,
-        me: meSide, opponent: sides.get(opp) ?? [{ id: opp, name: "?", avatar: null }],
-        phase: m.phase === "group" ? tx.groupRound(groupLabel(m.group_no as number), m.round as number) : stageName(m.stage as number, l),
-      };
-    }
-  }
-
-  // Tornei in corso: quelli a cui partecipi e quelli delle tue leghe.
-  const { data: liveRows } = await svc.from("tournaments").select("id, name, public_code, ranked, status, championships(name)")
-    .in("status", ["groups", "knockout"])
-    .or([tids.length && `id.in.(${tids.join(",")})`, championshipIds.length && `championship_id.in.(${championshipIds.join(",")})`].filter(Boolean).join(",") || "id.is.null")
-    .order("created_at", { ascending: false }).limit(10);
-  const liveIds = (liveRows ?? []).map((t) => t.id as string);
-  const { data: liveMatches } = liveIds.length
-    ? await svc.from("matches").select("tournament_id, sets_a, player_a, player_b").in("tournament_id", liveIds) : { data: [] };
-  const liveTournaments: LiveTournament[] = (liveRows ?? []).map((t) => {
-    const ms = (liveMatches ?? []).filter((m) => m.tournament_id === t.id && m.player_a && m.player_b);
+    if (!m) return null;
+    const t = live.find((x) => x.id === m.tournament_id)!;
+    const myEntry = mine.has(m.player_a as string) ? m.player_a as string : m.player_b as string;
+    const opp = myEntry === m.player_a ? m.player_b as string : m.player_a as string;
+    const sides = await entrySides(svc, [myEntry, opp]);
+    // Tu per primo; il compagno (nel doppio) dopo.
+    const meSide = [...(sides.get(myEntry) ?? [])].sort((a, b) => Number(b.id === me) - Number(a.id === me));
     return {
-      name: t.name as string, code: t.public_code as string, ranked: t.ranked as boolean,
-      league: (t.championships as unknown as { name: string } | null)?.name ?? null,
-      phase: t.status === "groups" ? tx.qualification : tx.knockoutStage,
-      played: ms.filter((m) => m.sets_a !== null).length, total: ms.length, playing: tids.includes(t.id as string),
+      tournament: t.name as string, code: t.public_code as string, ranked: t.ranked as boolean,
+      me: meSide, opponent: sides.get(opp) ?? [{ id: opp, name: "?", avatar: null }],
+      phase: m.phase === "group" ? tx.groupRound(groupLabel(m.group_no as number), m.round as number) : stageName(m.stage as number, l),
     };
-  });
+  };
+
+  // Tornei in corso: quelli a cui partecipi e quelli dei tuoi circuiti.
+  const liveList = async (): Promise<LiveTournament[]> => {
+    const { data: liveRows } = await svc.from("tournaments").select("id, name, public_code, ranked, status, championships(name)")
+      .in("status", ["groups", "knockout"])
+      .or([tids.length && `id.in.(${tids.join(",")})`, championshipIds.length && `championship_id.in.(${championshipIds.join(",")})`].filter(Boolean).join(",") || "id.is.null")
+      .order("created_at", { ascending: false }).limit(10);
+    const liveIds = (liveRows ?? []).map((t) => t.id as string);
+    const { data: liveMatches } = liveIds.length
+      ? await svc.from("matches").select("tournament_id, sets_a, player_a, player_b").in("tournament_id", liveIds) : { data: [] };
+    return (liveRows ?? []).map((t) => {
+      const ms = (liveMatches ?? []).filter((m) => m.tournament_id === t.id && m.player_a && m.player_b);
+      return {
+        name: t.name as string, code: t.public_code as string, ranked: t.ranked as boolean,
+        league: (t.championships as unknown as { name: string } | null)?.name ?? null,
+        phase: t.status === "groups" ? tx.qualification : tx.knockoutStage,
+        played: ms.filter((m) => m.sets_a !== null).length, total: ms.length, playing: tids.includes(t.id as string),
+      };
+    });
+  };
 
   // Iscrizioni aperte a cui non sei ancora iscritto.
-  const { data: openRows } = championshipIds.length ? await svc.from("tournaments")
-    .select("id, status, championship_id, registration_open, registration_deadline")
-    .in("championship_id", championshipIds).eq("status", "draft").eq("registration_open", true) : { data: [] };
-  const openToJoin = (openRows ?? []).filter((t) => registrationIsOpen(t) && !tids.includes(t.id as string)).length;
+  const openCount = async () => {
+    const { data: openRows } = championshipIds.length ? await svc.from("tournaments")
+      .select("id, status, championship_id, registration_open, registration_deadline")
+      .in("championship_id", championshipIds).eq("status", "draft").eq("registration_open", true) : { data: [] };
+    return (openRows ?? []).filter((t) => registrationIsOpen(t) && !tids.includes(t.id as string)).length;
+  };
 
   // Attività degli amici: ultimi risultati e tornei amichevoli creati.
-  const activity: Activity[] = [];
-  if (friends.length) {
+  const friendActivity = async (): Promise<Activity[]> => {
+    const activity: Activity[] = [];
+    if (!friends.length) return activity;
     const [{ data: fp }, { data: created }] = await Promise.all([
       svc.from("players").select("id, full_name, user_id").in("user_id", friends),
       svc.from("tournaments").select("name, public_code, created_at, owner_user_id").in("owner_user_id", friends)
@@ -150,11 +158,14 @@ export async function loadDashboard(account: Account) {
       }
     }
     activity.sort((a, b) => b.at.localeCompare(a.at));
-  }
+    return activity;
+  };
+
+  const [{ games, wins }, next, liveTournaments, openToJoin, activity] =
+    await Promise.all([stats(), nextMatch(), liveList(), openCount(), friendActivity()]);
 
   return {
     kpi: { championships: championshipIds.length, games, wins, friendRequests: friendRequests ?? 0, openToJoin },
     next, live: liveTournaments, activity: activity.slice(0, 6), hasFriends: friends.length > 0,
   };
 }
-
