@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Barlow_Condensed, Geist, Geist_Mono } from "next/font/google";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { ClickFeedback } from "@/components/click-feedback";
 import { SITE_NAME } from "@/components/logo";
 import { Suspense } from "react";
 import { getLocale, tr } from "@/i18n/server";
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <Suspense fallback={null}>
           <Localized>
+            <ClickFeedback />
             <SiteHeader />
             <div className="flex-1">{children}</div>
             <SiteFooter />

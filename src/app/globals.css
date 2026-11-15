@@ -83,7 +83,10 @@ body {
 .top-progress::after { content: ""; position: absolute; inset: 0; width: 40%; background: var(--color-brand, #d6181f); animation: top-progress 0.9s ease-in-out infinite; }
 @keyframes spin-slow { to { transform: rotate(360deg); } }
 .spinner { width: 0.8rem; height: 0.8rem; border-radius: 9999px; border: 2px solid currentColor; border-right-color: transparent; animation: spin-slow 0.7s linear infinite; }
-@media (prefers-reduced-motion: reduce) { .top-progress::after, .spinner { animation-duration: 2.5s; } }
+/* Pulsante premuto in attesa della risposta (vedi ClickFeedback): rotellina accanto al testo. */
+[data-busy] { position: relative; cursor: progress; }
+[data-busy]::after { content: ""; display: inline-block; vertical-align: -0.1em; margin-left: 0.45em; width: 0.8em; height: 0.8em; border-radius: 9999px; border: 2px solid currentColor; border-right-color: transparent; animation: spin-slow 0.7s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .top-progress::after, .spinner, [data-busy]::after { animation-duration: 2.5s; } }
 
 @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .live-dot { width: 0.5rem; height: 0.5rem; border-radius: 9999px; background: currentColor; animation: live-pulse 1.4s ease-in-out infinite; }
