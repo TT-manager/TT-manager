@@ -27,7 +27,7 @@ export default async function ProfilePage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
       <Link href="/" className={`${muted} hover:underline`}>{t.backToRankings}</Link>
-      <Suspense fallback={<p className={`mt-6 ${muted}`}>{t.loading}</p>}><Profile /></Suspense>
+      <Suspense fallback={<p data-loading className={`mt-6 ${muted}`}>{t.loading}</p>}><Profile /></Suspense>
     </main>
   );
 }

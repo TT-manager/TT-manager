@@ -20,7 +20,7 @@ export default async function OrganizerPage({ params }: PageProps<"/t/[codice]/o
   const t = await tr(publicOrganizerText);
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <Suspense fallback={<p>{t.loading}</p>}><Content params={params} /></Suspense>
+      <Suspense fallback={<p data-loading>{t.loading}</p>}><Content params={params} /></Suspense>
     </main>
   );
 }

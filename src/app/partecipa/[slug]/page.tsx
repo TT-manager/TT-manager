@@ -18,7 +18,7 @@ export default async function JoinPage({ params, searchParams }: PageProps<"/par
   const t = await tr(accountJoinText);
   return (
     <main className="mx-auto max-w-xl px-4 py-10">
-      <Suspense fallback={<p className={muted}>{t.loading}</p>}><Join params={params} searchParams={searchParams} /></Suspense>
+      <Suspense fallback={<p data-loading className={muted}>{t.loading}</p>}><Join params={params} searchParams={searchParams} /></Suspense>
     </main>
   );
 }

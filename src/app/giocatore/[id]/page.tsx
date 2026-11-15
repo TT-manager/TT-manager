@@ -13,7 +13,7 @@ export default async function PlayerPage({ params }: PageProps<"/giocatore/[id]"
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
       <Link href="/" className="text-sm text-neutral-600 dark:text-neutral-400 hover:underline">{t.back}</Link>
-      <Suspense fallback={<p className="mt-6 text-neutral-600 dark:text-neutral-400">{t.loading}</p>}>
+      <Suspense fallback={<p data-loading className="mt-6 text-neutral-600 dark:text-neutral-400">{t.loading}</p>}>
         <Player params={params} />
       </Suspense>
     </main>

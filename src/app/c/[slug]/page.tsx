@@ -16,7 +16,7 @@ export default async function ChampionshipPage({ params }: PageProps<"/c/[slug]"
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
       <Link href="/" className="text-sm text-neutral-600 hover:underline dark:text-neutral-400">{t.allLeagues}</Link>
-      <Suspense fallback={<p className="mt-6 text-neutral-600 dark:text-neutral-400">{t.loading}</p>}>
+      <Suspense fallback={<p data-loading className="mt-6 text-neutral-600 dark:text-neutral-400">{t.loading}</p>}>
         <Championship params={params} />
       </Suspense>
     </main>

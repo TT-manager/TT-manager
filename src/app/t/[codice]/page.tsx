@@ -22,7 +22,7 @@ export default async function TournamentPage({ params, searchParams }: PageProps
   const t = await tr(publicTournamentText);
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
-      <Suspense fallback={<p className="text-muted">{t.loading}</p>}>
+      <Suspense fallback={<p data-loading className="text-muted">{t.loading}</p>}>
         <Tournament params={params} searchParams={searchParams} />
       </Suspense>
     </main>

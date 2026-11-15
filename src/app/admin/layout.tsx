@@ -19,7 +19,7 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
 }
 
 async function Loading() {
-  return <p>{(await tr(adminShellText)).loading}</p>;
+  return <p data-loading>{(await tr(adminShellText)).loading}</p>;
 }
 
 async function Header() {

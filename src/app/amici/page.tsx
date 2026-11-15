@@ -18,7 +18,7 @@ export default async function FriendsPage({ searchParams }: PageProps<"/amici">)
     <main className="mx-auto max-w-3xl px-4 py-10">
       <Link href="/profilo" className={`${muted} hover:underline`}>{t.myProfile}</Link>
       <h1 className="mt-2 text-3xl font-bold">{t.title}</h1>
-      <Suspense fallback={<p className={`mt-6 ${muted}`}>{t.loading}</p>}><Friends searchParams={searchParams} /></Suspense>
+      <Suspense fallback={<p data-loading className={`mt-6 ${muted}`}>{t.loading}</p>}><Friends searchParams={searchParams} /></Suspense>
     </main>
   );
 }

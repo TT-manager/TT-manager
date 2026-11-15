@@ -15,8 +15,16 @@ export function ClickFeedback() {
   const [busy, setBusy] = useState(false);
   const stop = useRef<() => void>(() => {});
 
-  // La pagina è cambiata: fine dell'attesa.
-  useEffect(() => { stop.current(); }, [path, search]);
+  // La pagina è cambiata: fine dell'attesa, ma solo quando non ci sono più parti in caricamento
+  // (lo scheletro con «Caricamento…» compare subito, i dati arrivano dopo).
+  useEffect(() => {
+    const loading = () => document.querySelector('[data-loading], [aria-busy="true"]:not([role="group"])');
+    if (!loading()) { stop.current(); return; }
+    const watch = new MutationObserver(() => { if (!loading()) { watch.disconnect(); stop.current(); } });
+    watch.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["data-loading", "aria-busy"] });
+    const cap = setTimeout(() => { watch.disconnect(); stop.current(); }, 15000);
+    return () => { watch.disconnect(); clearTimeout(cap); };
+  }, [path, search]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -57,7 +65,9 @@ export function ClickFeedback() {
     window.confirm = (msg?: string) => { const ok = originalConfirm.call(window, msg); if (!ok) cancelledAt = Date.now(); return ok; };
 
     const onClick = (e: MouseEvent) => {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      // Nota: i collegamenti interni di Next segnano il clic come «gestito» (preventDefault) e navigano da soli,
+      // quindi qui non si guarda defaultPrevented.
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
       if (!a || (a.target && a.target !== "_self") || a.hasAttribute("download")) return;
       const url = new URL(a.href, location.href);

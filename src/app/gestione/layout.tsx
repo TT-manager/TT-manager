@@ -18,5 +18,5 @@ async function Badge() {
 }
 
 async function Loading() {
-  return <p>{(await tr(adminManageText)).loading}</p>;
+  return <p data-loading>{(await tr(adminManageText)).loading}</p>;
 }
