@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase/server";
-import { statusLabel } from "@/lib/labels";
+import { AdminTournamentCard, tournamentOrder } from "@/components/admin-tournament-card";
 import { getLocale, tr } from "@/i18n/server";
-import { intlTag } from "@/i18n/locale";
 import { adminShellText } from "@/i18n/dict/admin-shell";
 
 export async function generateMetadata() {
@@ -26,13 +25,12 @@ export default async function TournamentsPage() {
         <Link href="/admin/tornei/nuovo" className="btn-primary">{tx.newTournament}</Link>
       </div>
       {data.length === 0 ? <p className="mt-6 text-neutral-600 dark:text-neutral-400">{tx.noTournaments}</p> : (
-        <ul className="mt-6 divide-y">
-          {data.map((t) => (
-            <li key={t.id} className="flex flex-wrap items-baseline gap-x-4 py-3">
-              <Link href={`/gestione/${t.id}`} className="font-medium underline-offset-2 hover:underline">{t.name}</Link>
-              <span className="text-sm text-neutral-600 dark:text-neutral-400">
-                {t.championship_id ? (t.championships as unknown as { name: string } | null)?.name : tx.userFriendly}{t.championship_id && !t.ranked ? tx.friendlySuffix : ""} · {t.starts_on ? new Date(t.starts_on).toLocaleDateString(intlTag(l)) : tx.noDate} · {statusLabel(t.status, l)} · {tx.code(t.public_code)}
-              </span>
+        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+          {[...data].sort((x, y) => tournamentOrder(x.status) - tournamentOrder(y.status)).map((t) => (
+            <li key={t.id}>
+              <AdminTournamentCard t={t} l={l} noDate={tx.noDate} code={tx.code(t.public_code)}
+                sub={t.championship_id ? (t.championships as unknown as { name: string } | null)?.name : tx.userFriendly}
+                friendlyLabel={t.championship_id && !t.ranked ? tx.friendlyBadge : null} />
             </li>
           ))}
         </ul>

@@ -2,14 +2,13 @@ import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { DisputedChallenges } from "@/components/challenges";
 import { DeleteLeague } from "./delete-league";
+import { AdminTournamentCard, tournamentOrder } from "@/components/admin-tournament-card";
 import { CopyField } from "@/components/copy-field";
 import { siteOrigin } from "@/lib/origin";
 import { hasServiceKey } from "@/lib/organizer";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { listAdminUsers } from "@/lib/admins";
-import { statusLabel } from "@/lib/labels";
 import { getLocale, tr } from "@/i18n/server";
-import { intlTag } from "@/i18n/locale";
 import { adminLeaguesText } from "@/i18n/dict/admin-leagues";
 import { clubLabel } from "@/lib/clubs";
 import { listClubs } from "@/lib/clubs-server";
@@ -60,11 +59,10 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
           <Link href={`/admin/tornei/nuovo?campionato=${id}`} className="btn-primary">{tx.newTournament}</Link>
         </div>
         {(tournaments ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>{tx.noTournamentsYet}</p> : (
-          <ul className="mt-2 divide-y">
-            {tournaments!.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-baseline gap-x-4 py-2">
-                <Link href={`/gestione/${t.id}`} className="font-medium hover:underline">{t.name}</Link>{!t.ranked && <span className="text-sm text-sky-700 dark:text-sky-300">{tx.friendly}</span>}
-                <span className={muted}>{t.starts_on ? new Date(t.starts_on).toLocaleDateString(intlTag(l)) : tx.noDate} · {statusLabel(t.status, l)}</span>
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+            {[...tournaments!].sort((x, y) => tournamentOrder(x.status) - tournamentOrder(y.status)).map((t) => (
+              <li key={t.id}>
+                <AdminTournamentCard t={t} l={l} noDate={tx.noDate} friendlyLabel={t.ranked ? null : tx.friendly} />
               </li>
             ))}
           </ul>
