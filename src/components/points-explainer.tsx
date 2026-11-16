@@ -28,7 +28,7 @@ export async function PointsExplainer({ s, doubles }: { s: RankingSettings; doub
         <section>
           <h3 className="font-bold">{t.startTitle(s.initial, pts)}</h3>
           <p className="text-muted">{t.startText(s.initial, pts)}
-            {podium.length > 0 && t.podiumBonus(podium.map((p) => t.podiumPlace(p, s.podium[p])).join(", "))}.</p>
+            {podium.length > 0 && t.podiumBonus}.</p>
         </section>
 
         <section>
