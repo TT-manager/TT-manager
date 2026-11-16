@@ -139,10 +139,10 @@ export interface RankingInput {
     placements?: { playerId: string; points: number }[];
   }[];
   /**
-   * Sfide singole confermate e valide per la classifica. `date` = giorno della conferma (YYYY-MM-DD):
+   * Sfide fuori torneo confermate e valide per la classifica (un giocatore per lato nel singolo, due nel doppio). `date` = giorno della conferma (YYYY-MM-DD):
    * nello stesso giorno vengono dopo i tornei. Non cambiano il calo né il rientro veloce.
    */
-  challenges?: { id: string; date: string; winner: string; loser: string; weight: number }[];
+  challenges?: { id: string; date: string; winners: string[]; losers: string[]; weight: number }[];
 }
 
 export type HistoryKind = "start" | "match" | "decay" | "placement";
@@ -173,9 +173,11 @@ export function computeRanking(input: RankingInput) {
   const challenges = [...(input.challenges ?? [])].sort((a, b) => a.date.localeCompare(b.date));
   let ci = 0;
   const playChallenge = (c: NonNullable<RankingInput["challenges"]>[number]) => {
-    if (!rating.has(c.winner) || !rating.has(c.loser)) return; // non (più) nella lega
-    const rw = rating.get(c.winner)!, rl = rating.get(c.loser)!;
-    const expW = expectedScore(rw, rl);
+    // Chi non è (più) nella lega non conta; se un lato resta vuoto la sfida si salta.
+    const winners = c.winners.filter((id) => rating.has(id)), losers = c.losers.filter((id) => rating.has(id));
+    if (!winners.length || !losers.length || winners.length !== c.winners.length || losers.length !== c.losers.length) return;
+    const avg = (ids: string[]) => ids.reduce((x, id) => x + rating.get(id)!, 0) / ids.length;
+    const expW = expectedScore(avg(winners), avg(losers));
     const apply = (id: string, score: 0 | 1, expected: number) => {
       const before = rating.get(id)!;
       const delta = Math.round(kFor(s, games.get(id) ?? 0, 0) * c.weight * (score - expected));
@@ -183,8 +185,9 @@ export function computeRanking(input: RankingInput) {
       games.set(id, (games.get(id) ?? 0) + 1);
       history.push({ playerId: id, kind: "match", tournamentId: null, matchId: null, challengeId: c.id, before, after: before + delta });
     };
-    apply(c.winner, 1, expW);
-    apply(c.loser, 0, 1 - expW);
+    // Prima le attese (sopra), poi i punti: nel doppio i compagni non si influenzano.
+    for (const id of winners) apply(id, 1, expW);
+    for (const id of losers) apply(id, 0, 1 - expW);
   };
 
   for (const t of input.tournaments) {

@@ -3,7 +3,8 @@ import { ActionForm } from "@/components/action-form";
 import { MatchForm } from "@/components/match-form";
 import { getAccount } from "@/lib/account";
 import {
-  challengeableMembers, closedNoticesOf, disputedChallenges, latestChallenges, leagueNames, openChallengesOf, playerNames, type Challenge,
+  challengeableMembers, closedNoticesOf, disputedChallenges, latestChallenges, leagueNames, matchupKey, openChallengesOf, playerNames,
+  sideOf, sideOfPlayer, type Challenge,
 } from "@/lib/challenges";
 import { CHALLENGE_BEST_OF, daysLeft } from "@/lib/domain/challenges";
 import { DEFAULT_SET_RULES } from "@/lib/domain/score";
@@ -13,6 +14,12 @@ import { settleChallengeAction, decideChallengeAction } from "@/app/admin/campio
 import { getLocale, tr } from "@/i18n/server";
 import { intlTag } from "@/i18n/locale";
 import { challengesText } from "@/i18n/dict/challenges";
+
+/** Nomi di un lato della sfida: «Mario» nel singolo, «Mario / Luca» nel doppio. */
+const sideName = (c: Challenge, side: "a" | "b", names: Map<string, string>) =>
+  sideOf(c, side).map((id) => names.get(id) ?? "?").join(" / ");
+const everyoneIn = (list: Challenge[]) => list.flatMap((c) => [...sideOf(c, "a"), ...sideOf(c, "b")]);
+const select = "select-arrow w-full rounded border bg-transparent px-3 py-2";
 
 const sign = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
 const score = (c: Challenge) => <span className="rounded bg-ink px-2 py-0.5 font-display font-bold tabular-nums text-white dark:bg-neutral-700">{c.sets_a}-{c.sets_b}</span>;
@@ -32,34 +39,52 @@ function Act({ action, id, answer, label, confirmText, primary = false }: {
 /** Sezione «Sfide» della pagina della lega: lanciare una sfida e ultime sfide giocate. Va dentro <Suspense>. */
 export async function LeagueChallenges({ c }: { c: Championship }) {
   const s = c.settings.challenges;
-  const latest = c.kind === "singles" ? await latestChallenges(c.id) : [];
-  if (c.kind !== "singles" || (!s.enabled && latest.length === 0)) return null;
+  const doubles = c.kind === "doubles";
+  const latest = await latestChallenges(c.id);
+  if (!s.enabled && latest.length === 0) return null;
   const [t, l, account, members] = [await tr(challengesText), await getLocale(), await getAccount(), await challengeableMembers(c.id)];
   const me = account?.player.id;
-  // Chi ha un account ed è nella lega compare tra i membri sfidabili.
   const isMember = Boolean(me && members.some((m) => m.id === me));
-  const names = await playerNames(latest.flatMap((x) => [x.challenger_id, x.opponent_id]));
-  const opponents = members.filter((m) => m.id !== me);
+  const names = await playerNames(everyoneIn(latest));
+  const others = members.filter((m) => m.id !== me);
+  // Nel singolo si sfida chi ha un account; nel doppio basta che uno dei due avversari ce l'abbia.
+  const canChallenge = doubles ? others.length >= 3 && others.some((m) => m.hasAccount) : others.some((m) => m.hasAccount);
+  const options = (list: typeof others) => list.map((m) => <option key={m.id} value={m.id}>{m.name}</option>);
 
   return (
     <section className="mt-10">
       <h2 className="text-2xl font-bold uppercase">{t.sectionTitle}</h2>
       {s.enabled && <div className="card mt-3">
-          <p className="text-sm text-muted">{t.sectionIntro(s.weight, s.perWeek)}</p>
+          <p className="text-sm text-muted">{doubles ? t.sectionIntroDoubles(s.weight, s.perWeek) : t.sectionIntro(s.weight, s.perWeek)}</p>
           {!account ? <p className="mt-3 text-sm"><Link href={`/login?next=/c/${c.slug}`} className="link">{t.loginToChallenge}</Link></p>
             : !isMember ? null
-            : opponents.length === 0 ? <p className="mt-3 text-sm text-muted">{t.noOpponents}</p>
+            : !canChallenge ? <p className="mt-3 text-sm text-muted">{doubles ? t.noOpponentsDoubles : t.noOpponents}</p>
             : (
-              <ActionForm action={sendChallengeAction} submitLabel={t.send} className="mt-3 flex flex-wrap items-end gap-3">
+              <ActionForm action={sendChallengeAction} submitLabel={t.send}
+                className={doubles ? "mt-3 grid gap-3 sm:grid-cols-2" : "mt-3 flex flex-wrap items-end gap-3"}>
                 <input type="hidden" name="championship_id" value={c.id} />
                 <input type="hidden" name="back" value={`/c/${c.slug}`} />
-                <label className="grid gap-1 text-sm">{t.opponent}
-                  <select name="opponent_id" required defaultValue="" className="select-arrow rounded border bg-transparent px-3 py-2">
-                    <option value="" disabled>{t.chooseOpponent}</option>
-                    {opponents.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select></label>
+                {doubles ? <>
+                  <label className="grid gap-1 text-sm">{t.partner}
+                    <select name="partner_id" required defaultValue="" className={select}>
+                      <option value="" disabled>{t.chooseOpponent}</option>{options(others)}
+                    </select></label>
+                  <fieldset className="grid gap-1 text-sm">
+                    <legend className="mb-1">{t.opponents}</legend>
+                    <select name="opponent_id" required defaultValue="" aria-label={`${t.opponents} 1`} className={select}>
+                      <option value="" disabled>{t.chooseOpponent}</option>{options(others)}
+                    </select>
+                    <select name="opponent_partner_id" required defaultValue="" aria-label={`${t.opponents} 2`} className={`mt-2 ${select}`}>
+                      <option value="" disabled>{t.chooseOpponent}</option>{options(others)}
+                    </select>
+                  </fieldset>
+                </> : (
+                  <label className="grid gap-1 text-sm">{t.opponent}
+                    <select name="opponent_id" required defaultValue="" className={select}>
+                      <option value="" disabled>{t.chooseOpponent}</option>{options(others.filter((m) => m.hasAccount))}
+                    </select></label>)}
                 <label className="grid gap-1 text-sm">{t.bestOf}
-                  <select name="best_of" defaultValue="3" className="select-arrow rounded border bg-transparent px-3 py-2">
+                  <select name="best_of" defaultValue="3" className={select}>
                     {CHALLENGE_BEST_OF.map((n) => <option key={n} value={n}>{t.sets(n)}</option>)}
                   </select></label>
               </ActionForm>)}
@@ -68,19 +93,28 @@ export async function LeagueChallenges({ c }: { c: Championship }) {
       <h3 className="mt-6 text-lg font-bold uppercase">{t.latest}</h3>
       {latest.length === 0 ? <p className="mt-2 text-muted">{t.noneYet}</p> : (
         <ul className="card mt-3 divide-y divide-line !py-1">
-          {latest.map((x) => (
-            <li key={x.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-              <span>
-                <span className="text-xs text-muted">{new Date(x.played_at ?? x.created_at).toLocaleDateString(intlTag(l), { day: "numeric", month: "short" })}</span><br />
-                <span className="font-medium">{names.get(x.challenger_id)}</span> <span className="text-muted">vs</span> <span className="font-medium">{names.get(x.opponent_id)}</span>
-              </span>
-              <span className="flex items-center gap-3 text-sm">
-                {score(x)}
-                {x.ranked && x.deltaChallenger !== null && x.deltaOpponent !== null
-                  ? <span className="tabular-nums text-muted">{sign(x.deltaChallenger)} / {sign(x.deltaOpponent)}</span>
-                  : <span className="badge-muted">{t.notCounted}</span>}
-              </span>
-            </li>))}
+          {latest.map((x) => {
+            const delta = (side: "a" | "b") => {
+              const d = sideOf(x, side).map((id) => x.deltas?.get(id) ?? null);
+              if (d.some((v) => v === null)) return null;
+              // I compagni possono aver preso punti diversi: «+8», oppure «+8/+10».
+              return [...new Set(d as number[])].map(sign).join("/");
+            };
+            const da = delta("a"), db = delta("b");
+            return (
+              <li key={x.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                <span>
+                  <span className="text-xs text-muted">{new Date(x.played_at ?? x.created_at).toLocaleDateString(intlTag(l), { day: "numeric", month: "short" })}</span><br />
+                  <span className="font-medium">{sideName(x, "a", names)}</span> <span className="text-muted">vs</span> <span className="font-medium">{sideName(x, "b", names)}</span>
+                </span>
+                <span className="flex items-center gap-3 text-sm">
+                  {score(x)}
+                  {x.ranked && da !== null && db !== null
+                    ? <span className="tabular-nums text-muted">{da} · {db}</span>
+                    : <span className="badge-muted">{t.notCounted}</span>}
+                </span>
+              </li>);
+          })}
         </ul>)}
     </section>
   );
@@ -90,14 +124,14 @@ export async function LeagueChallenges({ c }: { c: Championship }) {
 export async function MyChallenges({ playerId, className = "" }: { playerId: string; className?: string }) {
   const [open, closed] = await Promise.all([openChallengesOf(playerId), closedNoticesOf(playerId)]);
   // Se con lo stesso avversario c'è già una sfida aperta (es. dopo «Sfida di nuovo»), l'avviso non serve più.
-  const pairKey = (c: Challenge) => `${c.championship_id}:${[c.challenger_id, c.opponent_id].sort().join(":")}`;
+  const pairKey = (c: Challenge) => `${c.championship_id}:${matchupKey(c)}`;
   const openPairs = new Set(open.map(pairKey));
   const notices = closed.filter((c, i) => !openPairs.has(pairKey(c)) && closed.findIndex((x) => pairKey(x) === pairKey(c)) === i);
   if (!open.length && !notices.length) return null;
   const all = [...open, ...notices];
   const [t, names, leagues] = [
     await tr(challengesText),
-    await playerNames(all.flatMap((c) => [c.challenger_id, c.opponent_id])),
+    await playerNames(everyoneIn(all)),
     await leagueNames(all.map((c) => c.championship_id)),
   ];
   return (
@@ -105,15 +139,17 @@ export async function MyChallenges({ playerId, className = "" }: { playerId: str
       <h2 className="text-xl font-bold uppercase">{t.myTitle}</h2>
       <ul className="mt-2 divide-y divide-line">
         {open.map((c) => {
-          const other = c.challenger_id === playerId ? c.opponent_id : c.challenger_id;
-          const name = names.get(other) ?? "?";
+          const mine = sideOfPlayer(c, playerId) ?? "a";
+          const name = sideName(c, mine === "a" ? "b" : "a", names);
           const league = leagues.get(c.championship_id);
-          const iChallenged = c.challenger_id === playerId;
-          const a = names.get(c.challenger_id) ?? "?", b = names.get(c.opponent_id) ?? "?";
+          const iChallenged = mine === "a";
+          // Il risultato l'ha inserito il mio lato (io o il mio compagno): posso correggerlo, l'altro lato conferma.
+          const ourReport = sideOfPlayer(c, c.reported_by ?? "") === mine;
+          const a = sideName(c, "a", names), b = sideName(c, "b", names);
           const text =
             c.status === "pending" ? (iChallenged ? t.waitingAccept(name) : t.challengedYou(name))
             : c.status === "accepted" ? t.acceptedWith(name)
-            : c.status === "reported" ? (c.reported_by === playerId ? t.waitingConfirm(name) : t.toConfirm(name))
+            : c.status === "reported" ? (ourReport ? t.waitingConfirm(name) : t.toConfirm(name))
             : t.disputedWait;
           return (
             <li key={c.id} className="py-3">
@@ -138,9 +174,9 @@ export async function MyChallenges({ playerId, className = "" }: { playerId: str
                   <MatchForm action={reportChallengeAction} hidden={{}} matchId={c.id} bestOf={c.best_of} rules={DEFAULT_SET_RULES} a={a} b={b} initial={null} />
                   <Act action={answerChallengeAction} id={c.id} answer="cancel" label={t.cancel} confirmText={t.confirmCancel} />
                 </>}
-                {c.status === "reported" && c.reported_by === playerId &&
+                {c.status === "reported" && ourReport &&
                   <MatchForm action={reportChallengeAction} hidden={{}} matchId={c.id} bestOf={c.best_of} rules={DEFAULT_SET_RULES} a={a} b={b} initial={c.set_scores} />}
-                {c.status === "reported" && c.reported_by !== playerId && <>
+                {c.status === "reported" && !ourReport && <>
                   <Act action={answerResultAction} id={c.id} answer="confirm" label={t.confirm} primary />
                   <Act action={answerResultAction} id={c.id} answer="dispute" label={t.dispute} confirmText={t.confirmDispute} />
                 </>}
@@ -148,15 +184,20 @@ export async function MyChallenges({ playerId, className = "" }: { playerId: str
             </li>);
         })}
         {notices.map((c) => {
-          const other = c.challenger_id === playerId ? c.opponent_id : c.challenger_id;
-          const name = names.get(other) ?? "?";
-          const text = c.reason === "declined" ? t.noticeDeclined(name) : c.reason === "cancelled" ? t.noticeCancelled(name) : t.noticeExpired(name);
+          const mine = sideOfPlayer(c, playerId) ?? "a";
+          const theirs = sideOf(c, mine === "a" ? "b" : "a");
+          const partner = sideOf(c, mine).find((id) => id !== playerId);
+          const name = sideName(c, mine === "a" ? "b" : "a", names);
+          const text = c.reason === "declined" ? t.noticeDeclined(name)
+            : c.reason === "cancelled" ? t.noticeCancelled(names.get(c.cancelled_by ?? "") ?? name) : t.noticeExpired(name);
           return (
             <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
               <span className="text-muted">{text}</span>
               <ActionForm action={sendChallengeAction} submitLabel={t.challengeAgain} primary={false} inline className="inline-block">
                 <input type="hidden" name="championship_id" value={c.championship_id} />
-                <input type="hidden" name="opponent_id" value={other} />
+                <input type="hidden" name="opponent_id" value={theirs[0]} />
+                {partner && <input type="hidden" name="partner_id" value={partner} />}
+                {theirs[1] && <input type="hidden" name="opponent_partner_id" value={theirs[1]} />}
                 <input type="hidden" name="best_of" value={c.best_of} />
               </ActionForm>
             </li>);
@@ -171,15 +212,16 @@ export async function DisputedChallenges({ championshipId }: { championshipId: s
   const list = await disputedChallenges(championshipId);
   if (!list.length) return null;
   const t = await tr(challengesText);
-  const names = await playerNames(list.flatMap((c) => [c.challenger_id, c.opponent_id]));
+  const names = await playerNames(everyoneIn(list));
   return (
     <section className="space-y-3 rounded-lg border border-amber-400 p-4">
       <h2 className="text-lg font-semibold">{t.adminTitle}</h2>
       <p className="text-sm text-muted">{t.adminIntro}</p>
       <ul className="divide-y divide-line">
         {list.map((c) => {
-          const a = names.get(c.challenger_id) ?? "?", b = names.get(c.opponent_id) ?? "?";
-          const disputer = c.reported_by === c.challenger_id ? b : a;
+          const a = sideName(c, "a", names), b = sideName(c, "b", names);
+          // Ha contestato l'altro lato rispetto a chi ha inserito il risultato.
+          const disputer = sideOfPlayer(c, c.reported_by ?? "") === "a" ? b : a;
           return (
             <li key={c.id} className="space-y-2 py-3">
               <p><span className="font-medium">{a}</span> {score(c)} <span className="font-medium">{b}</span>

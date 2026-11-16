@@ -52,7 +52,7 @@ export async function recomputeChampionship(championshipId: string, opts: { clos
     svc.from("past_results").select("player_id, position, past_tournaments!inner(championship_id)").eq("past_tournaments.championship_id", championshipId),
     svc.from("player_absences").select("player_id, from_date, to_date").eq("championship_id", championshipId),
     svc.from("tournaments").select("id, status, starts_on, closed_at, created_at, format").eq("championship_id", championshipId).eq("ranked", true),
-    svc.from("challenges").select("id, challenger_id, opponent_id, sets_a, sets_b, played_at")
+    svc.from("challenges").select("id, challenger_id, opponent_id, challenger_partner_id, opponent_partner_id, sets_a, sets_b, played_at")
       .eq("championship_id", championshipId).eq("status", "confirmed").eq("ranked", true).order("played_at"),
   ]);
   // Tornei conteggiati dopo questa operazione, in ordine cronologico.
@@ -110,9 +110,11 @@ export async function recomputeChampionship(championshipId: string, opts: { clos
     // Le sfide valide contano con il peso attuale della lega (anche se nel frattempo sono state spente).
     challenges: (challenges ?? []).map((c) => {
       const aWins = (c.sets_a as number) > (c.sets_b as number);
+      const sideA = [c.challenger_id, c.challenger_partner_id].filter(Boolean) as string[];
+      const sideB = [c.opponent_id, c.opponent_partner_id].filter(Boolean) as string[];
       return {
         id: c.id as string, date: romeDay(c.played_at as string), weight: settings.challenges.weight,
-        winner: (aWins ? c.challenger_id : c.opponent_id) as string, loser: (aWins ? c.opponent_id : c.challenger_id) as string,
+        winners: aWins ? sideA : sideB, losers: aWins ? sideB : sideA,
       };
     }),
   };

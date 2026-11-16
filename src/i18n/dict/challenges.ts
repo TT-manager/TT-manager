@@ -1,17 +1,21 @@
 import { dict } from "../locale";
 
-/** Sfide singole: messaggi di src/lib/challenges.ts e testi delle pagine. */
+/** Sfide fuori torneo (singolo e doppio): messaggi di src/lib/challenges.ts e testi delle pagine. */
 export const challengesText = dict({
   // esiti e errori
   notFound: "Sfida non trovata.",
   notYours: "Questa sfida non ti riguarda.",
-  singlesOnly: "Le sfide si giocano solo nei circuiti di singolare.",
   notMember: "Devi far parte del circuito per lanciare una sfida.",
   opponentNotMember: "L'avversario non fa parte del circuito.",
   opponentNoAccount: "Puoi sfidare solo chi ha un account: deve poter accettare e confermare.",
   selfChallenge: "Non puoi sfidare te stesso.",
   badBestOf: "Numero di set non valido (1, 3, 5 o 7).",
-  alreadyOpen: "Hai già una sfida aperta con questo giocatore.",
+  alreadyOpen: "Hai già una sfida aperta con questi avversari.",
+  pairsRequired: "Nel doppio scegli il tuo compagno e i due avversari.",
+  samePlayerTwice: "Lo stesso giocatore non può comparire due volte nella sfida.",
+  someoneNotMember: "Tutti e quattro i giocatori devono far parte del circuito.",
+  someoneInactive: "Uno dei giocatori scelti è disattivato.",
+  opponentsNoAccount: "Almeno uno dei due avversari deve avere un account: serve per accettare e confermare.",
   expired: "Questa sfida è scaduta.",
   wrongState: "La sfida non è più in questo stato: ricarica la pagina.",
   sent: "Sfida lanciata: ora l'avversario deve accettarla.",
@@ -33,6 +37,11 @@ export const challengesText = dict({
   sectionTitle: "Sfide",
   sectionIntro: (weight: number, perWeek: number) =>
     `Sfida un altro membro del circuito: se accetta e il risultato viene confermato, la partita vale ${weight === 1 ? "come una partita di torneo" : weight === 0.5 ? "metà di una partita di torneo" : "un quarto di una partita di torneo"}${perWeek === 0 ? "" : `, al massimo ${perWeek === 1 ? "una sfida" : `${perWeek} sfide`} a settimana con lo stesso avversario`}.`,
+  sectionIntroDoubles: (weight: number, perWeek: number) =>
+    `Sfida un'altra coppia del circuito, con il compagno che scegli tu: basta che uno dei due avversari accetti. Se il risultato viene confermato, la partita vale ${weight === 1 ? "come una partita di torneo" : weight === 0.5 ? "metà di una partita di torneo" : "un quarto di una partita di torneo"}${perWeek === 0 ? "" : `, al massimo ${perWeek === 1 ? "una sfida" : `${perWeek} sfide`} a settimana con la stessa coppia`}.`,
+  partner: "Il tuo compagno",
+  opponents: "Avversari",
+  noOpponentsDoubles: "Per una sfida servono almeno altri tre membri del circuito, e uno degli avversari deve avere un account.",
   noticeDeclined: (name: string) => `${name} ha rifiutato la tua sfida.`,
   noticeCancelled: (name: string) => `${name} ha annullato la sfida.`,
   noticeExpired: (name: string) => `La sfida con ${name} è scaduta.`,
@@ -78,13 +87,17 @@ export const challengesText = dict({
 }, {
   notFound: "Challenge not found.",
   notYours: "This challenge doesn't involve you.",
-  singlesOnly: "Challenges are only played in singles leagues.",
   notMember: "You need to be in the league to send a challenge.",
   opponentNotMember: "The opponent is not in the league.",
   opponentNoAccount: "You can only challenge players with an account: they need to accept and confirm.",
   selfChallenge: "You can't challenge yourself.",
   badBestOf: "Invalid number of sets (1, 3, 5 or 7).",
-  alreadyOpen: "You already have an open challenge with this player.",
+  alreadyOpen: "You already have an open challenge with these opponents.",
+  pairsRequired: "In doubles, choose your partner and both opponents.",
+  samePlayerTwice: "The same player can't appear twice in the challenge.",
+  someoneNotMember: "All four players must be in the league.",
+  someoneInactive: "One of the chosen players is deactivated.",
+  opponentsNoAccount: "At least one of the two opponents needs an account: it's needed to accept and confirm.",
   expired: "This challenge has expired.",
   wrongState: "The challenge is no longer in this state: reload the page.",
   sent: "Challenge sent: now your opponent has to accept it.",
@@ -105,6 +118,11 @@ export const challengesText = dict({
   sectionTitle: "Challenges",
   sectionIntro: (weight: number, perWeek: number) =>
     `Challenge another league member: if they accept and the result is confirmed, the match is worth ${weight === 1 ? "the same as a tournament match" : weight === 0.5 ? "half a tournament match" : "a quarter of a tournament match"}${perWeek === 0 ? "" : `, up to ${perWeek === 1 ? "one challenge" : `${perWeek} challenges`} a week with the same opponent`}.`,
+  sectionIntroDoubles: (weight: number, perWeek: number) =>
+    `Challenge another pair in the league, with the partner you choose: one of the two opponents accepting is enough. If the result is confirmed, the match is worth ${weight === 1 ? "the same as a tournament match" : weight === 0.5 ? "half a tournament match" : "a quarter of a tournament match"}${perWeek === 0 ? "" : `, up to ${perWeek === 1 ? "one challenge" : `${perWeek} challenges`} a week with the same pair`}.`,
+  partner: "Your partner",
+  opponents: "Opponents",
+  noOpponentsDoubles: "A challenge needs at least three other league members, and one of the opponents must have an account.",
   noticeDeclined: (name: string) => `${name} declined your challenge.`,
   noticeCancelled: (name: string) => `${name} cancelled the challenge.`,
   noticeExpired: (name: string) => `The challenge with ${name} has expired.`,

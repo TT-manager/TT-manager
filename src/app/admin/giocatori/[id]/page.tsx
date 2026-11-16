@@ -37,15 +37,19 @@ export default async function AdminPlayerPage({ params }: PageProps<"/admin/gioc
     svc.from("championship_players").select("rating, games_played, championships(id, name, slug, settings)").eq("player_id", id),
     svc.from("championship_ranking").select("championship_id, position, games_played").eq("player_id", id),
     svc.from("entry_members").select("tournament_id").eq("player_id", id),
-    svc.from("challenges").select("id, challenger_id, opponent_id, sets_a, sets_b, played_at, ranked")
-      .eq("status", "confirmed").or(`challenger_id.eq.${id},opponent_id.eq.${id}`).order("played_at", { ascending: false }).limit(10),
+    svc.from("challenges").select("id, challenger_id, opponent_id, challenger_partner_id, opponent_partner_id, sets_a, sets_b, played_at, ranked")
+      .eq("status", "confirmed").or(`challenger_id.eq.${id},opponent_id.eq.${id},challenger_partner_id.eq.${id},opponent_partner_id.eq.${id}`).order("played_at", { ascending: false }).limit(10),
     p.user_id ? svc.auth.admin.getUserById(p.user_id as string).then((r) => r.data.user) : Promise.resolve(null),
   ]);
   const tIds = [...new Set((entries ?? []).map((e) => e.tournament_id as string))];
   const { data: tournaments } = tIds.length ? await svc.from("tournaments")
     .select("id, name, status, starts_on, ranked, championship_id, championships(name)").in("id", tIds)
     .order("starts_on", { ascending: false, nullsFirst: false }).limit(10) : { data: [] };
-  const opponentIds = (challenges ?? []).map((c) => (c.challenger_id === id ? c.opponent_id : c.challenger_id) as string);
+  // Lato del giocatore («a» chi ha lanciato la sfida e il compagno) e avversari (uno nel singolo, due nel doppio).
+  const onA = (c: { challenger_id: unknown; challenger_partner_id: unknown }) => c.challenger_id === id || c.challenger_partner_id === id;
+  const rivals = (c: NonNullable<typeof challenges>[number]) =>
+    (onA(c) ? [c.opponent_id, c.opponent_partner_id] : [c.challenger_id, c.challenger_partner_id]).filter(Boolean) as string[];
+  const opponentIds = (challenges ?? []).flatMap(rivals);
   const { data: opponents } = opponentIds.length ? await svc.from("players").select("id, full_name").in("id", opponentIds) : { data: [] };
   const oppName = new Map((opponents ?? []).map((o) => [o.id as string, o.full_name as string]));
   const posOf = new Map((positions ?? []).map((x) => [x.championship_id as string, (x.games_played as number) > 0 ? x.position as number : null]));
@@ -132,11 +136,11 @@ export default async function AdminPlayerPage({ params }: PageProps<"/admin/gioc
           {(challenges ?? []).length === 0 ? <p className="text-sm text-muted">{t.noChallengesPlayed}</p> : (
             <ul className="divide-y divide-line">
               {(challenges ?? []).map((c) => {
-                const mine = c.challenger_id === id ? [c.sets_a, c.sets_b] : [c.sets_b, c.sets_a];
+                const mine = onA(c) ? [c.sets_a, c.sets_b] : [c.sets_b, c.sets_a];
                 const won = (mine[0] as number) > (mine[1] as number);
                 return (
                   <li key={c.id as string} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <span>{t.vs(oppName.get(c.challenger_id === id ? c.opponent_id as string : c.challenger_id as string) ?? "?")}
+                    <span>{t.vs(rivals(c).map((r) => oppName.get(r) ?? "?").join(" / "))}
                       <span className="block text-xs text-muted">{date(c.played_at as string)}{c.ranked ? "" : t.friendlySuffix}</span></span>
                     <span className={`font-bold tabular-nums ${won ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400"}`}>{mine[0]}-{mine[1]}</span>
                   </li>);

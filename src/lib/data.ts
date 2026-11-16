@@ -83,17 +83,21 @@ export type HistoryRow = {
   challengeOpponent?: string;
 };
 
-/** Avversario di ogni sfida dello storico (le sfide non sono leggibili dal client anonimo). */
+/** Avversari di ogni sfida dello storico («Mario», o «Mario / Luca» nel doppio): le sfide non sono leggibili dal client. */
 async function challengeOpponents(playerId: string, ids: (string | null)[]) {
   const wanted = [...new Set(ids.filter((x): x is string => Boolean(x)))];
   if (!wanted.length || !hasServiceKey()) return new Map<string, string>();
-  const { data } = await createServiceClient().from("challenges")
-    .select("id, challenger_id, opponent_id, challenger:players!challenges_challenger_id_fkey(full_name), opponent:players!challenges_opponent_id_fkey(full_name)")
-    .in("id", wanted);
-  return new Map((data ?? []).map((c) => {
-    const other = (c.challenger_id === playerId ? c.opponent : c.challenger) as unknown as { full_name: string } | null;
-    return [c.id as string, other?.full_name ?? "?"];
+  const svc = createServiceClient();
+  const { data } = await svc.from("challenges")
+    .select("id, challenger_id, opponent_id, challenger_partner_id, opponent_partner_id").in("id", wanted);
+  const rivals = new Map((data ?? []).map((c) => {
+    const onA = c.challenger_id === playerId || c.challenger_partner_id === playerId;
+    return [c.id as string, (onA ? [c.opponent_id, c.opponent_partner_id] : [c.challenger_id, c.challenger_partner_id]).filter(Boolean) as string[]];
   }));
+  const ids2 = [...new Set([...rivals.values()].flat())];
+  const { data: people } = ids2.length ? await svc.from("players").select("id, full_name").in("id", ids2) : { data: [] };
+  const name = new Map((people ?? []).map((p) => [p.id as string, p.full_name as string]));
+  return new Map([...rivals].map(([id, r]) => [id, r.map((x) => name.get(x) ?? "?").join(" / ")]));
 }
 
 /** Giocatore con punti e storico in ogni lega. */

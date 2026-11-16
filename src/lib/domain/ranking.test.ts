@@ -84,9 +84,9 @@ describe("sfide singole", () => {
   const base: RankingInput = { settings: S, members: members(["a", "b"]), pastResults: [], absences: [], tournaments: [] };
 
   it("valgono la frazione scelta dei punti di una partita di torneo", () => {
-    const full = computeRanking({ ...base, challenges: [{ id: "c1", date: "2026-01-05", winner: "a", loser: "b", weight: 1 }] });
-    const half = computeRanking({ ...base, challenges: [{ id: "c1", date: "2026-01-05", winner: "a", loser: "b", weight: 0.5 }] });
-    const quarter = computeRanking({ ...base, challenges: [{ id: "c1", date: "2026-01-05", winner: "a", loser: "b", weight: 0.25 }] });
+    const full = computeRanking({ ...base, challenges: [{ id: "c1", date: "2026-01-05", winners: ["a"], losers: ["b"], weight: 1 }] });
+    const half = computeRanking({ ...base, challenges: [{ id: "c1", date: "2026-01-05", winners: ["a"], losers: ["b"], weight: 0.5 }] });
+    const quarter = computeRanking({ ...base, challenges: [{ id: "c1", date: "2026-01-05", winners: ["a"], losers: ["b"], weight: 0.25 }] });
     expect(full.players.map((p) => p.rating)).toEqual([1020, 980]);
     expect(half.players.map((p) => p.rating)).toEqual([1010, 990]);
     expect(quarter.players.map((p) => p.rating)).toEqual([1005, 995]);
@@ -99,8 +99,8 @@ describe("sfide singole", () => {
     const r = computeRanking({ ...base,
       tournaments: [{ id: "t", date: "2026-02-01", participants: ["a", "b"], matches: [{ id: "m", winners: ["b"], losers: ["a"] }] }],
       challenges: [
-        { id: "late", date: "2026-02-01", winner: "a", loser: "b", weight: 1 },
-        { id: "early", date: "2026-01-20", winner: "a", loser: "b", weight: 1 },
+        { id: "late", date: "2026-02-01", winners: ["a"], losers: ["b"], weight: 1 },
+        { id: "early", date: "2026-01-20", winners: ["a"], losers: ["b"], weight: 1 },
       ] });
     const order = r.history.filter((h) => h.kind === "match" && h.playerId === "a").map((h) => h.challengeId ?? h.matchId);
     expect(order).toEqual(["early", "m", "late"]);
@@ -109,12 +109,22 @@ describe("sfide singole", () => {
   it("non contano come presenza: chi salta il torneo perde comunque punti", () => {
     const r = computeRanking({ ...base, members: [{ playerId: "a", override: 1300, joinedOn: null }, { playerId: "b", override: 1300, joinedOn: null }],
       tournaments: [{ id: "t", date: "2026-02-01", participants: [], matches: [] }],
-      challenges: [{ id: "c", date: "2026-01-20", winner: "a", loser: "b", weight: 0.5 }] });
+      challenges: [{ id: "c", date: "2026-01-20", winners: ["a"], losers: ["b"], weight: 0.5 }] });
     expect(r.history.filter((h) => h.kind === "decay")).toHaveLength(2);
   });
 
+  it("doppio: coppia contro coppia, attese sulla media della coppia, punti a entrambi i compagni", () => {
+    const r = computeRanking({ ...base, members: [
+      { playerId: "a", override: 1100, joinedOn: null }, { playerId: "b", override: 900, joinedOn: null },
+      { playerId: "c", override: 1000, joinedOn: null }, { playerId: "d", override: 1000, joinedOn: null }],
+      challenges: [{ id: "c", date: "2026-01-20", winners: ["a", "b"], losers: ["c", "d"], weight: 0.5 }] });
+    // Medie 1000 contro 1000: ognuno +10 / −10 (metà di 20), anche chi ha più o meno punti del compagno.
+    expect(Object.fromEntries(r.players.map((p) => [p.id, p.rating]))).toEqual({ a: 1110, b: 910, c: 990, d: 990 });
+    expect(r.history.filter((h) => h.challengeId === "c")).toHaveLength(4);
+  });
+
   it("ignora le sfide di chi non è più nella lega", () => {
-    const r = computeRanking({ ...base, challenges: [{ id: "c", date: "2026-01-20", winner: "a", loser: "z", weight: 1 }] });
+    const r = computeRanking({ ...base, challenges: [{ id: "c", date: "2026-01-20", winners: ["a"], losers: ["z"], weight: 1 }] });
     expect(r.players.map((p) => p.rating)).toEqual([1000, 1000]);
   });
 });

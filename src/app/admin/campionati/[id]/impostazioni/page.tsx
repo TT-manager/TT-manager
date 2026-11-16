@@ -104,7 +104,7 @@ export default async function SettingsPage({ params }: PageProps<"/admin/campion
           <p className={muted}>{t.placementSemis}</p>
         </section>
 
-        {c.kind === "singles" && <section className={box}>
+        {<section className={box}>
           <h2 className="text-lg font-semibold">{t.challengesTitle}</h2>
           <p className={muted}>{t.challengesNote}</p>
           <label className="flex items-center gap-2"><input type="checkbox" name="challenges_enabled" defaultChecked={s.challenges.enabled} /> {t.challengesEnabled}</label>
