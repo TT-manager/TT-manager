@@ -1,6 +1,7 @@
 import "server-only";
 import { createServiceClient } from "./supabase/admin";
-import { validateMatch, type SetScore } from "./domain/score";
+import { validateMatch, type SetRules, type SetScore } from "./domain/score";
+import { setRulesError } from "./domain/format";
 import { parseRankingSettings, DEFAULT_RANKING } from "./domain/ranking";
 import {
   ACCEPTED_DAYS, CHALLENGE_BEST_OF, NOTICE_DAYS, countsForRanking, isExpired, recentlyClosed, recentlyExpired, type ChallengeStatus,
@@ -13,12 +14,14 @@ import { translateDomainError } from "@/i18n/domain-errors";
 type Result = { error?: string; ok?: string; set?: number };
 
 export const CHALLENGE_COLUMNS =
-  "id, championship_id, challenger_id, opponent_id, challenger_partner_id, opponent_partner_id, best_of, status, sets_a, sets_b, set_scores, reported_by, played_at, confirmed_at, ranked, friendly, cancelled_by, created_at, updated_at";
+  "id, championship_id, challenger_id, opponent_id, challenger_partner_id, opponent_partner_id, best_of, set_points, status, sets_a, sets_b, set_scores, reported_by, played_at, confirmed_at, ranked, friendly, cancelled_by, created_at, updated_at";
 export type Challenge = {
   id: string; championship_id: string; challenger_id: string; opponent_id: string;
   /** Solo nel doppio: compagno di chi lancia la sfida e compagno dello sfidato. */
   challenger_partner_id: string | null; opponent_partner_id: string | null;
-  best_of: number; status: ChallengeStatus;
+  best_of: number;
+  /** Punti per vincere un set (11, 21 o un valore scelto da chi lancia la sfida). */
+  set_points: number; status: ChallengeStatus;
   sets_a: number | null; sets_b: number | null; set_scores: SetScore[] | null; reported_by: string | null;
   played_at: string | null; confirmed_at: string | null; ranked: boolean;
   /** Scelta come amichevole da chi l'ha lanciata: non vale mai per la classifica. */
@@ -38,6 +41,9 @@ const ALL_SIDES = "challenger_id, opponent_id, challenger_partner_id, opponent_p
 /** Filtro: sfide in cui compare il giocatore, in qualsiasi ruolo. */
 const involving = (playerId: string) =>
   `challenger_id.eq.${playerId},opponent_id.eq.${playerId},challenger_partner_id.eq.${playerId},opponent_partner_id.eq.${playerId}`;
+
+/** Regole del set della sfida (senza golden point). */
+export const rulesOf = (c: Pick<Challenge, "set_points">): SetRules => ({ points: c.set_points ?? 11, golden: null });
 
 async function leagueOf(championshipId: string) {
   const { data } = await createServiceClient().from("championships").select("id, kind, settings").eq("id", championshipId).maybeSingle();
@@ -64,7 +70,7 @@ async function move(id: string, from: ChallengeStatus[], change: Record<string, 
  * Si può solo se la lega ha attivato le sfide e le stesse persone non hanno già raggiunto il limite della settimana.
  */
 export async function createChallenge(championshipId: string, challengerId: string, opponentId: string, bestOf: number,
-  partners: { mine?: string; theirs?: string } = {}): Promise<Result> {
+  partners: { mine?: string; theirs?: string } = {}, setPoints = 11): Promise<Result> {
   const t = await tr(challengesText);
   const league = await leagueOf(championshipId);
   if (!league) return { error: t.notFound };
@@ -77,6 +83,7 @@ export async function createChallenge(championshipId: string, challengerId: stri
   if (challengerId === opponentId) return { error: t.selfChallenge };
   if (new Set(everyone).size !== everyone.length) return { error: t.samePlayerTwice };
   if (!(CHALLENGE_BEST_OF as readonly number[]).includes(bestOf)) return { error: t.badBestOf };
+  if (setRulesError({ points: setPoints, golden: null })) return { error: t.badSetPoints };
   const svc = createServiceClient();
   const [{ data: members }, { data: people }, { data: recent }] = await Promise.all([
     svc.from("championship_players").select("player_id").eq("championship_id", championshipId).in("player_id", everyone),
@@ -100,7 +107,7 @@ export async function createChallenge(championshipId: string, challengerId: stri
   if (!countsForRanking(league.settings.challenges, new Date().toISOString(), done))
     return { error: t.weeklyLimit(league.settings.challenges.perWeek) };
   const { error } = await svc.from("challenges").insert({
-    championship_id: championshipId, challenger_id: challengerId, opponent_id: opponentId, best_of: bestOf,
+    championship_id: championshipId, challenger_id: challengerId, opponent_id: opponentId, best_of: bestOf, set_points: setPoints,
     challenger_partner_id: mine || null, opponent_partner_id: theirs || null,
   });
   return error ? { error: t.saveFailed } : { ok: t.sent };
@@ -135,7 +142,7 @@ export async function reportChallenge(id: string, playerId: string, sets: SetSco
   // Chi ha inserito il risultato (o il suo compagno) può correggerlo; l'altro lato conferma o contesta.
   if (c.status === "reported" && sideOfPlayer(c, c.reported_by ?? "") !== side) return { error: t.onlyOpponentConfirms };
   if (c.status !== "accepted" && c.status !== "reported") return { error: t.wrongState };
-  const v = validateMatch(sets, c.best_of);
+  const v = validateMatch(sets, c.best_of, rulesOf(c));
   if ("error" in v) return { error: translateDomainError(v.error, await getLocale()), set: v.set };
   const ok = await move(id, [c.status], {
     status: "reported", sets_a: v.result.setsA, sets_b: v.result.setsB, set_scores: v.result.sets,
@@ -197,7 +204,7 @@ export async function adminDecideChallenge(championshipId: string, id: string, d
     return { ok: t.adminAnnulled };
   }
   if (c.status !== "reported" && c.status !== "disputed") return { error: t.wrongState };
-  const v = validateMatch(decision === "confirm" ? c.set_scores ?? [] : decision.sets, c.best_of);
+  const v = validateMatch(decision === "confirm" ? c.set_scores ?? [] : decision.sets, c.best_of, rulesOf(c));
   if ("error" in v) return { error: translateDomainError(v.error, await getLocale()), set: v.set };
   const r = await finalize(c, { sets_a: v.result.setsA, sets_b: v.result.setsB, set_scores: v.result.sets }, [c.status]);
   return r.ok ? { ok: t.adminConfirmed } : r;

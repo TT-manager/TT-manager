@@ -19,7 +19,8 @@ function updated() {
 export async function sendChallengeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const account = await requireAccount(field(formData, "back") || "/");
   const r = await createChallenge(field(formData, "championship_id"), account.player.id, field(formData, "opponent_id"),
-    Number(field(formData, "best_of")), { mine: field(formData, "partner_id"), theirs: field(formData, "opponent_partner_id") });
+    Number(field(formData, "best_of")), { mine: field(formData, "partner_id"), theirs: field(formData, "opponent_partner_id") },
+    Number(field(formData, "set_points") || 11));
   if (r.ok) updated();
   return r;
 }

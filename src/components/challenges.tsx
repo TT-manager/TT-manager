@@ -4,10 +4,10 @@ import { MatchForm } from "@/components/match-form";
 import { getAccount } from "@/lib/account";
 import {
   challengeableMembers, closedNoticesOf, disputedChallenges, latestChallenges, leagueNames, matchupKey, openChallengesOf, playerNames,
-  sideOf, sideOfPlayer, type Challenge,
+  rulesOf, sideOf, sideOfPlayer, type Challenge,
 } from "@/lib/challenges";
 import { CHALLENGE_BEST_OF, daysLeft } from "@/lib/domain/challenges";
-import { DEFAULT_SET_RULES } from "@/lib/domain/score";
+import { SetPointsField } from "@/components/set-points-field";
 import type { Championship } from "@/lib/data";
 import { answerChallengeAction, answerResultAction, reportChallengeAction, sendChallengeAction } from "@/app/sfide/actions";
 import { settleChallengeAction, decideChallengeAction } from "@/app/admin/campionati/actions";
@@ -87,6 +87,7 @@ export async function LeagueChallenges({ c }: { c: Championship }) {
                   <select name="best_of" defaultValue="3" className={select}>
                     {CHALLENGE_BEST_OF.map((n) => <option key={n} value={n}>{t.sets(n)}</option>)}
                   </select></label>
+                <SetPointsField label={t.setPoints} customLabel={t.customPoints} className={select} />
               </ActionForm>)}
       </div>}
 
@@ -156,7 +157,7 @@ export async function MyChallenges({ playerId, className = "" }: { playerId: str
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span>
                   <span className="text-xs uppercase tracking-wide text-muted">
-                    {league ? <Link href={`/c/${league.slug}`} className="hover:text-brand">{league.name}</Link> : null} · {t.bestOfShort(c.best_of)}
+                    {league ? <Link href={`/c/${league.slug}`} className="hover:text-brand">{league.name}</Link> : null} · {t.bestOfShort(c.best_of)} · {t.pointsShort(c.set_points)}
                     {(c.status === "pending" || c.status === "accepted") && <> · {t.expiresIn(daysLeft(c))}</>}
                   </span><br />
                   <span className="font-medium">{text}</span>
@@ -171,11 +172,11 @@ export async function MyChallenges({ playerId, className = "" }: { playerId: str
                 {c.status === "pending" && iChallenged &&
                   <Act action={answerChallengeAction} id={c.id} answer="cancel" label={t.cancel} confirmText={t.confirmCancel} />}
                 {c.status === "accepted" && <>
-                  <MatchForm action={reportChallengeAction} hidden={{}} matchId={c.id} bestOf={c.best_of} rules={DEFAULT_SET_RULES} a={a} b={b} initial={null} />
+                  <MatchForm action={reportChallengeAction} hidden={{}} matchId={c.id} bestOf={c.best_of} rules={rulesOf(c)} a={a} b={b} initial={null} />
                   <Act action={answerChallengeAction} id={c.id} answer="cancel" label={t.cancel} confirmText={t.confirmCancel} />
                 </>}
                 {c.status === "reported" && ourReport &&
-                  <MatchForm action={reportChallengeAction} hidden={{}} matchId={c.id} bestOf={c.best_of} rules={DEFAULT_SET_RULES} a={a} b={b} initial={c.set_scores} />}
+                  <MatchForm action={reportChallengeAction} hidden={{}} matchId={c.id} bestOf={c.best_of} rules={rulesOf(c)} a={a} b={b} initial={c.set_scores} />}
                 {c.status === "reported" && !ourReport && <>
                   <Act action={answerResultAction} id={c.id} answer="confirm" label={t.confirm} primary />
                   <Act action={answerResultAction} id={c.id} answer="dispute" label={t.dispute} confirmText={t.confirmDispute} />
@@ -199,6 +200,7 @@ export async function MyChallenges({ playerId, className = "" }: { playerId: str
                 {partner && <input type="hidden" name="partner_id" value={partner} />}
                 {theirs[1] && <input type="hidden" name="opponent_partner_id" value={theirs[1]} />}
                 <input type="hidden" name="best_of" value={c.best_of} />
+                <input type="hidden" name="set_points" value={c.set_points} />
               </ActionForm>
             </li>);
         })}
@@ -232,7 +234,7 @@ export async function DisputedChallenges({ championshipId }: { championshipId: s
                   <input type="hidden" name="challenge_id" value={c.id} />
                   <input type="hidden" name="decision" value="confirm" />
                 </ActionForm>
-                <MatchForm action={decideChallengeAction} hidden={{ championship_id: championshipId }} matchId={c.id} bestOf={c.best_of} rules={DEFAULT_SET_RULES} a={a} b={b} initial={c.set_scores} />
+                <MatchForm action={decideChallengeAction} hidden={{ championship_id: championshipId }} matchId={c.id} bestOf={c.best_of} rules={rulesOf(c)} a={a} b={b} initial={c.set_scores} />
                 <ActionForm action={settleChallengeAction} submitLabel={t.annul} confirmText={t.confirmAnnul} primary={false} inline className="inline-block">
                   <input type="hidden" name="championship_id" value={championshipId} />
                   <input type="hidden" name="challenge_id" value={c.id} />
