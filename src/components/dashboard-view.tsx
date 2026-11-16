@@ -27,7 +27,11 @@ function SideView({ side, meId, right = false, you }: { side: Side; meId?: strin
     </div>);
 }
 
-export async function DashboardView({ d, me, children }: { d: DashboardData; me: { id: string; full_name: string; avatar_path: string | null }; children: ReactNode }) {
+export async function DashboardView({ d, me, children, challengeLeagues = [] }: {
+  d: DashboardData; me: { id: string; full_name: string; avatar_path: string | null }; children: ReactNode;
+  /** Circuiti di cui fai parte in cui le sfide sono attive. */
+  challengeLeagues?: { name: string; slug: string }[];
+}) {
   const t = await tr(compDashboard);
   const l = await getLocale();
   const pct = d.kpi.games ? Math.round((d.kpi.wins / d.kpi.games) * 100) : null;
@@ -130,10 +134,14 @@ export async function DashboardView({ d, me, children }: { d: DashboardData; me:
         </div>
 
         <aside>
-          <h2 className="text-2xl font-bold uppercase">{t.quickActions}</h2>
+          <h2 id="azioni-rapide" className="scroll-mt-24 text-2xl font-bold uppercase">{t.quickActions}</h2>
           <div className="card mt-3 grid gap-2 !p-3">
             {[
               { href: "/amichevole/nuovo", icon: "add" as IconName, title: t.createFriendly, sub: t.challengeFriends },
+              ...challengeLeagues.map((c) => ({
+                href: `/c/${c.slug}#sfide-circuito`, icon: "match" as IconName,
+                title: challengeLeagues.length === 1 ? t.launchChallenge : t.challengeIn(c.name), sub: t.challengeSub,
+              })),
               { href: "/amici", icon: "friends" as IconName, title: d.kpi.friendRequests ? t.friendRequests : t.findFriends,
                 sub: d.kpi.friendRequests ? t.requestsToAccept(d.kpi.friendRequests) : t.searchPlayers, alert: d.kpi.friendRequests },
               { href: "/profilo", icon: "profile" as IconName, title: t.myProfile,

@@ -52,7 +52,7 @@ export async function LeagueChallenges({ c }: { c: Championship }) {
   const options = (list: typeof others) => list.map((m) => <option key={m.id} value={m.id}>{m.name}</option>);
 
   return (
-    <section className="mt-10">
+    <section id="sfide-circuito" className="mt-10 scroll-mt-24">
       <h2 className="text-2xl font-bold uppercase">{t.sectionTitle}</h2>
       {s.enabled && <div className="card mt-3">
           <p className="text-sm text-muted">{doubles ? t.sectionIntroDoubles(s.weight, s.perWeek) : t.sectionIntro(s.weight, s.perWeek)}</p>

@@ -46,6 +46,9 @@ async function HomeContent() {
   const shown = all.filter((c) => mine.has(c.id) || c.isPublic)
     .sort((a, b) => Number(mine.has(b.id)) - Number(mine.has(a.id)) || a.name.localeCompare(b.name, "it"));
 
+  // Circuiti di cui fai parte in cui si possono lanciare sfide.
+  const challengeLeagues = all.filter((c) => mine.has(c.id) && c.settings.challenges.enabled).map((c) => ({ name: c.name, slug: c.slug }));
+  const challengeHref = challengeLeagues.length === 1 ? `/c/${challengeLeagues[0].slug}#sfide-circuito` : "#azioni-rapide";
   return (
     <>
       <section className="overflow-hidden rounded-2xl bg-ink text-white shadow-lg">
@@ -58,7 +61,9 @@ async function HomeContent() {
               {account ? t.heroMember : t.heroGuest}</p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
               {account
-                ? <><Link href="/amichevole/nuovo" className="btn-primary">{t.createFriendly}</Link><Link href="/amici" className="btn border border-white/30 hover:bg-white/10">{t.friends}</Link></>
+                ? <><Link href="/amichevole/nuovo" className="btn-primary">{t.createFriendly}</Link>{challengeLeagues.length > 0
+                  ? <Link href={challengeHref} className="btn border border-white/30 hover:bg-white/10">{t.launchChallenge}</Link>
+                  : <Link href="/amici" className="btn border border-white/30 hover:bg-white/10">{t.friends}</Link>}</>
                 : <><Link href="/registrati" className="btn-primary">{t.signup}</Link><Link href="/login" className="btn border border-white/30 hover:bg-white/10">{t.login}</Link><Link href="/faq" className="text-sm text-white/80 underline hover:text-white">{t.howItWorks}</Link></>}
             </div>
             <div className="mt-6"><p className="mb-1 text-sm text-white/70">{t.haveCode}</p><CodeBox /></div>
@@ -85,7 +90,7 @@ async function HomeContent() {
         </section>)}
 
       {account ? (
-        <Dashboard account={account}>
+        <Dashboard account={account} challengeLeagues={challengeLeagues}>
       {shown.length === 0 ? (
         <p className="mt-3 text-muted">
           {account ? t.noLeagueMember : t.noLeagueGuest}</p>
@@ -113,8 +118,10 @@ async function HomeContent() {
 }
 
 /** Dashboard di chi è collegato: numeri, prossima partita, leghe, azioni rapide, amici. */
-async function Dashboard({ account, children }: { account: NonNullable<Awaited<ReturnType<typeof getAccount>>>; children: React.ReactNode }) {
-  return <DashboardView d={await loadDashboard(account)} me={account.player}>{children}</DashboardView>;
+async function Dashboard({ account, children, challengeLeagues }: {
+  account: NonNullable<Awaited<ReturnType<typeof getAccount>>>; children: React.ReactNode; challengeLeagues: { name: string; slug: string }[];
+}) {
+  return <DashboardView d={await loadDashboard(account)} me={account.player} challengeLeagues={challengeLeagues}>{children}</DashboardView>;
 }
 
 const MEDAL = ["bg-gold", "bg-silver", "bg-bronze"];
