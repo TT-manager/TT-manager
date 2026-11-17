@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { managedChampionships, requirePlayerManager } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { hasServiceKey } from "@/lib/organizer";
 import { listClubs } from "@/lib/clubs-server";
@@ -23,31 +23,38 @@ const h2 = "font-display text-lg font-bold uppercase";
 
 /** Scheda del giocatore per l'amministrazione: foto, dati, account, leghe, tornei e sfide. */
 export default async function AdminPlayerPage({ params }: PageProps<"/admin/giocatori/[id]">) {
-  await requireAdmin();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id) || !hasServiceKey()) notFound();
+  // Il proprietario vede tutti; l'amministratore di circuito solo i giocatori dei suoi circuiti.
+  const owner = (await requirePlayerManager(id)).role === "owner";
   const [t, l] = [await tr(adminShellText), await getLocale()];
   const svc = createServiceClient();
   const { data: p } = await svc.from("players").select("id, full_name, club_id, active, avatar_path, user_id, created_at").eq("id", id).maybeSingle();
   if (!p) notFound();
   const date = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString(intlTag(l), { day: "numeric", month: "short", year: "numeric" }) : "—");
 
-  const [clubs, { data: memberships }, { data: positions }, { data: entries }, { data: challenges }, user] = await Promise.all([
+  // L'amministratore di circuito vede solo ciò che riguarda i circuiti che gestisce (niente email, niente amichevoli).
+  const managed = owner ? null : new Set((await managedChampionships()).map((c) => c.id as string));
+  const inScope = (cid: unknown) => managed === null || (typeof cid === "string" && managed.has(cid));
+  const [clubs, { data: allMemberships }, { data: positions }, { data: entries }, { data: allChallenges }, user] = await Promise.all([
     listClubs(),
     svc.from("championship_players").select("rating, games_played, championships(id, name, slug, settings)").eq("player_id", id),
     svc.from("championship_ranking").select("championship_id, position, games_played").eq("player_id", id),
     svc.from("entry_members").select("tournament_id").eq("player_id", id),
-    svc.from("challenges").select("id, challenger_id, opponent_id, challenger_partner_id, opponent_partner_id, sets_a, sets_b, played_at, ranked")
+    svc.from("challenges").select("id, championship_id, challenger_id, opponent_id, challenger_partner_id, opponent_partner_id, sets_a, sets_b, played_at, ranked")
       .eq("status", "confirmed").or(`challenger_id.eq.${id},opponent_id.eq.${id},challenger_partner_id.eq.${id},opponent_partner_id.eq.${id}`).order("played_at", { ascending: false }).limit(10),
-    p.user_id ? svc.auth.admin.getUserById(p.user_id as string).then((r) => r.data.user) : Promise.resolve(null),
+    p.user_id && owner ? svc.auth.admin.getUserById(p.user_id as string).then((r) => r.data.user) : Promise.resolve(null),
   ]);
+  const memberships = (allMemberships ?? []).filter((m) => inScope((m.championships as unknown as { id: string } | null)?.id));
+  const challenges = (allChallenges ?? []).filter((c) => inScope(c.championship_id));
   const tIds = [...new Set((entries ?? []).map((e) => e.tournament_id as string))];
-  const { data: tournaments } = tIds.length ? await svc.from("tournaments")
+  const { data: allTournaments } = tIds.length ? await svc.from("tournaments")
     .select("id, name, status, starts_on, ranked, championship_id, championships(name)").in("id", tIds)
     .order("starts_on", { ascending: false, nullsFirst: false }).limit(10) : { data: [] };
+  const tournaments = (allTournaments ?? []).filter((x) => inScope(x.championship_id));
   // Lato del giocatore («a» chi ha lanciato la sfida e il compagno) e avversari (uno nel singolo, due nel doppio).
   const onA = (c: { challenger_id: unknown; challenger_partner_id: unknown }) => c.challenger_id === id || c.challenger_partner_id === id;
-  const rivals = (c: NonNullable<typeof challenges>[number]) =>
+  const rivals = (c: (typeof challenges)[number]) =>
     (onA(c) ? [c.opponent_id, c.opponent_partner_id] : [c.challenger_id, c.challenger_partner_id]).filter(Boolean) as string[];
   const opponentIds = (challenges ?? []).flatMap(rivals);
   const { data: opponents } = opponentIds.length ? await svc.from("players").select("id, full_name").in("id", opponentIds) : { data: [] };
@@ -58,7 +65,7 @@ export default async function AdminPlayerPage({ params }: PageProps<"/admin/gioc
 
   return (
     <main className="space-y-6">
-      <Link href="/admin/giocatori" className="inline-block text-sm text-muted hover:underline">{t.backToPlayers}</Link>
+      <Link href={owner ? "/admin/giocatori" : "/admin/campionati"} className="inline-block text-sm text-muted hover:underline">{owner ? t.backToPlayers : t.backToLeaguesShort}</Link>
 
       <header className="flex flex-wrap items-center gap-4">
         <Avatar name={p.full_name as string} path={p.avatar_path as string | null} size="h-20 w-20 text-xl" />
@@ -69,7 +76,7 @@ export default async function AdminPlayerPage({ params }: PageProps<"/admin/gioc
             {club && <span>{clubLabel(club)}</span>}
             <Link href={`/giocatore/${id}`} className="link">{t.publicCard}</Link>
           </p>
-          <div className="mt-3"><ToggleActiveButton id={id} active={p.active as boolean} /></div>
+          {owner && <div className="mt-3"><ToggleActiveButton id={id} active={p.active as boolean} /></div>}
         </div>
       </header>
 
@@ -96,7 +103,7 @@ export default async function AdminPlayerPage({ params }: PageProps<"/admin/gioc
               <dt className="text-muted">{t.signedUp}</dt><dd>{date(user.created_at)}</dd>
               <dt className="text-muted">{t.lastLogin}</dt><dd>{date(user.last_sign_in_at)}</dd>
             </dl>
-          ) : <p className="text-sm text-muted">{t.noAccount}</p>}
+          ) : <p className="text-sm text-muted">{p.user_id ? t.hasAccount : t.noAccount}</p>}
           <p className="text-xs text-muted">{t.cardCreated(date(p.created_at as string))}</p>
         </section>
 
@@ -149,7 +156,7 @@ export default async function AdminPlayerPage({ params }: PageProps<"/admin/gioc
         </section>
       </div>
 
-      <DeletePlayerBox id={id} name={p.full_name as string} />
+      {owner && <DeletePlayerBox id={id} name={p.full_name as string} />}
     </main>
   );
 }

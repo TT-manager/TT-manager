@@ -46,8 +46,8 @@ export default async function AdminHome() {
     { href: "/admin/campionati", icon: "trophy" as IconName, title: t.navLeagues, text: t.homeLeagues, stat: t.statLeagues(leagues.length) },
     { href: "/admin/tornei", icon: "tournament" as IconName, title: t.navTournaments, text: t.homeTournaments,
       stat: live.length ? t.statLive(live.length) : t.statTournaments(rows.length), hot: live.length > 0 },
-    { href: "/admin/giocatori", icon: "friends" as IconName, title: t.navPlayers, text: t.homePlayers, stat: t.statPlayers(players.count ?? 0) },
     ...(owner ? [
+      { href: "/admin/giocatori", icon: "friends" as IconName, title: t.navPlayers, text: t.homePlayers, stat: t.statPlayers(players.count ?? 0) },
       { href: "/admin/circoli", icon: "clubs" as IconName, title: t.navClubs, text: t.homeClubs, stat: clubRequests.count ? t.statRequests(clubRequests.count) : null, hot: Boolean(clubRequests.count) },
       { href: "/admin/amministratori", icon: "admin" as IconName, title: t.navAdmins, text: t.homeAdmins, stat: null },
       { href: "/admin/backup", icon: "backup" as IconName, title: t.navBackup, text: t.homeBackup, stat: null },

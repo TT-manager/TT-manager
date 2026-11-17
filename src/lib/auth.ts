@@ -46,6 +46,24 @@ export async function requireChampionshipManager(championshipId: string): Promis
   return admin;
 }
 
+/**
+ * Chi può aprire e correggere la scheda di un giocatore: il proprietario, oppure l'amministratore
+ * di un circuito di cui il giocatore fa parte. Gli altri tornano all'amministrazione.
+ */
+export async function requirePlayerManager(playerId: string): Promise<AdminInfo> {
+  const admin = await requireAdmin();
+  if (admin.role === "owner") return admin;
+  const { createServiceClient } = await import("./supabase/admin");
+  const svc = createServiceClient();
+  const [{ data: mine }, { data: his }] = await Promise.all([
+    svc.from("championship_admins").select("championship_id").eq("user_id", admin.userId),
+    svc.from("championship_players").select("championship_id").eq("player_id", playerId),
+  ]);
+  const managed = new Set((mine ?? []).map((r) => r.championship_id as string));
+  if (!(his ?? []).some((r) => managed.has(r.championship_id as string))) redirect("/admin");
+  return admin;
+}
+
 export type TournamentAccess = {
   userId: string; isAdmin: boolean;
   championshipId: string | null; ownerUserId: string | null; ranked: boolean; kind: "singles" | "doubles";

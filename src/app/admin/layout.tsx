@@ -31,8 +31,8 @@ async function Header() {
   const items = [
     { href: "/admin/campionati", label: t.navLeagues },
     { href: "/admin/tornei", label: t.navTournaments },
-    { href: "/admin/giocatori", label: t.navPlayers },
     ...(admin.role === "owner" ? [
+      { href: "/admin/giocatori", label: t.navPlayers },
       { href: "/admin/circoli", label: t.navClubs, badge: pendingClubs ?? 0 },
       { href: "/admin/amministratori", label: t.navAdmins },
       { href: "/admin/backup", label: t.navBackup },

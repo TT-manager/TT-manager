@@ -10,10 +10,7 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { listAdminUsers } from "@/lib/admins";
 import { getLocale, tr } from "@/i18n/server";
 import { adminLeaguesText } from "@/i18n/dict/admin-leagues";
-import { clubLabel } from "@/lib/clubs";
-import { listClubs } from "@/lib/clubs-server";
-import { normName } from "@/lib/names";
-import { addChampionshipAdmin, addMembers, mergeDuplicateAction, decideRequest, disableInvite, regenerateInvite, recomputeAction, removeChampionshipAdmin, removeMember, renameChampionship, setVisibility } from "../actions";
+import { addChampionshipAdmin, decideRequest, disableInvite, regenerateInvite, recomputeAction, removeChampionshipAdmin, removeMember, renameChampionship, setVisibility } from "../actions";
 import { pointsLabel } from "@/lib/labels";
 import { ChampionshipHeader, input, loadManagedChampionship, muted } from "./shared";
 
@@ -26,26 +23,15 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
   const { admin, supabase, championship: c } = await loadManagedChampionship(id);
   const tx = await tr(adminLeaguesText);
   const l = await getLocale();
-  const [{ data: ranking }, { data: allPlayers }, { data: tournaments }, { data: admins }, clubs] = await Promise.all([
+  const [{ data: ranking }, { data: tournaments }, { data: admins }] = await Promise.all([
     supabase.from("championship_ranking").select("player_id, full_name, club, rating, games_played, position").eq("championship_id", id).order("position").order("full_name"),
-    (hasServiceKey() ? createServiceClient() : supabase).from("players").select("id, full_name, club, active").is("guest_of", null).order("full_name"),
     supabase.from("tournaments").select("id, name, starts_on, status, ranked").eq("championship_id", id).order("starts_on", { ascending: false, nullsFirst: false }),
     supabase.from("championship_admins").select("user_id").eq("championship_id", id),
-    listClubs(),
   ]);
-  const members = new Set((ranking ?? []).map((r) => r.player_id as string));
-  const others = (allPlayers ?? []).filter((p) => p.active && !members.has(p.id as string));
   const adminUsers = admin.role === "owner" ? await listAdminUsers() : [];
   const assigned = new Set((admins ?? []).map((a) => a.user_id as string));
   const hidden = <input type="hidden" name="championship_id" value={id} />;
   const { requests, unclaimed, invite } = await loadJoinData(id);
-  // Possibili doppioni: schede senza account (create a mano) e giocatori registrati della lega.
-  const { data: withAccount } = hasServiceKey()
-    ? await createServiceClient().from("championship_players").select("player_id, players!inner(full_name, user_id)").eq("championship_id", id).not("players.user_id", "is", null)
-    : { data: [] };
-  const registered = (withAccount ?? []).map((r) => ({ id: r.player_id as string, name: (r.players as unknown as { full_name: string }).full_name }))
-    .sort((a, b) => a.name.localeCompare(b.name, "it"));
-  const suggested = unclaimed.flatMap((u) => registered.filter((r) => normName(r.name) === normName(u.name)).map((r) => ({ to: u, from: r })));
   const inviteUrl = invite ? `${await siteOrigin()}/partecipa/${c.slug}?invito=${invite}` : null;
 
   return (
@@ -129,60 +115,6 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
           {inviteUrl && <ActionForm action={disableInvite} submitLabel={tx.disableLink} primary={false} confirmText={tx.confirmDisableLink}>{hidden}</ActionForm>}
         </div>
       </section>
-
-      <section className="rounded-lg border p-4">
-        <h2 className="text-lg font-semibold">{tx.addByHand}</h2>
-        <p className={`mt-1 ${muted}`}>{tx.addByHandNote}</p>
-        <ActionForm action={addMembers} submitLabel={tx.add} className="mt-3">
-          {hidden}
-          {others.length > 0 && (
-            <fieldset>
-              <legend className={muted}>{tx.existingPlayers}</legend>
-              <div className="mt-2 grid gap-1 sm:grid-cols-2">
-                {others.map((p) => (
-                  <label key={p.id} className="flex items-center gap-2">
-                    <input type="checkbox" name="player_id" value={p.id} /> {p.full_name}{p.club && <span className={muted}>· {p.club}</span>}
-                  </label>))}
-              </div>
-            </fieldset>)}
-          <p className={`mt-4 ${muted}`}>{others.length > 0 ? tx.orCreateNew : tx.createNew}</p>
-          <div className="mt-1 grid gap-2 sm:grid-cols-2">
-            <input name="new_name" placeholder={tx.fullName} maxLength={80} className={input} aria-label={tx.fullName} />
-            <select name="club_id" defaultValue="" className={`select-arrow ${input}`} aria-label={tx.club}>
-              <option value="">{tx.noClub}</option>
-              {clubs.map((cl) => <option key={cl.id} value={cl.id}>{clubLabel(cl)}</option>)}
-            </select>
-          </div>
-        </ActionForm>
-      </section>
-
-      {unclaimed.length > 0 && registered.length > 0 && (
-        <section className="rounded-lg border p-4">
-          <h2 className="text-lg font-semibold">{tx.linkAccount}</h2>
-          <p className={`mt-1 ${muted}`}>{tx.linkAccountNote}</p>
-          {suggested.map((p) => (
-            <ActionForm key={p.to.id + p.from.id} action={mergeDuplicateAction} submitLabel={tx.merge} primary={false} inline className="mt-3 block"
-              confirmText={tx.confirmMergeNamed(p.to.name)}>
-              {hidden}<input type="hidden" name="to_player_id" value={p.to.id} /><input type="hidden" name="from_player_id" value={p.from.id} />
-              <span className="mr-2"><span className="badge-contested mr-2">{tx.sameName}</span>{p.to.name} {tx.noAccount} {tx.and} {p.from.name} {tx.registered}</span>
-            </ActionForm>))}
-          <ActionForm action={mergeDuplicateAction} submitLabel={tx.mergeRecords} primary={false} className="mt-4"
-            confirmText={tx.confirmMerge}>
-            {hidden}
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="grid gap-1 text-sm">{tx.recordWithHistory}
-                <select name="to_player_id" required defaultValue="" className={`select-arrow ${input}`}>
-                  <option value="" disabled>{tx.choose}</option>
-                  {unclaimed.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select></label>
-              <label className="grid gap-1 text-sm">{tx.accountToLink}
-                <select name="from_player_id" required defaultValue="" className={`select-arrow ${input}`}>
-                  <option value="" disabled>{tx.choose}</option>
-                  {registered.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select></label>
-            </div>
-          </ActionForm>
-        </section>)}
 
       <section>
         <h2 className="text-lg font-semibold">{tx.visibility}</h2>

@@ -1,5 +1,5 @@
 import { createServerSupabase } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { hasServiceKey } from "@/lib/organizer";
 import { AddPlayerForm, PlayersTable } from "./player-forms";
@@ -12,7 +12,7 @@ export async function generateMetadata() {
 }
 
 export default async function PlayersPage() {
-  await requireAdmin();
+  await requireOwner();
   const t = await tr(adminShellText);
   // user_id e guest_of non sono leggibili con il login normale (riservati): dopo il controllo
   // dell'amministratore si legge con la chiave del server.

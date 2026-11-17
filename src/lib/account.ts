@@ -1,4 +1,5 @@
 import "server-only";
+import { recomputeChampionship } from "./closing";
 import { redirect } from "next/navigation";
 import { hasServiceKey } from "./organizer";
 import { createServiceClient } from "./supabase/admin";
@@ -108,45 +109,31 @@ export async function attachToChampionship(cid: string, userId: string, linkPlay
 }
 
 /**
- * Unisce un doppione: l'account della scheda `fromPlayerId` (creata alla registrazione) passa alla
- * scheda `toPlayerId` (creata dall'amministratore, con punti e storico), e la scheda vuota sparisce.
- * Le leghe della scheda vuota passano a quella vecchia. Rifiuta se la scheda vuota ha già giocato.
+ * Unisce un doppione: tutto ciò che era della scheda `fromPlayerId` (tornei, sfide, circuiti, albo d'oro,
+ * assenze e l'eventuale account) passa alla scheda `toPlayerId`, che resta; l'altra sparisce.
+ * Lo storico si somma; le classifiche dei circuiti della scheda che resta vengono ricalcolate.
+ * Rifiuta solo se sono chiaramente due persone diverse (due account, stesso torneo, stessa sfida).
  * Da chiamare solo dopo i controlli di chi gestisce la lega.
  */
-export async function mergeDuplicate(toPlayerId: string, fromPlayerId: string): Promise<{ error?: string; ok?: string }> {
+export async function mergeDuplicate(toPlayerId: string, fromPlayerId: string): Promise<{ error?: string; ok?: string; leagues?: string[] }> {
   const t = await tr(accountLibText);
   if (toPlayerId === fromPlayerId) return { error: t.pickTwoCards };
   const svc = createServiceClient();
-  const [{ data: to }, { data: from }, { count: played }] = await Promise.all([
-    svc.from("players").select("id, full_name, user_id, guest_of, avatar_path, club_id").eq("id", toPlayerId).maybeSingle(),
-    svc.from("players").select("id, full_name, user_id, avatar_path, club_id").eq("id", fromPlayerId).maybeSingle(),
-    svc.from("entry_members").select("player_id", { count: "exact", head: true }).eq("player_id", fromPlayerId),
+  const [{ data: to }, { data: from }] = await Promise.all([
+    svc.from("players").select("full_name").eq("id", toPlayerId).maybeSingle(),
+    svc.from("players").select("full_name").eq("id", fromPlayerId).maybeSingle(),
   ]);
   if (!to || !from) return { error: t.playerNotFound };
-  if (to.user_id) return { error: t.alreadyLinked(to.full_name) };
-  if (to.guest_of) return { error: t.guestCannotLink };
-  if (!from.user_id) return { error: t.noAccountToLink(from.full_name) };
-  if (played) return { error: t.alreadyPlayed(from.full_name) };
-
-  // Leghe della scheda nuova → scheda vecchia (se non c'è già).
-  const { data: memberships } = await svc.from("championship_players").select("championship_id").eq("player_id", fromPlayerId);
-  const leagues = (memberships ?? []).map((m) => m.championship_id as string);
-  if (leagues.length) {
-    const { error } = await svc.from("championship_players")
-      .upsert(leagues.map((championship_id) => ({ championship_id, player_id: toPlayerId })), { onConflict: "championship_id,player_id", ignoreDuplicates: true });
-    if (error) return { error: t.moveLeaguesFailed };
+  const { data, error } = await svc.rpc("merge_players", { p_to: toPlayerId, p_from: fromPlayerId });
+  if (error) {
+    const m = error.message;
+    if (m.includes("DUE_ACCOUNT")) return { error: t.bothHaveAccounts(to.full_name, from.full_name) };
+    if (m.includes("STESSO_TORNEO")) return { error: t.sameTournament };
+    if (m.includes("STESSA_SFIDA")) return { error: t.sameChallenge };
+    if (m.includes("SCHEDA_NON_TROVATA")) return { error: t.playerNotFound };
+    return { error: t.mergeFailed };
   }
-  // L'account può stare su una sola scheda: prima si libera quella nuova, poi si collega la vecchia.
-  const userId = from.user_id as string;
-  const { error: e1 } = await svc.from("players").update({ user_id: null }).eq("id", fromPlayerId);
-  if (e1) return { error: t.linkFailed };
-  const { error: e2 } = await svc.from("players").update({
-    user_id: userId,
-    ...(to.avatar_path ? {} : { avatar_path: from.avatar_path }),
-    ...(to.club_id ? {} : { club_id: from.club_id }),
-  }).eq("id", toPlayerId).is("user_id", null);
-  if (e2) { await svc.from("players").update({ user_id: userId }).eq("id", fromPlayerId); return { error: t.linkFailed }; }
-  await svc.from("championship_requests").update({ claim_player_id: null }).eq("claim_player_id", fromPlayerId);
-  await svc.from("players").delete().eq("id", fromPlayerId);
-  return { ok: t.merged(to.full_name) };
+  const leagues = (data ?? []) as string[];
+  for (const cid of leagues) await recomputeChampionship(cid);
+  return { ok: t.merged(to.full_name), leagues };
 }

@@ -88,6 +88,7 @@ export const adminShellText = dict({
 
   // giocatori
   playersTitle: "Giocatori",
+  backToLeaguesShort: "← Circuiti",
   playersCantRead: "Impossibile leggere i giocatori",
   playersIntro: (n: number) => `${n} giocatori. Per inserirli in un circuito vai nella pagina del circuito. Un giocatore disattivato non compare nelle classifiche ma conserva lo storico.`,
   fullName: "Nome e cognome",
@@ -305,6 +306,7 @@ export const adminShellText = dict({
   adminRemoved: "Administrator removed. The account stays, but it no longer has access to the admin area.",
 
   playersTitle: "Players",
+  backToLeaguesShort: "← Leagues",
   playersCantRead: "Unable to read the players",
   playersIntro: (n: number) => `${n} ${n === 1 ? "player" : "players"}. To add them to a league, go to the league's page. A deactivated player doesn't appear in the rankings but keeps their history.`,
   fullName: "Full name",

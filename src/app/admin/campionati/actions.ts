@@ -85,9 +85,10 @@ export async function renameChampionship(_prev: ActionState, formData: FormData)
 // ── Giocatori della lega ──────────────────────────────────────────────
 export async function addMembers(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const cid = str(formData, "championship_id");
-  await requireChampionshipManager(cid);
+  const admin = await requireChampionshipManager(cid);
   const t = await tr(adminLeaguesText);
-  const ids = formData.getAll("player_id").map(String).filter((x) => UUID.test(x));
+  // Scegliere tra i giocatori già in anagrafica (di tutta la piattaforma) può solo il proprietario.
+  const ids = admin.role === "owner" ? formData.getAll("player_id").map(String).filter((x) => UUID.test(x)) : [];
   const name = str(formData, "new_name");
   const club = parseClubChoice((k) => formData.get(k), false);
   const supabase = await createServerSupabase();
@@ -332,11 +333,9 @@ export async function mergeDuplicateAction(_prev: ActionState, formData: FormDat
   const svc = createServiceClient();
   const { data: both } = await svc.from("championship_players").select("player_id").eq("championship_id", cid).in("player_id", [to, from]);
   if ((both ?? []).length !== 2) return { error: t.bothInLeague };
-  const { data: leagues } = await svc.from("championship_players").select("championship_id").eq("player_id", from);
+  // Unisce e ricalcola le classifiche di tutti i circuiti della scheda che resta.
   const r = await mergeDuplicate(to, from);
-  if (r.error) return r;
-  // Classifiche ricalcolate dove c'era la scheda tolta (la sua riga di partenza sparisce).
-  for (const l of leagues ?? []) if (l.championship_id !== cid) await recomputeChampionship(l.championship_id as string);
+  if (r.error) return { error: r.error };
   return done(cid, r.ok!);
 }
 

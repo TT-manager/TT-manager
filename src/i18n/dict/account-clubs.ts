@@ -29,7 +29,11 @@ export const accountLibText = dict({
   noAccountToLink: (name: string) => `${name} non ha un account da collegare.`,
   alreadyPlayed: (name: string) => `${name} ha già giocato con la scheda nuova: non posso unirle senza perdere quelle partite.`,
   moveLeaguesFailed: "Non sono riuscito a spostare i circuiti.",
-  merged: (name: string) => `Fatto: l'account ora usa la scheda di ${name}, con punti e storico.`,
+  merged: (name: string) => `Fatto: le due schede ora sono una sola, quella di ${name}, con tutto lo storico. Le classifiche sono ricalcolate.`,
+  bothHaveAccounts: (a: string, b: string) => `${a} e ${b} hanno ciascuno un account: sono due persone diverse, non si possono unire.`,
+  sameTournament: "Le due schede hanno giocato nello stesso torneo: sono due persone diverse, non si possono unire.",
+  sameChallenge: "Le due schede compaiono nella stessa sfida: sono due persone diverse, non si possono unire.",
+  mergeFailed: "Non sono riuscito a unire le schede: riprova.",
 }, {
   clubAlreadyListed: (name: string) => `«${name}» is already on the list: choose it from the menu.`,
   clubRequestPending: "You already have a club request waiting.",
@@ -47,5 +51,9 @@ export const accountLibText = dict({
   noAccountToLink: (name: string) => `${name} has no account to link.`,
   alreadyPlayed: (name: string) => `${name} has already played with the new player page: I can't merge them without losing those matches.`,
   moveLeaguesFailed: "I couldn't move the leagues.",
-  merged: (name: string) => `Done: the account now uses ${name}'s player page, with points and history.`,
+  merged: (name: string) => `Done: the two player pages are now one, ${name}'s, with all their history. Rankings have been recalculated.`,
+  bothHaveAccounts: (a: string, b: string) => `${a} and ${b} each have an account: they are two different people and can't be merged.`,
+  sameTournament: "The two player pages played in the same tournament: they are two different people and can't be merged.",
+  sameChallenge: "The two player pages appear in the same challenge: they are two different people and can't be merged.",
+  mergeFailed: "Couldn't merge the player pages: please try again.",
 });

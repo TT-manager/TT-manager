@@ -22,7 +22,7 @@ export async function loadManagedChampionship(id: string) {
 }
 
 const TABS = [
-  ["", "tabOverview"], ["/partenza", "tabStart"], ["/assenze", "tabAbsences"], ["/impostazioni", "tabRules"],
+  ["", "tabOverview"], ["/giocatori", "tabPlayers"], ["/partenza", "tabStart"], ["/assenze", "tabAbsences"], ["/impostazioni", "tabRules"],
 ] as const;
 
 export async function ChampionshipHeader({ c, current }: { c: { id: string; name: string; slug: string; kind: string }; current: string }) {

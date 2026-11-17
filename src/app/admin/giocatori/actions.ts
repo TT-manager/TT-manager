@@ -1,7 +1,7 @@
 "use server";
 import { refresh, revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireOwner, requirePlayerManager } from "@/lib/auth";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { clearAvatar } from "@/lib/avatar-server";
 import { hasServiceKey } from "@/lib/organizer";
@@ -22,8 +22,9 @@ async function parsePlayer(formData: FormData) {
   return { value: { full_name, club_id: club.kind === "existing" ? club.clubId : null } } as const;
 }
 
+/** Nuovo giocatore dall'elenco generale (solo proprietario; gli amministratori li creano dal circuito). */
 export async function addPlayer(_prev: FormState, formData: FormData): Promise<FormState> {
-  await requireAdmin();
+  await requireOwner();
   const t = await tr(adminShellText);
   const parsed = await parsePlayer(formData);
   if ("error" in parsed) return { error: parsed.error };
@@ -35,15 +36,17 @@ export async function addPlayer(_prev: FormState, formData: FormData): Promise<F
   return { ok: t.playerAdded(parsed.value.full_name) };
 }
 
+/** Nome e circolo: anche l'amministratore di un circuito del giocatore. Attivo/disattivato solo il proprietario. */
 export async function updatePlayer(_prev: FormState, formData: FormData): Promise<FormState> {
-  await requireAdmin();
   const t = await tr(adminShellText);
   const id = String(formData.get("id") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return { error: t.invalidPlayer };
+  const admin = await requirePlayerManager(id);
   const parsed = await parsePlayer(formData);
   if ("error" in parsed) return { error: parsed.error };
-  const active = formData.get("active") === "on";
+  const change = admin.role === "owner" ? { ...parsed.value, active: formData.get("active") === "on" } : parsed.value;
   const supabase = await createServerSupabase();
-  const { error } = await supabase.from("players").update({ ...parsed.value, active }).eq("id", id);
+  const { error } = await supabase.from("players").update(change).eq("id", id);
   if (error) return { error: t.cantSaveChanges };
   revalidatePath("/admin/giocatori", "layout");
   refresh(); // aggiorna subito la pagina aperta
@@ -51,7 +54,7 @@ export async function updatePlayer(_prev: FormState, formData: FormData): Promis
 }
 
 export async function deletePlayer(_prev: FormState, formData: FormData): Promise<FormState> {
-  await requireAdmin();
+  await requireOwner();
   const t = await tr(adminShellText);
   const id = String(formData.get("id") ?? "");
   const supabase = await createServerSupabase();
@@ -67,11 +70,11 @@ export async function deletePlayer(_prev: FormState, formData: FormData): Promis
 
 /** Toglie la foto di un giocatore (per esempio se inappropriata). */
 export async function removePlayerAvatar(_prev: FormState, formData: FormData): Promise<FormState> {
-  await requireAdmin();
   const t = await tr(adminShellText);
   if (!hasServiceKey()) return { error: t.serviceKeyNotSet };
   const id = String(formData.get("id") ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { error: t.invalidPlayer };
+  await requirePlayerManager(id);
   await clearAvatar(id);
   revalidatePath("/admin/giocatori", "layout");
   refresh();
@@ -80,7 +83,7 @@ export async function removePlayerAvatar(_prev: FormState, formData: FormData): 
 
 /** Disattiva o riattiva un giocatore (pulsante nella scheda). */
 export async function setPlayerActive(_prev: FormState, formData: FormData): Promise<FormState> {
-  await requireAdmin();
+  await requireOwner();
   const t = await tr(adminShellText);
   const id = String(formData.get("id") ?? "");
   const active = formData.get("active") === "1";
