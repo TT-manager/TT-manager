@@ -43,5 +43,6 @@ async function AccountNav() {
     ...(admin ? [{ href: "/admin", label: t.admin, icon: "admin" as const }] : []),
     { href: "/faq", label: t.faq, icon: "help" as const },
   ];
-  return <AccountMenu items={items} logout={logout} logoutLabel={t.logout} menuLabel={t.menu} languageLabel={t.language} />;
+  return <AccountMenu items={items} logout={logout} logoutLabel={t.logout} menuLabel={t.menu} languageLabel={t.language}
+    install={{ install: t.installApp, iosTitle: t.iosInstallTitle, iosStep1: t.iosInstallStep1, iosStep2: t.iosInstallStep2, iosStep3: t.iosInstallStep3, close: t.close }} />;
 }

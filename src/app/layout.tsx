@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Barlow_Condensed, Geist, Geist_Mono } from "next/font/google";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -17,8 +17,13 @@ const display = Barlow_Condensed({ variable: "--font-display", subsets: ["latin"
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await tr(layoutText);
-  return { title: { default: `${SITE_NAME} · ${t.siteTitle}`, template: `%s · ${SITE_NAME}` }, description: t.siteDescription };
+  return {
+    title: { default: `${SITE_NAME} · ${t.siteTitle}`, template: `%s · ${SITE_NAME}` }, description: t.siteDescription,
+    appleWebApp: { capable: true, title: SITE_NAME, statusBarStyle: "black-translucent" },
+  };
 }
+
+export const viewport: Viewport = { themeColor: "#111113" };
 
 /** Tutta la pagina nella lingua scelta (cookie): per questo sta dentro <Suspense>. */
 async function Localized({ children }: { children: React.ReactNode }) {
