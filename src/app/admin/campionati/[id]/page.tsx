@@ -82,7 +82,7 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
         <p className={`mt-1 ${muted}`}>{tx.recomputeNote}</p>
       </section>
 
-      <section>
+      <section id="richieste" className="scroll-mt-24">
         <h2 className="text-lg font-semibold">{tx.joinRequests}{requests.length > 0 && ` (${requests.length})`}</h2>
         {requests.length === 0 ? <p className={`mt-2 ${muted}`}>{tx.noPendingRequests}</p> : (
           <ul className="mt-2 divide-y">

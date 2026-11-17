@@ -26,9 +26,17 @@ export default async function AdminHome() {
     // guest_of non è leggibile con il login normale: si conta con la chiave del server.
     (svc ?? supabase).from("players").select("id", { count: "exact", head: true }).is("guest_of", null),
     owner ? supabase.from("club_requests").select("id", { count: "exact", head: true }).eq("status", "pending") : none,
-    ids.length ? supabase.from("championship_requests").select("id", { count: "exact", head: true }).eq("status", "pending").in("championship_id", ids) : none,
-    svc && ids.length ? svc.from("challenges").select("id", { count: "exact", head: true }).eq("status", "disputed").in("championship_id", ids) : none,
+    ids.length ? supabase.from("championship_requests").select("championship_id").eq("status", "pending").in("championship_id", ids) : { data: [] },
+    svc && ids.length ? svc.from("challenges").select("championship_id").eq("status", "disputed").in("championship_id", ids) : { data: [] },
   ]);
+  // Se tutte le cose da sistemare sono in un solo circuito, il collegamento porta dritto lì (e si legge il nome).
+  const where = (rows: { championship_id: string }[] | null | undefined, anchor = "") => {
+    const found = [...new Set((rows ?? []).map((r) => r.championship_id))];
+    const one = found.length === 1 ? leagues.find((c) => c.id === found[0]) : undefined;
+    return { n: (rows ?? []).length, href: one ? `/admin/campionati/${one.id}${anchor}` : "/admin/campionati", name: one ? (one.name as string) : null };
+  };
+  const joins = where((joinRequests as { data: { championship_id: string }[] | null }).data, "#richieste");
+  const disputes = where((disputedChallenges as { data: { championship_id: string }[] | null }).data);
   const rows = (tournaments as { data: { id: string; status: string }[] | null }).data ?? [];
   const live = rows.filter((x) => x.status === "groups" || x.status === "knockout");
   const { count: disputedMatches } = live.length
@@ -36,10 +44,10 @@ export default async function AdminHome() {
     : none;
 
   const todo = [
-    { n: joinRequests.count ?? 0, label: t.todoJoin, href: "/admin/campionati" },
-    { n: disputedMatches ?? 0, label: t.todoDisputedMatches, href: "/admin/tornei" },
-    { n: disputedChallenges.count ?? 0, label: t.todoDisputedChallenges, href: "/admin/campionati" },
-    { n: clubRequests.count ?? 0, label: t.todoClubs, href: "/admin/circoli" },
+    { n: joins.n, label: t.todoJoin, href: joins.href, name: joins.name },
+    { n: disputedMatches ?? 0, label: t.todoDisputedMatches, href: "/admin/tornei", name: null },
+    { n: disputes.n, label: t.todoDisputedChallenges, href: disputes.href, name: disputes.name },
+    { n: clubRequests.count ?? 0, label: t.todoClubs, href: "/admin/circoli", name: null },
   ].filter((x) => x.n > 0).map((x) => ({ ...x, text: x.label(x.n) }));
 
   const tiles = [
@@ -64,7 +72,7 @@ export default async function AdminHome() {
             {todo.map((x) => (
               <li key={x.text}>
                 <Link href={x.href} className="flex items-center justify-between gap-3 py-2.5 hover:text-brand">
-                  <span><span className="mr-2 inline-flex min-w-7 justify-center rounded-full bg-amber-400 px-2 font-bold text-ink">{x.n}</span>{x.text}</span>
+                  <span><span className="mr-2 inline-flex min-w-7 justify-center rounded-full bg-amber-400 px-2 font-bold text-ink">{x.n}</span>{x.text}{x.name && <span className="text-muted"> · {x.name}</span>}</span>
                   <span aria-hidden="true" className="text-xl text-muted">›</span>
                 </Link>
               </li>))}

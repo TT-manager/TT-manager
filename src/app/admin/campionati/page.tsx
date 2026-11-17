@@ -3,6 +3,8 @@ import { getAdmin, managedChampionships } from "@/lib/auth";
 import { ActionForm } from "@/components/action-form";
 import { createChampionship } from "./actions";
 import { createServerSupabase } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/admin";
+import { hasServiceKey } from "@/lib/organizer";
 import { tr } from "@/i18n/server";
 import { adminLeaguesText } from "@/i18n/dict/admin-leagues";
 
@@ -16,10 +18,12 @@ export default async function ChampionshipsPage() {
   const t = await tr(adminLeaguesText);
   const ids = list.map((c) => c.id as string);
   const supabase = await createServerSupabase();
-  const [{ data: members }, { data: tournaments }] = ids.length ? await Promise.all([
+  const [{ data: members }, { data: tournaments }, { data: requests }, { data: disputed }] = ids.length ? await Promise.all([
     supabase.from("championship_players").select("championship_id").in("championship_id", ids),
     supabase.from("tournaments").select("championship_id, status").in("championship_id", ids).neq("status", "closed"),
-  ]) : [{ data: [] }, { data: [] }];
+    supabase.from("championship_requests").select("championship_id").eq("status", "pending").in("championship_id", ids),
+    hasServiceKey() ? createServiceClient().from("challenges").select("championship_id").eq("status", "disputed").in("championship_id", ids) : Promise.resolve({ data: [] }),
+  ]) : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
   type Row = { championship_id: string; status?: string };
   const count = (rows: Row[] | null, id: string, f: (r: Row) => boolean = () => true) =>
     (rows ?? []).filter((r) => r.championship_id === id && f(r)).length;
@@ -35,6 +39,8 @@ export default async function ChampionshipsPage() {
                 const id = c.id as string;
                 const live = count(tournaments as Row[] | null, id, (r) => r.status === "groups" || r.status === "knockout");
                 const upcoming = count(tournaments as Row[] | null, id, (r) => r.status === "draft");
+                const pendingRequests = count(requests as Row[] | null, id);
+                const pendingDisputes = count(disputed as Row[] | null, id);
                 return (
                   <li key={id}>
                     <Link href={`/admin/campionati/${id}`} className="card flex h-full items-center justify-between gap-3 border-l-4 !border-l-brand transition hover:border-brand">
@@ -46,6 +52,11 @@ export default async function ChampionshipsPage() {
                           {live > 0 && <span className="badge-live"><span className="live-dot" /> {t.liveCount(live)}</span>}
                           {upcoming > 0 && <span>· {t.upcomingCount(upcoming)}</span>}
                         </span>
+                        {(pendingRequests > 0 || pendingDisputes > 0) && (
+                          <span className="mt-2 flex flex-wrap gap-2">
+                            {pendingRequests > 0 && <span className="rounded-full bg-amber-400 px-2.5 py-0.5 text-xs font-bold text-ink">{t.requestsCount(pendingRequests)}</span>}
+                            {pendingDisputes > 0 && <span className="rounded-full bg-amber-400 px-2.5 py-0.5 text-xs font-bold text-ink">{t.disputedCount(pendingDisputes)}</span>}
+                          </span>)}
                       </span>
                       <span aria-hidden="true" className="text-2xl text-muted">›</span>
                     </Link>
