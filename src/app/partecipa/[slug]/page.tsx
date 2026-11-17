@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { rememberedInvite } from "@/lib/invites";
+import { RememberInvite } from "@/components/remember-invite";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { sameNameMatch } from "@/lib/names";
@@ -26,7 +28,9 @@ export default async function JoinPage({ params, searchParams }: PageProps<"/par
 async function Join({ params, searchParams }: Pick<PageProps<"/partecipa/[slug]">, "params" | "searchParams">) {
   const [{ slug }, sp, t, l] = await Promise.all([params, searchParams, tr(accountJoinText), getLocale()]);
   if (!/^[a-z0-9-]{1,60}$/.test(slug)) notFound();
-  const token = typeof sp.invito === "string" ? sp.invito.slice(0, 64) : "";
+  // Invito nell'indirizzo, oppure ricordato (aperto prima in questo browser, o salvato alla registrazione).
+  const remembered = typeof sp.invito === "string" ? null : await rememberedInvite();
+  const token = typeof sp.invito === "string" ? sp.invito.slice(0, 64) : remembered?.slug === slug ? remembered.token : "";
   const svc = createServiceClient();
   const { data: c } = await svc.from("championships").select("id, name, kind, is_public").eq("slug", slug).maybeSingle();
   if (!c) notFound();
@@ -37,6 +41,7 @@ async function Join({ params, searchParams }: Pick<PageProps<"/partecipa/[slug]"
 
   const header = (
     <>
+      {validInvite && <RememberInvite slug={slug} token={token} />}
       <Link href={`/c/${slug}`} className={`${muted} hover:underline`}>← {c.name}</Link>
       <h1 className="mt-2 text-2xl font-bold">{t.heading(c.name)}</h1>
       {token && !validInvite && <p className="mt-2 text-amber-700 dark:text-amber-400">{t.inviteInvalid}</p>}

@@ -7,6 +7,7 @@ import { formatDeadline, registrationIsOpen } from "@/lib/registration";
 import { createPublicClient } from "@/lib/supabase/public";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { loadDashboard } from "@/lib/dashboard";
+import { rememberedInvite } from "@/lib/invites";
 import { DashboardView } from "@/components/dashboard-view";
 import { HomeSkeleton } from "@/components/home-skeleton";
 import { getLocale, tr } from "@/i18n/server";
@@ -46,6 +47,16 @@ async function HomeContent() {
   const shown = all.filter((c) => mine.has(c.id) || c.isPublic)
     .sort((a, b) => Number(mine.has(b.id)) - Number(mine.has(a.id)) || a.name.localeCompare(b.name, "it"));
 
+  // Invito ricordato (link aperto prima di registrarsi) a un circuito in cui non sei ancora: si offre di entrare.
+  let invited: { name: string; href: string } | null = null;
+  if (account) {
+    const inv = await rememberedInvite();
+    const c = inv ? all.find((x) => x.slug === inv.slug && !mine.has(x.id)) : undefined;
+    if (inv && c) {
+      const { data: cur } = await createServiceClient().from("championship_invites").select("token").eq("championship_id", c.id).maybeSingle();
+      if (cur?.token === inv.token) invited = { name: c.name, href: `/partecipa/${c.slug}?invito=${encodeURIComponent(inv.token)}` };
+    }
+  }
   // Circuiti di cui fai parte in cui si possono lanciare sfide.
   const challengeLeagues = all.filter((c) => mine.has(c.id) && c.settings.challenges.enabled).map((c) => ({ name: c.name, slug: c.slug }));
   const challengeHref = challengeLeagues.length === 1 ? `/c/${challengeLeagues[0].slug}#sfide-circuito` : "#azioni-rapide";
@@ -70,6 +81,12 @@ async function HomeContent() {
           </div>
         </div>
       </section>
+
+      {invited && (
+        <section className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-green-600 bg-green-600/10 p-4">
+          <div><p className="font-bold">{t.invitedTo(invited.name)}</p><p className="text-sm text-muted">{t.invitedText}</p></div>
+          <Link href={invited.href} className="btn-primary">{t.invitedCta}</Link>
+        </section>)}
 
       {featured.length > 0 && (
         <section className="mt-6">

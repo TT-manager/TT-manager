@@ -1,5 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
+import { cookieInvite, inviteFromPath } from "@/lib/invites";
 import { safeNext } from "@/lib/account";
 import { parseClubChoice } from "@/lib/clubs";
 import { siteOrigin as origin } from "@/lib/origin";
@@ -35,6 +36,8 @@ export async function signup(_prev: LoginState, formData: FormData): Promise<Log
   if ("error" in club) return { error: clubErrorText(club.error, await getLocale()) };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: t.invalidEmail };
   if (password.length < 8) return { error: t.passwordTooShort };
+  // Invito al circuito da cui arriva (nell'indirizzo di ritorno o ricordato nel browser): resta nell'account.
+  const invite = inviteFromPath(next) ?? await cookieInvite();
   const supabase = await createServerSupabase();
   const { data, error } = await supabase.auth.signUp({
     email, password,
@@ -43,6 +46,7 @@ export async function signup(_prev: LoginState, formData: FormData): Promise<Log
         full_name: fullName,
         club_id: club.kind === "existing" ? club.clubId : null,
         club_request: club.kind === "request" ? { name: club.name, city: club.city } : null,
+        invite,
       }, emailRedirectTo: `${await origin()}/auth/conferma?next=${encodeURIComponent(next)}` },
   });
   if (error?.code === "weak_password") return { error: t.weakPassword };
