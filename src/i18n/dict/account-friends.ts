@@ -93,7 +93,7 @@ export const accountFriendlyText = dict({
   type: "Tipo",
   singles: "Singolare",
   doubles: "Doppio",
-  hint: "Potrai iscrivere te stesso, i tuoi amici e degli ospiti senza account. Il formato lo scegli dopo: bastano anche due giocatori per una sfida secca (girone unico).",
+  hint: "Potrai iscrivere te stesso, i tuoi amici, i giocatori dei tuoi circuiti e degli ospiti senza account. Il formato lo scegli dopo: bastano anche due giocatori per una sfida secca (girone unico).",
   creating: "Creazione…",
   create: "Crea il torneo amichevole",
 }, {
@@ -106,7 +106,7 @@ export const accountFriendlyText = dict({
   type: "Type",
   singles: "Singles",
   doubles: "Doubles",
-  hint: "You can enter yourself, your friends and guests without an account. You choose the format later: even two players are enough for a one-off challenge (single group).",
+  hint: "You can enter yourself, your friends, the players of your leagues and guests without an account. You choose the format later: even two players are enough for a one-off challenge (single group).",
   creating: "Creating…",
   create: "Create the friendly tournament",
 });
