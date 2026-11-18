@@ -1,9 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { supabasePublishableKey, supabaseUrl } from "./env";
 
 /** Client legato ai cookie dell'utente che sta facendo la richiesta. */
 export async function createServerSupabase() {
+  // Il client legge subito la sessione (e l'ora corrente): va creato solo al momento della richiesta,
+  // non durante la preparazione anticipata della pagina, altrimenti Next.js lo segnala come errore.
+  await connection();
   const cookieStore = await cookies();
   return createServerClient(supabaseUrl, supabasePublishableKey, {
     cookies: {
