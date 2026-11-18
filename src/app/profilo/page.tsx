@@ -85,16 +85,6 @@ async function Profile() {
         </div>
       </div>
 
-      {account.isAdmin && (
-        <section className={`rounded-lg border-2 p-4 ${account.adminOnly ? "border-brand" : "border-line"}`}>
-          <h2 className="text-xl font-semibold">{t.adminOnlyTitle}</h2>
-          <p className={`mt-1 ${muted}`}>{account.adminOnly ? t.adminOnlyOn : t.adminOnlyOff}</p>
-          <ActionForm action={toggleAdminOnly} submitLabel={account.adminOnly ? t.adminOnlyDisable : t.adminOnlyEnable}
-            confirmText={account.adminOnly ? undefined : t.adminOnlyConfirm} primary={account.adminOnly} className="mt-3">
-            <input type="hidden" name="on" value={account.adminOnly ? "0" : "1"} />
-          </ActionForm>
-        </section>)}
-
       {!account.adminOnly && open.length > 0 && (
         <section className="rounded-lg border-2 border-emerald-600 p-4">
           <h2 className="text-xl font-semibold">{t.openTournaments}</h2>
@@ -197,6 +187,16 @@ async function Profile() {
           <form action={logout}><button className="btn-outline px-3 py-1 text-sm">{t.logout}</button></form>
         </div>
       </section>
+
+      {account.isAdmin && (
+        <section className={`rounded-lg border-2 p-4 ${account.adminOnly ? "border-brand" : "border-line"}`}>
+          <h2 className="text-xl font-semibold">{t.adminOnlyTitle}</h2>
+          <p className={`mt-1 ${muted}`}>{account.adminOnly ? t.adminOnlyOn : t.adminOnlyOff}</p>
+          <ActionForm action={toggleAdminOnly} submitLabel={account.adminOnly ? t.adminOnlyDisable : t.adminOnlyEnable}
+            confirmText={account.adminOnly ? undefined : t.adminOnlyConfirm} primary={account.adminOnly} className="mt-3">
+            <input type="hidden" name="on" value={account.adminOnly ? "0" : "1"} />
+          </ActionForm>
+        </section>)}
     </div>
   );
 }
