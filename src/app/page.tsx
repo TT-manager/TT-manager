@@ -108,14 +108,18 @@ async function HomeContent() {
 
       {account ? (
         <Dashboard account={account} challengeLeagues={challengeLeagues}>
-      {shown.length === 0 ? (
-        <p className="mt-3 text-muted">
-          {account ? t.noLeagueMember : t.noLeagueGuest}</p>
-      ) : (
-        <div className={`mt-4 grid gap-5 ${account ? "" : "md:grid-cols-2"}`}>
-          {shown.map((c) => <ChampionshipCard key={c.id} c={c} member={mine.has(c.id)} myPlayerId={account?.player.id} />)}
-        </div>
-      )}
+          {/* I tuoi circuiti; sotto, separati, i circuiti pubblici di cui non fai parte. */}
+          {shown.some((c) => mine.has(c.id)) ? (
+            <div className="mt-4 grid gap-5">
+              {shown.filter((c) => mine.has(c.id)).map((c) => <ChampionshipCard key={c.id} c={c} member myPlayerId={account.player.id} />)}
+            </div>
+          ) : <p className="mt-3 text-muted">{t.noLeagueMember}</p>}
+          {shown.some((c) => !mine.has(c.id)) && <>
+            <h2 className="mt-8 text-2xl font-bold uppercase">{t.otherPublicLeagues}</h2>
+            <div className="mt-4 grid gap-5">
+              {shown.filter((c) => !mine.has(c.id)).map((c) => <ChampionshipCard key={c.id} c={c} member={false} myPlayerId={account.player.id} />)}
+            </div>
+          </>}
         </Dashboard>
       ) : (
         <>
