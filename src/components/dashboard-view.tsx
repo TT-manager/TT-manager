@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { MyChallenges } from "@/components/challenges";
+import { openChallengesOf, playerNames, sideOf, sideOfPlayer } from "@/lib/challenges";
+import { challengesText } from "@/i18n/dict/challenges";
 import type { ReactNode } from "react";
 import { Avatar } from "./avatar";
 import { Icon, type IconName } from "./icons";
@@ -36,13 +38,31 @@ export async function DashboardView({ d, me, children, challengeLeagues = [] }: 
   const l = await getLocale();
   const pct = d.kpi.games ? Math.round((d.kpi.wins / d.kpi.games) * 100) : null;
   const kpis = [
-    { label: t.kpiLeagues, value: String(d.kpi.championships).padStart(2, "0"), sub: d.kpi.championships ? t.leaguesSub : t.leaguesSubNone, icon: "trophy" as IconName },
-    { label: t.kpiLive, value: String(d.live.length).padStart(2, "0"), icon: "live" as IconName,
+    { label: t.kpiLeagues, value: String(d.kpi.championships), sub: d.kpi.championships ? t.leaguesSub : t.leaguesSubNone, icon: "trophy" as IconName },
+    { label: t.kpiLive, value: String(d.live.length), icon: "live" as IconName,
       href: d.live.length === 1 ? `/t/${d.live[0].code}` : d.live.length ? "#in-corso" : undefined,
       sub: d.live.length === 1 ? d.live[0].name : d.live.length ? t.liveSubMany : t.liveSubNone },
-    { label: t.kpiGames, value: String(d.kpi.games).padStart(2, "0"), sub: d.kpi.games ? t.gamesSub : t.gamesSubNone, icon: "match" as IconName },
+    { label: t.kpiGames, value: String(d.kpi.games), sub: d.kpi.games ? t.gamesSub : t.gamesSubNone, icon: "match" as IconName },
     { label: t.kpiWins, value: pct === null ? "—" : `${pct}%`, sub: d.kpi.games ? t.winsSub(d.kpi.wins, d.kpi.games - d.kpi.wins) : t.winsSubNone, icon: "wins" as IconName },
   ];
+  // Senza una partita di torneo, il riquadro propone il prossimo passo: prima una sfida che aspetta te,
+  // poi una sfida accettata da giocare; altrimenti lancia una sfida o crea un amichevole.
+  let step: { text: string; action: boolean } | null = null;
+  if (!d.next) {
+    const open = await openChallengesOf(me.id);
+    const mySide = (c: (typeof open)[number]) => sideOfPlayer(c, me.id);
+    const needsMe = open.find((c) => (c.status === "pending" && mySide(c) === "b")
+      || (c.status === "reported" && sideOfPlayer(c, c.reported_by ?? "") !== mySide(c)));
+    const c = needsMe ?? open.find((x) => x.status === "accepted");
+    if (c) {
+      const other = mySide(c) === "a" ? "b" : "a";
+      const [names, tc] = await Promise.all([playerNames(sideOf(c, other)), tr(challengesText)]);
+      const name = sideOf(c, other).map((id) => names.get(id) ?? "?").join(" / ");
+      step = needsMe
+        ? { text: c.status === "pending" ? tc.challengedYou(name) : tc.toConfirm(name), action: true }
+        : { text: tc.acceptedWith(name), action: false };
+    }
+  }
   return (
     <>
       {d.open.length > 0 && (
@@ -66,24 +86,10 @@ export async function DashboardView({ d, me, children, challengeLeagues = [] }: 
           </ul>
         </section>)}
 
-      <section className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {kpis.map((k) => {
-          const body = (
-            <div className="card flex h-full items-start justify-between gap-2">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-muted">{k.label}</p>
-                <p className="mt-1 font-display text-4xl font-bold leading-none">{k.value}</p>
-                <p className="mt-1 text-xs text-muted">{k.sub}</p>
-              </div>
-              <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"><Icon name={k.icon} /></span>
-            </div>);
-          return k.href ? <Link key={k.label} href={k.href} className="block transition hover:-translate-y-0.5">{body}</Link> : <div key={k.label}>{body}</div>;
-        })}
-      </section>
 
       <div className="mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div>
-          <h2 className="text-2xl font-bold uppercase">{t.nextTitle}</h2>
+          <h2 className="text-2xl font-bold uppercase">{d.next ? t.nextTitle : t.whatNowTitle}</h2>
           {d.next ? (
             <Link href={`/t/${d.next.code}`} className="card mt-3 block transition hover:border-brand">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -97,11 +103,25 @@ export async function DashboardView({ d, me, children, challengeLeagues = [] }: 
               </div>
               <p className="mt-4 border-t border-line pt-3 text-right text-sm font-semibold text-brand">{t.openTournament}</p>
             </Link>
-          ) : (
-            <div className="card mt-3 flex flex-wrap items-center gap-4">
+          ) : step ? (
+            <div className="card mt-3 flex flex-wrap items-center gap-4 border-2 border-brand">
               <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 text-brand"><Icon name="match" className="h-7 w-7" /></span>
-              <div className="flex-1"><p className="font-bold">{t.noMatchTitle}</p>
-                <p className="text-sm text-muted">{t.noMatchText}</p></div>
+              <p className="min-w-0 flex-1 font-bold">{step.text}</p>
+              <Link href="#sfide" className="btn-primary">{step.action ? t.stepAnswer : t.stepOpen}</Link>
+            </div>
+          ) : (
+            <div className="card mt-3">
+              <div className="flex flex-wrap items-center gap-4">
+                <span aria-hidden="true" className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/10 text-brand"><Icon name="match" className="h-7 w-7" /></span>
+                <div className="min-w-0 flex-1"><p className="font-bold">{t.nothingTitle}</p>
+                  <p className="text-sm text-muted">{t.nothingText}</p></div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {challengeLeagues.slice(0, 3).map((c) => (
+                  <Link key={c.slug} href={`/c/${c.slug}#sfide-circuito`} className="btn-primary">
+                    {challengeLeagues.length === 1 ? t.launchChallenge : t.challengeIn(c.name)}</Link>))}
+                <Link href="/amichevole/nuovo" className={challengeLeagues.length ? "btn-outline" : "btn-primary"}>{t.createFriendly}</Link>
+              </div>
             </div>
           )}
 
@@ -131,6 +151,18 @@ export async function DashboardView({ d, me, children, challengeLeagues = [] }: 
 
           <h2 className="mt-8 text-2xl font-bold uppercase">{t.myLeagues}</h2>
           {children}
+
+          {/* I tuoi numeri, in piccolo: in fondo, perché cambiano poco e non chiedono di fare niente. */}
+          <section className="mt-8 grid grid-cols-4 gap-2 text-center">
+            {kpis.map((k) => {
+              const body = <>
+                <span className="block font-display text-2xl font-bold leading-none">{k.value}</span>
+                <span className="mt-1 block text-[0.7rem] font-bold uppercase leading-tight tracking-wide text-muted">{k.label}</span>
+              </>;
+              const cls = "block h-full rounded-lg border border-line px-1 py-2.5";
+              return k.href ? <Link key={k.label} href={k.href} className={`${cls} hover:border-brand`}>{body}</Link> : <div key={k.label} className={cls}>{body}</div>;
+            })}
+          </section>
         </div>
 
         <aside>

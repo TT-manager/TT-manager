@@ -63,7 +63,6 @@ async function HomeContent() {
   }
   // Circuiti di cui fai parte in cui si possono lanciare sfide.
   const challengeLeagues = all.filter((c) => mine.has(c.id) && c.settings.challenges.enabled).map((c) => ({ name: c.name, slug: c.slug }));
-  const challengeHref = challengeLeagues.length === 1 ? `/c/${challengeLeagues[0].slug}#sfide-circuito` : "#azioni-rapide";
   return (
     <>
       <section className="overflow-hidden rounded-2xl bg-ink text-white shadow-lg">
@@ -74,13 +73,10 @@ async function HomeContent() {
             <h1 className="text-4xl font-bold sm:text-5xl">{account ? t.hello(account.player.full_name.split(" ")[0]) : t.heroTitle}</h1>
             <p className="mt-2 max-w-xl text-white/80">
               {account ? t.heroMember : t.heroGuest}</p>
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              {account
-                ? <><Link href="/amichevole/nuovo" className="btn-primary">{t.createFriendly}</Link>{challengeLeagues.length > 0
-                  ? <Link href={challengeHref} className="btn border border-white/30 hover:bg-white/10">{t.launchChallenge}</Link>
-                  : <Link href="/amici" className="btn border border-white/30 hover:bg-white/10">{t.friends}</Link>}</>
-                : <><Link href="/registrati" className="btn-primary">{t.signup}</Link><Link href="/login" className="btn border border-white/30 hover:bg-white/10">{t.login}</Link><Link href="/faq" className="text-sm text-white/80 underline hover:text-white">{t.howItWorks}</Link></>}
-            </div>
+            {/* Chi è collegato trova «Lancia una sfida» e «Crea un amichevole» nel riquadro del prossimo passo. */}
+            {!account && <div className="mt-5 flex flex-wrap items-center gap-3">
+              <><Link href="/registrati" className="btn-primary">{t.signup}</Link><Link href="/login" className="btn border border-white/30 hover:bg-white/10">{t.login}</Link><Link href="/faq" className="text-sm text-white/80 underline hover:text-white">{t.howItWorks}</Link></>
+            </div>}
             <div className="mt-6"><p className="mb-1 text-sm text-white/70">{t.haveCode}</p><CodeBox /></div>
           </div>
         </div>
