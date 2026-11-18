@@ -7,6 +7,7 @@ import {
   ACCEPTED_DAYS, CHALLENGE_BEST_OF, NOTICE_DAYS, countsForRanking, isExpired, recentlyClosed, recentlyExpired, type ChallengeStatus,
 } from "./domain/challenges";
 import { recomputeChampionship } from "./closing";
+import { nameOf, notifyPlayers } from "./notifications";
 import { getLocale, tr } from "@/i18n/server";
 import { challengesText } from "@/i18n/dict/challenges";
 import { translateDomainError } from "@/i18n/domain-errors";
@@ -110,7 +111,19 @@ export async function createChallenge(championshipId: string, challengerId: stri
     championship_id: championshipId, challenger_id: challengerId, opponent_id: opponentId, best_of: bestOf, set_points: setPoints,
     challenger_partner_id: mine || null, opponent_partner_id: theirs || null,
   });
-  return error ? { error: t.saveFailed } : { ok: t.sent };
+  if (error) return { error: t.saveFailed };
+  const { data: lg } = await svc.from("championships").select("name").eq("id", championshipId).maybeSingle();
+  // Avviso agli sfidati e al proprio compagno.
+  await notifyPlayers([...sideB, ...sideA], "challenge_received", { who: await nameOf(challengerId), league: (lg?.name as string) ?? "" }, CHALLENGES_HREF, challengerId);
+  return { ok: t.sent };
+}
+
+/** Le sfide aperte si gestiscono dalla home («Le mie sfide»). */
+const CHALLENGES_HREF = "/#sfide";
+/** Avviso sulla sfida a un lato (o a tutti), escluso chi ha fatto l'azione. */
+async function notifyChallenge(c: Challenge, to: "a" | "b" | "all", kind: Parameters<typeof notifyPlayers>[1], actorId: string | null, params: Record<string, string> = {}) {
+  const ids = to === "all" ? [...sideOf(c, "a"), ...sideOf(c, "b")] : sideOf(c, to);
+  await notifyPlayers(ids, kind, { who: await nameOf(actorId), ...params }, CHALLENGES_HREF, actorId ?? undefined);
 }
 
 /** Accetta, rifiuta o annulla una sfida non ancora giocata. */
@@ -125,9 +138,11 @@ export async function answerChallenge(id: string, playerId: string, answer: "acc
     // Accetta o rifiuta chiunque della coppia sfidata (nel singolo: lo sfidato).
     if (side !== "b") return { error: t.notYours };
     const ok = await move(id, ["pending"], { status: answer === "accept" ? "accepted" : "declined" });
+    if (ok) await notifyChallenge(c, "a", answer === "accept" ? "challenge_accepted" : "challenge_declined", playerId);
     return ok ? { ok: answer === "accept" ? t.accepted : t.declined, championshipId: c.championship_id } : { error: t.wrongState };
   }
   const ok = await move(id, ["pending", "accepted"], { status: "cancelled", cancelled_by: playerId });
+  if (ok) await notifyChallenge(c, "all", "challenge_cancelled", playerId);
   return ok ? { ok: t.cancelled, championshipId: c.championship_id } : { error: t.wrongState };
 }
 
@@ -148,6 +163,7 @@ export async function reportChallenge(id: string, playerId: string, sets: SetSco
     status: "reported", sets_a: v.result.setsA, sets_b: v.result.setsB, set_scores: v.result.sets,
     reported_by: playerId, played_at: c.played_at ?? new Date().toISOString(),
   });
+  if (ok) await notifyChallenge(c, side === "a" ? "b" : "a", "challenge_result", playerId);
   return ok ? { ok: t.reported, championshipId: c.championship_id } : { error: t.wrongState };
 }
 
@@ -181,11 +197,15 @@ export async function answerResult(id: string, playerId: string, answer: "confir
   if (c.status !== "reported") return { error: t.wrongState };
   // Conferma o contesta qualcuno dell'altro lato rispetto a chi ha inserito il risultato.
   if (sideOfPlayer(c, c.reported_by ?? "") === side) return { error: t.onlyOpponentConfirms };
+  const reporterSide = side === "a" ? "b" : "a";
   if (answer === "dispute") {
     const ok = await move(id, ["reported"], { status: "disputed" });
+    if (ok) await notifyChallenge(c, reporterSide, "challenge_disputed", playerId);
     return ok ? { ok: t.disputed, championshipId: c.championship_id } : { error: t.wrongState };
   }
-  return { ...(await finalize(c, {}, ["reported"])), championshipId: c.championship_id };
+  const r = await finalize(c, {}, ["reported"]);
+  if (r.ok) await notifyChallenge(c, reporterSide, "challenge_confirmed", playerId);
+  return { ...r, championshipId: c.championship_id };
 }
 
 /**
@@ -207,6 +227,10 @@ export async function adminDecideChallenge(championshipId: string, id: string, d
   const v = validateMatch(decision === "confirm" ? c.set_scores ?? [] : decision.sets, c.best_of, rulesOf(c));
   if ("error" in v) return { error: translateDomainError(v.error, await getLocale()), set: v.set };
   const r = await finalize(c, { sets_a: v.result.setsA, sets_b: v.result.setsB, set_scores: v.result.sets }, [c.status]);
+  if (r.ok) {
+    const { data: lg } = await createServiceClient().from("championships").select("name").eq("id", championshipId).maybeSingle();
+    await notifyChallenge(c, "all", "challenge_decided", null, { league: (lg?.name as string) ?? "" });
+  }
   return r.ok ? { ok: t.adminConfirmed } : r;
 }
 

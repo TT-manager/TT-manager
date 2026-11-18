@@ -1,12 +1,12 @@
 import {
-  CircleHelp, CirclePlus, DatabaseBackup, House, KeyRound, LogOut, MapPin, Radio, ShieldUser,
+  Bell, CircleHelp, CirclePlus, DatabaseBackup, House, KeyRound, LogOut, MapPin, Radio, ShieldUser,
   Medal, Swords, TrendingUp, Trophy, UserRound, UsersRound,
 } from "lucide-react";
 
 const ICONS = {
   home: House, profile: UserRound, friends: UsersRound, add: CirclePlus, admin: ShieldUser, help: CircleHelp,
   logout: LogOut, trophy: Trophy, live: Radio, match: Swords, tournament: Medal, wins: TrendingUp, clubs: MapPin,
-  backup: DatabaseBackup, password: KeyRound,
+  backup: DatabaseBackup, password: KeyRound, bell: Bell,
 } as const;
 
 export type IconName = keyof typeof ICONS;

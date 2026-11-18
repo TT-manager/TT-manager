@@ -1,5 +1,6 @@
 "use server";
 import { refresh } from "next/cache";
+import { notifyUsers } from "@/lib/notifications";
 import { requireAccount } from "@/lib/account";
 import { createServiceClient } from "@/lib/supabase/admin";
 import type { ActionState } from "@/components/action-form";
@@ -24,6 +25,7 @@ export async function sendFriendRequest(_prev: ActionState, formData: FormData):
   if (existing?.status === "accepted") return { ok: t.alreadyFriendsWith(target.full_name) };
   if (existing && existing.requested_by !== me.userId) {
     await svc.from("friendships").update({ status: "accepted" }).match(key);
+    await notifyUsers([target.user_id as string], "friend_accepted", { who: me.player.full_name }, "/amici");
     refresh();
     return { ok: t.nowFriends(target.full_name) };
   }
@@ -33,6 +35,7 @@ export async function sendFriendRequest(_prev: ActionState, formData: FormData):
   if ((count ?? 0) >= 50) return { error: t.tooManyPending };
   const { error } = await svc.from("friendships").insert({ ...key, requested_by: me.userId });
   if (error) return { error: t.sendFailed };
+  await notifyUsers([target.user_id as string], "friend_request", { who: me.player.full_name }, "/amici");
   refresh();
   return { ok: t.sentTo(target.full_name) };
 }
@@ -50,6 +53,7 @@ export async function answerFriend(_prev: ActionState, formData: FormData): Prom
   if (formData.get("decision") === "accept") {
     if (f.requested_by === me.userId) return { error: t.otherMustAccept };
     await svc.from("friendships").update({ status: "accepted" }).match(key);
+    await notifyUsers([other], "friend_accepted", { who: me.player.full_name }, "/amici");
     refresh();
     return { ok: t.accepted };
   }

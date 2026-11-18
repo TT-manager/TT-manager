@@ -6,6 +6,7 @@ import { applyResult, groupViews, resolveKnockout, isPlayed, type MatchRow } fro
 import { getLocale, tr } from "@/i18n/server";
 import { adminManageText } from "@/i18n/dict/admin-manage";
 import { translateDomainError } from "@/i18n/domain-errors";
+import { nameOf, notifyPlayers } from "./notifications";
 
 const MATCH_COLUMNS = "id, phase, group_no, stage, position, player_a, player_b, sets_a, sets_b, set_scores, best_of, set_points, golden_point, source_a, source_b, rated, reported_by, disputed_at";
 
@@ -145,7 +146,18 @@ export async function playerSaveResult(tournamentId: string, matchId: string, se
     if (!(await sideMembers(tournamentId, side)).has(match.reported_by))
       return { error: tx.enteredByOpponents };
   } else if (sets === null) return { ok: tx.nothingToClear };
-  return saveResult(tournamentId, matchId, sets, playerId);
+  const r = await saveResult(tournamentId, matchId, sets, playerId);
+  if (r.ok && sets) {
+    // Avviso agli avversari: controllino il risultato (possono contestarlo).
+    const other = side === match.player_a ? match.player_b : match.player_a;
+    const svc = createServiceClient();
+    const [{ data: t2 }, opponents] = await Promise.all([
+      svc.from("tournaments").select("name, public_code").eq("id", tournamentId).maybeSingle(),
+      other ? sideMembers(tournamentId, other) : Promise.resolve(new Set<string>()),
+    ]);
+    if (t2) await notifyPlayers([...opponents], "match_result", { who: await nameOf(playerId), tournament: t2.name as string }, `/t/${t2.public_code}`);
+  }
+  return r;
 }
 
 /**

@@ -1,5 +1,6 @@
 "use server";
 import { refresh, revalidatePath } from "next/cache";
+import { notifyUsers } from "@/lib/notifications";
 import { redirect } from "next/navigation";
 import { requireChampionshipManager, requireOwner } from "@/lib/auth";
 import { randomBytes } from "node:crypto";
@@ -296,6 +297,8 @@ export async function decideRequest(_prev: ActionState, formData: FormData): Pro
   const r = await attachToChampionship(cid, req.user_id as string, link || null);
   if (r.error) return { error: r.error };
   await svc.from("championship_requests").update({ status: "approved", ...decided }).eq("id", req.id);
+  const { data: lg } = await svc.from("championships").select("name, slug").eq("id", cid).maybeSingle();
+  if (lg) await notifyUsers([req.user_id as string], "join_approved", { league: lg.name as string }, `/c/${lg.slug}`);
   return done(cid, t.requestApproved);
 }
 

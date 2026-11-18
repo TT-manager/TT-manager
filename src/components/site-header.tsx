@@ -6,6 +6,10 @@ import { tr } from "@/i18n/server";
 import { layoutText } from "@/i18n/dict/layout";
 import { logout } from "@/app/login/actions";
 import { AccountMenu } from "./account-menu";
+import { Icon } from "./icons";
+import { unreadCount } from "@/lib/notifications";
+import { hasServiceKey } from "@/lib/organizer";
+import { notificationsText } from "@/i18n/dict/notifications";
 
 /** Barra in alto, uguale su tutte le pagine. */
 export async function SiteHeader() {
@@ -43,6 +47,13 @@ async function AccountNav() {
     ...(admin ? [{ href: "/admin", label: t.admin, icon: "admin" as const }] : []),
     { href: "/faq", label: t.faq, icon: "help" as const },
   ];
-  return <AccountMenu items={items} logout={logout} logoutLabel={t.logout} menuLabel={t.menu} languageLabel={t.language}
-    install={{ install: t.installApp, iosTitle: t.iosInstallTitle, iosStep1: t.iosInstallStep1, iosStep2: t.iosInstallStep2, iosStep3: t.iosInstallStep3, close: t.close }} />;
+  const [unread, tn] = [hasServiceKey() ? await unreadCount(data.claims.sub) : 0, await tr(notificationsText)];
+  return <>
+    <Link href="/notifiche" aria-label={tn.bellAria(unread)} className="relative flex h-10 w-10 items-center justify-center rounded-md hover:bg-white/10">
+      <Icon name="bell" className="h-6 w-6" />
+      {unread > 0 && <span className="absolute right-0.5 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-xs font-bold leading-none">{unread > 9 ? "9+" : unread}</span>}
+    </Link>
+    <AccountMenu items={items} logout={logout} logoutLabel={t.logout} menuLabel={t.menu} languageLabel={t.language}
+      install={{ install: t.installApp, iosTitle: t.iosInstallTitle, iosStep1: t.iosInstallStep1, iosStep2: t.iosInstallStep2, iosStep3: t.iosInstallStep3, close: t.close }} />
+  </>;
 }

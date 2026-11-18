@@ -2,6 +2,7 @@ import { connection } from "next/server";
 import { createPublicClient } from "@/lib/supabase/public";
 import { hasEmail } from "@/lib/email";
 import { sendWeeklyDigest } from "@/lib/weekly-digest";
+import { pruneNotifications } from "@/lib/notifications";
 
 /**
  * Chiamata una volta al giorno da Vercel (vedi vercel.json):
@@ -16,6 +17,8 @@ export async function GET(request: Request) {
   if (secret && !authorized) return Response.json({ ok: false }, { status: 401 });
   const { error } = await createPublicClient()
     .from("tournaments_public").select("id", { count: "exact", head: true });
+  // Avvisi vecchi (oltre 90 giorni): via.
+  if (authorized) await pruneNotifications().catch((e) => console.error("Pulizia notifiche:", (e as Error).message));
   const monday = new Date().toLocaleDateString("en-US", { timeZone: "Europe/Rome", weekday: "short" }) === "Mon";
   let digest: string = "non è lunedì";
   if (monday) {

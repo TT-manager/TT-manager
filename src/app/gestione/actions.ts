@@ -1,5 +1,6 @@
 "use server";
 import { refresh, revalidatePath } from "next/cache";
+import { announceTournament, notifyPlayers } from "@/lib/notifications";
 import { redirect } from "next/navigation";
 import { requireChampionshipManager, requireTournamentManager } from "@/lib/auth";
 import { requireAccount } from "@/lib/account";
@@ -247,6 +248,9 @@ export async function generateGroups(_prev: GenState, formData: FormData): Promi
     })),
   ]);
   if (e2) { await rollback(); return { error: tx.cantCreateMatches }; }
+  // Avviso a tutti gli iscritti: il torneo è partito.
+  const { data: info } = await supabase.from("tournaments").select("name, public_code").eq("id", tournamentId).maybeSingle();
+  if (info) await notifyPlayers((members ?? []).map((m) => m.player_id as string), "tournament_started", { tournament: info.name as string }, `/t/${info.public_code}`);
   revalidatePath(`/gestione/${tournamentId}`);
   refresh(); // aggiorna subito la pagina aperta
   return {};
@@ -404,6 +408,8 @@ export async function setRegistration(_prev: EnrollState, formData: FormData): P
     .eq("id", tournamentId).eq("status", "draft").select("id");
   if (error) return { error: tx.cantSave };
   if (!data?.length) return { error: tx.notDraftAnymore };
+  // Prima apertura delle iscrizioni: avviso e email ai membri del circuito (una volta sola).
+  if (open) await announceTournament(tournamentId);
   revalidatePath(`/gestione/${tournamentId}`);
   refresh();
   return { ok: open ? tx.regOpened : tx.regClosedOk };
