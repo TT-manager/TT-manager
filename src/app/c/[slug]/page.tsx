@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { getAccount } from "@/lib/account";
+import { createServiceClient } from "@/lib/supabase/admin";
 import { canSeeChampionship, getChampionshipBySlug, getChampionshipTournaments, getRanking } from "@/lib/data";
 import { statusLabel } from "@/lib/labels";
 import { registrationIsOpen } from "@/lib/registration";
@@ -40,7 +42,10 @@ async function Championship({ params }: { params: PageProps<"/c/[slug]">["params
       <p className="mt-3 text-white/80">{tx.membersOnly}</p>
       <Link href={`/partecipa/${c.slug}`} className="btn-primary mt-4">{tx.wantToPlay}</Link>
     </header>);
-  const [rows, { tournaments, past }] = await Promise.all([getRanking(c.id), getChampionshipTournaments(c.id)]);
+  const [rows, { tournaments, past }, account] = await Promise.all([getRanking(c.id), getChampionshipTournaments(c.id), getAccount()]);
+  // «Chiedi di partecipare» solo a chi non è già nel circuito.
+  const member = account ? Boolean((await createServiceClient().from("championship_players").select("player_id")
+    .eq("championship_id", c.id).eq("player_id", account.player.id).maybeSingle()).data) : false;
   return (
     <>
       <header className="mt-4 overflow-hidden rounded-2xl bg-ink text-white shadow-lg">
@@ -50,7 +55,7 @@ async function Championship({ params }: { params: PageProps<"/c/[slug]">["params
             <p className="text-sm uppercase tracking-widest text-white/60">{tx.leagueKind(c.kind === "doubles")}</p>
             <h1 className="text-4xl font-bold">{c.name}</h1>
             <p className="mt-2 text-sm text-white/75">{tx.playersInRanking(rows.length)}</p>
-            <Link href={`/partecipa/${c.slug}`} className="btn-primary mt-4">{tx.wantToPlay}</Link>
+            {!member && <Link href={`/partecipa/${c.slug}`} className="btn-primary mt-4">{tx.wantToPlay}</Link>}
           </div>
         </div>
       </header>
