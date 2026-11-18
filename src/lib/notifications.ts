@@ -89,19 +89,21 @@ export async function announceTournament(tournamentId: string) {
   await notifyUsers(users, "tournament_open", { tournament: t.name as string, league }, href);
   if (!hasEmail() || !users.length) return;
 
-  const tx = notificationsText.it; // email in italiano: la lingua di ognuno non è salvata nell'account
   const { data: prefs } = await svc.from("notification_prefs").select("user_id, email_tournaments").in("user_id", users);
   const off = new Set((prefs ?? []).filter((p) => !p.email_tournaments).map((p) => p.user_id as string));
-  const fmt = (iso: string, time: boolean) => new Date(iso).toLocaleString("it-IT", {
+  // Ognuno riceve l'email nella lingua salvata nel suo account (italiano se non l'ha mai scelta).
+  const fmt = (iso: string, time: boolean, en: boolean) => new Date(iso).toLocaleString(en ? "en-GB" : "it-IT", {
     timeZone: "Europe/Rome", weekday: "long", day: "numeric", month: "long", ...(time ? { hour: "2-digit", minute: "2-digit" } : {}),
   });
   for (const userId of users.filter((u) => !off.has(u))) {
     try {
       const [{ data: u }, pref] = await Promise.all([svc.auth.admin.getUserById(userId), emailPrefs(userId)]);
       if (!u.user?.email) continue;
+      const en = u.user.user_metadata?.locale === "en";
+      const tx = notificationsText[en ? "en" : "it"];
       const unsub = `${SITE_URL}/notifiche/disiscriviti?t=${pref.unsubscribe_token}`;
-      const lines = [tx.mailIntro(league), t.starts_on ? tx.mailWhen(fmt(`${t.starts_on}T12:00:00Z`, false)) : "",
-        t.registration_deadline ? tx.mailDeadline(fmt(t.registration_deadline as string, true)) : ""].filter(Boolean);
+      const lines = [tx.mailIntro(league), t.starts_on ? tx.mailWhen(fmt(`${t.starts_on}T12:00:00Z`, false, en)) : "",
+        t.registration_deadline ? tx.mailDeadline(fmt(t.registration_deadline as string, true, en)) : ""].filter(Boolean);
       const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:560px;margin:auto;color:#111">
 <h1 style="font-size:22px;margin:0 0 12px">${esc(t.name as string)}</h1>
 ${lines.map((l) => `<p style="margin:0 0 8px">${esc(l)}</p>`).join("")}

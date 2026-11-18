@@ -47,6 +47,7 @@ export async function signup(_prev: LoginState, formData: FormData): Promise<Log
         club_id: club.kind === "existing" ? club.clubId : null,
         club_request: club.kind === "request" ? { name: club.name, city: club.city } : null,
         invite,
+        locale: await getLocale(),
       }, emailRedirectTo: `${await origin()}/auth/conferma?next=${encodeURIComponent(next)}` },
   });
   if (error?.code === "weak_password") return { error: t.weakPassword };
