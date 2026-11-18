@@ -116,11 +116,12 @@ export async function DashboardView({ d, me, children, challengeLeagues = [] }: 
                 <div className="min-w-0 flex-1"><p className="font-bold">{t.nothingTitle}</p>
                   <p className="text-sm text-muted">{t.nothingText}</p></div>
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
+              {/* Pulsanti tutti della stessa misura: uno sotto l'altro sul telefono, affiancati su schermi larghi. */}
+              <div className={`mt-4 grid gap-2 ${challengeLeagues.length ? "sm:grid-cols-2" : ""}`}>
                 {challengeLeagues.slice(0, 3).map((c) => (
-                  <Link key={c.slug} href={`/c/${c.slug}#sfide-circuito`} className="btn-primary">
+                  <Link key={c.slug} href={`/c/${c.slug}#sfide-circuito`} className="btn-primary w-full justify-center text-center">
                     {challengeLeagues.length === 1 ? t.launchChallenge : t.challengeIn(c.name)}</Link>))}
-                <Link href="/amichevole/nuovo" className={challengeLeagues.length ? "btn-outline" : "btn-primary"}>{t.createFriendly}</Link>
+                <Link href="/amichevole/nuovo" className={`${challengeLeagues.length ? "btn-outline" : "btn-primary"} w-full justify-center text-center`}>{t.createFriendly}</Link>
               </div>
             </div>
           )}
