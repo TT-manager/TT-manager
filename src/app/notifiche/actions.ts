@@ -7,13 +7,13 @@ import { tr } from "@/i18n/server";
 import { notificationsText } from "@/i18n/dict/notifications";
 import type { ActionState } from "@/components/action-form";
 
-const UUID = /^[0-9a-f-]{36}$/i;
+const ID = /^\d{1,18}$/; // le notifiche hanno un numero come codice
 
 /** Cancella una notifica (solo tra le proprie). */
 export async function deleteNotificationAction(formData: FormData): Promise<void> {
   const account = await requireAccount("/notifiche");
   const id = String(formData.get("id") ?? "");
-  if (!UUID.test(id)) return;
+  if (!ID.test(id)) return;
   await createServiceClient().from("notifications").delete().eq("id", id).eq("user_id", account.userId);
   refresh();
 }

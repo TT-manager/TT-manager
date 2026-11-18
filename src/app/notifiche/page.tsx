@@ -8,6 +8,7 @@ import { getLocale, tr } from "@/i18n/server";
 import { notificationsText } from "@/i18n/dict/notifications";
 import { deleteAllNotificationsAction, deleteNotificationAction, saveEmailPrefs } from "./actions";
 import { MarkRead } from "./mark-read";
+import { Icon } from "@/components/icons";
 
 export async function generateMetadata() {
   return { title: (await tr(notificationsText)).title };
@@ -47,7 +48,7 @@ async function Notifications() {
               <form action={deleteNotificationAction}>
                 <input type="hidden" name="id" value={n.id} />
                 <button aria-label={t.deleteOne} title={t.deleteOne}
-                  className="mt-1.5 flex h-9 w-9 items-center justify-center rounded-md text-xl leading-none text-muted hover:bg-brand/10 hover:text-brand">×</button>
+                  className="mt-1.5 flex h-9 w-9 items-center justify-center rounded-md text-muted hover:bg-brand/10 hover:text-brand"><Icon name="trash" className="h-4 w-4" /></button>
               </form>
             </li>))}
         </ul>)}
