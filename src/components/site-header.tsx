@@ -40,7 +40,8 @@ async function AccountNav() {
   </>;
   const { data: admin } = await supabase.from("admins").select("role, admin_only").eq("user_id", data.claims.sub).maybeSingle();
   const items = [
-    { href: "/", label: t.home, icon: "home" as const },
+    // Per chi è «solo amministratore» la pagina principale è la gestione.
+    ...(admin?.admin_only ? [] : [{ href: "/", label: t.home, icon: "home" as const }]),
     { href: "/profilo", label: t.myProfile, icon: "profile" as const },
     // Chi è «solo amministratore» non gioca: niente amici né tornei amichevoli nel menu.
     ...(admin?.admin_only ? [] : [

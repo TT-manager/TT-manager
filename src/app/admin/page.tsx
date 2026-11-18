@@ -22,7 +22,7 @@ export default async function AdminHome() {
   const svc = hasServiceKey() ? createServiceClient() : null;
   const none = { count: 0 } as { count: number | null };
   const [tournaments, players, clubRequests, joinRequests, disputedChallenges] = await Promise.all([
-    supabase.from("tournaments").select("id, status, championship_id"),
+    supabase.from("tournaments").select("id, name, status, championship_id"),
     // guest_of non è leggibile con il login normale: si conta con la chiave del server.
     (svc ?? supabase).from("players").select("id", { count: "exact", head: true }).is("guest_of", null),
     owner ? supabase.from("club_requests").select("id", { count: "exact", head: true }).eq("status", "pending") : none,
@@ -37,7 +37,7 @@ export default async function AdminHome() {
   };
   const joins = where((joinRequests as { data: { championship_id: string }[] | null }).data, "#richieste");
   const disputes = where((disputedChallenges as { data: { championship_id: string }[] | null }).data);
-  const rows = (tournaments as { data: { id: string; status: string }[] | null }).data ?? [];
+  const rows = (tournaments as { data: { id: string; name: string; status: string }[] | null }).data ?? [];
   const live = rows.filter((x) => x.status === "groups" || x.status === "knockout");
   const { count: disputedMatches } = live.length
     ? await supabase.from("matches").select("id", { count: "exact", head: true }).not("disputed_at", "is", null).in("tournament_id", live.map((x) => x.id))
@@ -63,8 +63,20 @@ export default async function AdminHome() {
     { href: "/admin/password", icon: "password" as IconName, title: t.navPassword, text: t.homePassword, stat: null },
   ];
 
+  // Azioni rapide: nuovo torneo (già nel circuito, se ne gestisci uno solo) e i tornei in corso.
+  const newHref = leagues.length === 1 ? `/admin/tornei/nuovo?campionato=${leagues[0].id}` : "/admin/tornei/nuovo";
+
   return (
     <main className="space-y-8">
+      <section>
+        <h2 className="font-display text-xl font-bold uppercase">{t.quickTitle}</h2>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href={newHref} className="btn-primary"><Icon name="add" className="h-5 w-5" /> {t.newTournament}</Link>
+          {live.slice(0, 4).map((x) => (
+            <Link key={x.id} href={`/gestione/${x.id}`} className="btn-outline"><span className="live-dot text-brand" /> {t.quickManage(x.name)}</Link>))}
+        </div>
+      </section>
+
       {todo.length > 0 && (
         <section className="rounded-xl border-2 border-amber-400 p-4">
           <h2 className="font-display text-xl font-bold uppercase">{t.todoTitle}</h2>

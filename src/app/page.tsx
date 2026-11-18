@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { Avatar } from "@/components/avatar";
 import { getChampionships, getFeaturedLive, getRanking, type Championship, type RankingRow } from "@/lib/data";
 import { getAccount } from "@/lib/account";
@@ -39,8 +40,9 @@ async function HomeContent() {
   const [account, all, featured] = await Promise.all([getAccount(), getChampionships(), getFeaturedLive()]);
   const t = await tr(publicHomeText);
   let mine = new Set<string>();
-  // In modalità «solo amministratore» la home non mostra niente da giocatore: solo la strada per la gestione.
-  const player = account && !account.adminOnly ? account : null;
+  // In modalità «solo amministratore» la pagina principale è la gestione.
+  if (account?.adminOnly) redirect("/admin");
+  const player = account;
   if (player) {
     const { data } = await createServiceClient().from("championship_players").select("championship_id").eq("player_id", player.player.id);
     mine = new Set((data ?? []).map((r) => r.championship_id as string));
@@ -71,11 +73,9 @@ async function HomeContent() {
           <div className="relative">
             <h1 className="text-4xl font-bold sm:text-5xl">{account ? t.hello(account.player.full_name.split(" ")[0]) : t.heroTitle}</h1>
             <p className="mt-2 max-w-xl text-white/80">
-              {account ? (account.adminOnly ? t.heroAdminOnly : t.heroMember) : t.heroGuest}</p>
+              {account ? t.heroMember : t.heroGuest}</p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              {account?.adminOnly
-                ? <Link href="/admin" className="btn-primary">{t.manage}</Link>
-                : account
+              {account
                 ? <><Link href="/amichevole/nuovo" className="btn-primary">{t.createFriendly}</Link>{challengeLeagues.length > 0
                   ? <Link href={challengeHref} className="btn border border-white/30 hover:bg-white/10">{t.launchChallenge}</Link>
                   : <Link href="/amici" className="btn border border-white/30 hover:bg-white/10">{t.friends}</Link>}</>
