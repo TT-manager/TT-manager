@@ -4,7 +4,7 @@ import { listBackups } from "@/lib/backup";
 import { getLocale, tr } from "@/i18n/server";
 import { intlTag } from "@/i18n/locale";
 import { adminShellText } from "@/i18n/dict/admin-shell";
-import { BackupNowButton } from "./forms";
+import { BackupNowButton, SendDigestButton } from "./forms";
 
 export async function generateMetadata() {
   return { title: (await tr(adminShellText)).backupTitle };
@@ -29,6 +29,11 @@ export default async function BackupPage() {
         <p className="mt-2 text-sm font-semibold">{t.backupAdvice}</p>
       </div>
       <BackupNowButton />
+      <section className="card space-y-2">
+        <h2 className="text-lg font-semibold">{t.digestTitle}</h2>
+        <p className="text-sm text-muted">{t.digestIntro}</p>
+        <SendDigestButton />
+      </section>
       <section className="card">
         <p className="text-sm text-muted">{t.backupCount(copies.length)}</p>
         {copies.length === 0 ? <p className="mt-2">{t.backupNone}</p> : (
