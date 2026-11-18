@@ -5,6 +5,9 @@ type P = Record<string, string>;
 /** Avvisi nell'app (campanella), pagina /notifiche ed email dei nuovi tornei. */
 export const notificationsText = dict({
   title: "Notifiche",
+  deleteOne: "Cancella questa notifica",
+  deleteAll: "Cancella tutte",
+  deleteAllConfirm: "Cancellare tutte le notifiche? Non si possono recuperare.",
   bellAria: (n: number) => (n ? `Notifiche: ${n} da leggere` : "Notifiche"),
   empty: "Ancora nessuna notifica. Qui trovi sfide, risultati da controllare, richieste d'amicizia e nuovi tornei.",
   emailTitle: "Email",
@@ -43,6 +46,9 @@ export const notificationsText = dict({
   mailUnsub: "Non ricevere più queste email",
 }, {
   title: "Notifications",
+  deleteOne: "Delete this notification",
+  deleteAll: "Delete all",
+  deleteAllConfirm: "Delete all notifications? They cannot be recovered.",
   bellAria: (n: number) => (n ? `Notifications: ${n} unread` : "Notifications"),
   empty: "No notifications yet. Here you'll find challenges, results to check, friend requests and new tournaments.",
   emailTitle: "Email",

@@ -6,7 +6,7 @@ import { emailPrefs, listNotifications } from "@/lib/notifications";
 import { timeAgo } from "@/lib/time";
 import { getLocale, tr } from "@/i18n/server";
 import { notificationsText } from "@/i18n/dict/notifications";
-import { saveEmailPrefs } from "./actions";
+import { deleteAllNotificationsAction, deleteNotificationAction, saveEmailPrefs } from "./actions";
 import { MarkRead } from "./mark-read";
 
 export async function generateMetadata() {
@@ -29,18 +29,26 @@ async function Notifications() {
   return (
     <>
       <MarkRead unread={unread} />
-      <h1 className="text-3xl font-bold uppercase">{t.title}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold uppercase">{t.title}</h1>
+        {list.length > 0 && <ActionForm action={deleteAllNotificationsAction} submitLabel={t.deleteAll} confirmText={t.deleteAllConfirm} primary={false} inline />}
+      </div>
       {list.length === 0 ? <p className="mt-4 text-muted">{t.empty}</p> : (
         <ul className="card mt-4 divide-y divide-line !py-1">
           {list.map((n) => (
-            <li key={n.id}>
-              <Link href={n.href} className="flex items-start gap-3 py-3 hover:text-brand">
+            <li key={n.id} className="flex items-start gap-1">
+              <Link href={n.href} className="flex min-w-0 flex-1 items-start gap-3 py-3 hover:text-brand">
                 <span aria-hidden="true" className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${n.read_at ? "bg-transparent" : "bg-brand"}`} />
                 <span className="min-w-0 flex-1">
                   <span className={`block ${n.read_at ? "" : "font-semibold"}`}>{t.text(n.kind, n.params)}</span>
                   <span className="text-xs text-muted">{timeAgo(n.created_at, now, l)}</span>
                 </span>
               </Link>
+              <form action={deleteNotificationAction}>
+                <input type="hidden" name="id" value={n.id} />
+                <button aria-label={t.deleteOne} title={t.deleteOne}
+                  className="mt-1.5 flex h-9 w-9 items-center justify-center rounded-md text-xl leading-none text-muted hover:bg-brand/10 hover:text-brand">×</button>
+              </form>
             </li>))}
         </ul>)}
 

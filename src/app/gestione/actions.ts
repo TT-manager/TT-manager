@@ -425,7 +425,7 @@ export async function deleteTournamentAction(_prev: CloseState, formData: FormDa
   const access = await requireTournamentManager(tournamentId);
   if (!hasServiceKey()) return { error: tx.missingServiceKey };
   const svc = createServiceClient();
-  const { data: t } = await svc.from("tournaments").select("status, ranked, championship_id").eq("id", tournamentId).maybeSingle();
+  const { data: t } = await svc.from("tournaments").select("status, ranked, championship_id, public_code").eq("id", tournamentId).maybeSingle();
   if (!t) return { error: tx.tournamentNotFound };
   if (t.status === "closed" && t.ranked && t.championship_id)
     return { error: tx.closedRankedReopenFirst };
@@ -433,6 +433,8 @@ export async function deleteTournamentAction(_prev: CloseState, formData: FormDa
   if (rated) return { error: tx.ratedMatchesLeft };
   const { error } = await svc.from("tournaments").delete().eq("id", tournamentId);
   if (error) return { error: tx.cantDeleteTournament };
+  // Le notifiche che portavano a quel torneo non hanno più senso.
+  await svc.from("notifications").delete().eq("href", `/t/${t.public_code}`);
   revalidatePath("/");
   if (access.championshipId) { revalidatePath(`/admin/campionati/${access.championshipId}`); redirect(`/admin/campionati/${access.championshipId}`); }
   redirect("/profilo");
