@@ -9,6 +9,7 @@ import type { ActionState } from "@/components/action-form";
 import { parseClubChoice } from "@/lib/clubs";
 import { sameNameMatch } from "@/lib/names";
 import { createClubRequest } from "@/lib/clubs-server";
+import { setAdminOnly } from "@/lib/admin-only";
 import { getLocale, tr } from "@/i18n/server";
 import { accountProfileText } from "@/i18n/dict/account-profile";
 import { clubErrorText } from "@/i18n/dict/account-clubs";
@@ -141,4 +142,15 @@ export async function removeAvatar(): Promise<ActionState> {
   await clearAvatar(account.player.id);
   refresh();
   return { ok: (await tr(accountProfileText)).photoRemoved };
+}
+
+/** Modalità «solo amministratore» per sé: solo chi è amministratore. */
+export async function toggleAdminOnly(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const account = await requireAccount("/profilo");
+  const t = await tr(accountProfileText);
+  if (!account.isAdmin) return { error: t.adminOnlyFailed };
+  const on = formData.get("on") === "1";
+  if (!(await setAdminOnly(account.userId, on))) return { error: t.adminOnlyFailed };
+  refresh();
+  return { ok: on ? t.adminOnlyEnabled : t.adminOnlyDisabled };
 }

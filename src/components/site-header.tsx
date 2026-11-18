@@ -38,12 +38,15 @@ async function AccountNav() {
     <Link href="/login" className={item}>{t.login}</Link>
     <Link href="/registrati" className="rounded-md bg-brand px-3 py-1.5 font-medium hover:bg-brand-dark">{t.signup}</Link>
   </>;
-  const { data: admin } = await supabase.from("admins").select("role").eq("user_id", data.claims.sub).maybeSingle();
+  const { data: admin } = await supabase.from("admins").select("role, admin_only").eq("user_id", data.claims.sub).maybeSingle();
   const items = [
     { href: "/", label: t.home, icon: "home" as const },
     { href: "/profilo", label: t.myProfile, icon: "profile" as const },
-    { href: "/amici", label: t.friends, icon: "friends" as const },
-    { href: "/amichevole/nuovo", label: t.createFriendly, icon: "add" as const },
+    // Chi è «solo amministratore» non gioca: niente amici né tornei amichevoli nel menu.
+    ...(admin?.admin_only ? [] : [
+      { href: "/amici", label: t.friends, icon: "friends" as const },
+      { href: "/amichevole/nuovo", label: t.createFriendly, icon: "add" as const },
+    ]),
     ...(admin ? [{ href: "/admin", label: t.admin, icon: "admin" as const }] : []),
     { href: "/faq", label: t.faq, icon: "help" as const },
   ];

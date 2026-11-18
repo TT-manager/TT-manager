@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireOwner } from "@/lib/auth";
 import { hasServiceKey } from "@/lib/organizer";
 import { createServiceClient } from "@/lib/supabase/admin";
-import { AddAdminForm, RemoveAdminButton } from "./forms";
+import { AddAdminForm, RemoveAdminButton, AdminOnlyButton } from "./forms";
 import { getLocale, tr } from "@/i18n/server";
 import { intlTag } from "@/i18n/locale";
 import { adminShellText } from "@/i18n/dict/admin-shell";
@@ -18,7 +18,7 @@ export default async function AdminsPage() {
   if (!hasServiceKey()) return <p>{t.missingServiceKey}</p>;
   const svc = createServiceClient();
   const [{ data: rows }, { data: links }, { data: leagues }] = await Promise.all([
-    svc.from("admins").select("user_id, role, created_at").order("created_at"),
+    svc.from("admins").select("user_id, role, created_at, admin_only").order("created_at"),
     svc.from("championship_admins").select("user_id, championship_id"),
     svc.from("championships").select("id, name").order("name"),
   ]);
@@ -50,6 +50,7 @@ export default async function AdminsPage() {
                     {a.user_id === me.userId && <span className="ml-2 text-sm font-normal text-muted">({t.you})</span>}</p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
                     <span className={owner ? "badge-open" : "badge-muted"}>{owner ? t.roleOwner : t.roleAdmin}</span>
+                    {a.admin_only && <span className="badge-muted">{t.adminOnlyBadge}</span>}
                     <span>{t.adminsLastAccess}: {a.lastSignIn ? date(a.lastSignIn) : t.neverSignedIn}</span>
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5 text-sm">
@@ -63,11 +64,15 @@ export default async function AdminsPage() {
                   </div>
                 </div>
               </div>
-              {!owner && a.user_id !== me.userId && <div className="shrink-0"><RemoveAdminButton userId={a.user_id} email={a.email} /></div>}
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <AdminOnlyButton userId={a.user_id} on={Boolean(a.admin_only)} />
+                {!owner && a.user_id !== me.userId && <RemoveAdminButton userId={a.user_id} email={a.email} />}
+              </div>
             </li>);
         })}
       </ul>
       <p className="mt-4 text-sm text-muted">{t.adminsAssignHint}</p>
+      <p className="mt-2 text-sm text-muted">{t.adminOnlyHint}</p>
     </main>
   );
 }

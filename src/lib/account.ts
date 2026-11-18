@@ -11,6 +11,8 @@ import { accountLibText } from "@/i18n/dict/account-clubs";
 
 export type Account = {
   userId: string; email: string; isAdmin: boolean;
+  /** Amministratore che non gioca: niente funzioni da giocatore, la sua scheda è nascosta. */
+  adminOnly: boolean;
   player: { id: string; full_name: string; club: string | null; club_id: string | null; avatar_path: string | null };
 };
 
@@ -22,11 +24,10 @@ export async function getAccount(): Promise<Account | null> {
   if (!claims?.sub || !hasServiceKey()) return null;
   const userId = claims.sub, email = String(claims.email ?? "");
   const meta = (claims.user_metadata ?? {}) as { full_name?: unknown; club_id?: unknown; club_request?: unknown };
-  const [{ data: admin }, player] = await Promise.all([
-    supabase.from("admins").select("role").eq("user_id", userId).maybeSingle(),
-    ensurePlayer(userId, typeof meta.full_name === "string" ? meta.full_name : "", meta, email),
-  ]);
-  return { userId, email, isAdmin: Boolean(admin), player };
+  const { data: admin } = await supabase.from("admins").select("role, admin_only").eq("user_id", userId).maybeSingle();
+  const adminOnly = Boolean(admin?.admin_only);
+  const player = await ensurePlayer(userId, typeof meta.full_name === "string" ? meta.full_name : "", meta, email, adminOnly);
+  return { userId, email, isAdmin: Boolean(admin), adminOnly, player };
 }
 
 export async function requireAccount(next: string): Promise<Account> {
@@ -44,7 +45,7 @@ function signupClub(meta: { club_id?: unknown; club_request?: unknown }) {
   return "error" in choice ? { kind: "none" as const } : choice;
 }
 
-async function ensurePlayer(userId: string, name: string, meta: { club_id?: unknown; club_request?: unknown }, email: string) {
+async function ensurePlayer(userId: string, name: string, meta: { club_id?: unknown; club_request?: unknown }, email: string, adminOnly: boolean) {
   const svc = createServiceClient();
   const find = () => svc.from("players").select("id, full_name, club, club_id, avatar_path").eq("user_id", userId).maybeSingle();
   const { data: found } = await find();
@@ -52,7 +53,7 @@ async function ensurePlayer(userId: string, name: string, meta: { club_id?: unkn
   const fullName = (name.trim() || email.split("@")[0] || "Giocatore").slice(0, 80);
   const club = signupClub(meta);
   const insert = (clubId: string | null) => svc.from("players")
-    .insert({ full_name: fullName, club_id: clubId, user_id: userId }).select("id, full_name, club, club_id, avatar_path").single();
+    .insert({ full_name: fullName, club_id: clubId, user_id: userId, active: !adminOnly }).select("id, full_name, club, club_id, avatar_path").single();
   let { data: created, error } = await insert(club.kind === "existing" ? club.clubId : null);
   if (error?.code === "23503") ({ data: created, error } = await insert(null)); // circolo eliminato nel frattempo
   if (created) {

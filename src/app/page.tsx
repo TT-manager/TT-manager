@@ -39,8 +39,10 @@ async function HomeContent() {
   const [account, all, featured] = await Promise.all([getAccount(), getChampionships(), getFeaturedLive()]);
   const t = await tr(publicHomeText);
   let mine = new Set<string>();
-  if (account) {
-    const { data } = await createServiceClient().from("championship_players").select("championship_id").eq("player_id", account.player.id);
+  // In modalità «solo amministratore» la home non mostra niente da giocatore: solo la strada per la gestione.
+  const player = account && !account.adminOnly ? account : null;
+  if (player) {
+    const { data } = await createServiceClient().from("championship_players").select("championship_id").eq("player_id", player.player.id);
     mine = new Set((data ?? []).map((r) => r.championship_id as string));
   }
   // Si vedono le leghe di cui fai parte e quelli resi pubblici dall'admin.
@@ -49,7 +51,7 @@ async function HomeContent() {
 
   // Invito ricordato (link aperto prima di registrarsi) a un circuito in cui non sei ancora: si offre di entrare.
   let invited: { name: string; href: string } | null = null;
-  if (account) {
+  if (player) {
     const inv = await rememberedInvite();
     const c = inv ? all.find((x) => x.slug === inv.slug && !mine.has(x.id)) : undefined;
     if (inv && c) {
@@ -69,9 +71,11 @@ async function HomeContent() {
           <div className="relative">
             <h1 className="text-4xl font-bold sm:text-5xl">{account ? t.hello(account.player.full_name.split(" ")[0]) : t.heroTitle}</h1>
             <p className="mt-2 max-w-xl text-white/80">
-              {account ? t.heroMember : t.heroGuest}</p>
+              {account ? (account.adminOnly ? t.heroAdminOnly : t.heroMember) : t.heroGuest}</p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
-              {account
+              {account?.adminOnly
+                ? <Link href="/admin" className="btn-primary">{t.manage}</Link>
+                : account
                 ? <><Link href="/amichevole/nuovo" className="btn-primary">{t.createFriendly}</Link>{challengeLeagues.length > 0
                   ? <Link href={challengeHref} className="btn border border-white/30 hover:bg-white/10">{t.launchChallenge}</Link>
                   : <Link href="/amici" className="btn border border-white/30 hover:bg-white/10">{t.friends}</Link>}</>
@@ -106,18 +110,18 @@ async function HomeContent() {
           </ul>
         </section>)}
 
-      {account ? (
-        <Dashboard account={account} challengeLeagues={challengeLeagues}>
+      {player ? (
+        <Dashboard account={player} challengeLeagues={challengeLeagues}>
           {/* I tuoi circuiti; sotto, separati, i circuiti pubblici di cui non fai parte. */}
           {shown.some((c) => mine.has(c.id)) ? (
             <div className="mt-4 grid gap-5">
-              {shown.filter((c) => mine.has(c.id)).map((c) => <ChampionshipCard key={c.id} c={c} member myPlayerId={account.player.id} />)}
+              {shown.filter((c) => mine.has(c.id)).map((c) => <ChampionshipCard key={c.id} c={c} member myPlayerId={player.player.id} />)}
             </div>
           ) : <p className="mt-3 text-muted">{t.noLeagueMember}</p>}
           {shown.some((c) => !mine.has(c.id)) && <>
             <h2 className="mt-8 text-2xl font-bold uppercase">{t.otherPublicLeagues}</h2>
             <div className="mt-4 grid gap-5">
-              {shown.filter((c) => !mine.has(c.id)).map((c) => <ChampionshipCard key={c.id} c={c} member={false} myPlayerId={account.player.id} />)}
+              {shown.filter((c) => !mine.has(c.id)).map((c) => <ChampionshipCard key={c.id} c={c} member={false} myPlayerId={player.player.id} />)}
             </div>
           </>}
         </Dashboard>

@@ -9,7 +9,7 @@ import { Avatar } from "@/components/avatar";
 import { AvatarUploader } from "./avatar-uploader";
 import { formatDeadline, registrationIsOpen } from "@/lib/registration";
 import { logout } from "../login/actions";
-import { cancelClubRequest, cancelRequest, updateProfile } from "./actions";
+import { cancelClubRequest, cancelRequest, toggleAdminOnly, updateProfile } from "./actions";
 import { ClubPicker } from "@/components/club-picker";
 import { listClubs } from "@/lib/clubs-server";
 import { getLocale, tr } from "@/i18n/server";
@@ -81,11 +81,21 @@ async function Profile() {
         <div className="flex items-center gap-3 text-sm">
           {account.isAdmin && <Link href="/admin" className="underline">{t.administration}</Link>}
           <Link href="/amici" className="underline">{t.friends}{friendRequests ? t.friendRequests(friendRequests) : ""}</Link>
-          <Link href={`/giocatore/${account.player.id}`} className="underline">{t.publicCard}</Link>
+          {!account.adminOnly && <Link href={`/giocatore/${account.player.id}`} className="underline">{t.publicCard}</Link>}
         </div>
       </div>
 
-      {open.length > 0 && (
+      {account.isAdmin && (
+        <section className={`rounded-lg border-2 p-4 ${account.adminOnly ? "border-brand" : "border-line"}`}>
+          <h2 className="text-xl font-semibold">{t.adminOnlyTitle}</h2>
+          <p className={`mt-1 ${muted}`}>{account.adminOnly ? t.adminOnlyOn : t.adminOnlyOff}</p>
+          <ActionForm action={toggleAdminOnly} submitLabel={account.adminOnly ? t.adminOnlyDisable : t.adminOnlyEnable}
+            confirmText={account.adminOnly ? undefined : t.adminOnlyConfirm} primary={account.adminOnly} className="mt-3">
+            <input type="hidden" name="on" value={account.adminOnly ? "0" : "1"} />
+          </ActionForm>
+        </section>)}
+
+      {!account.adminOnly && open.length > 0 && (
         <section className="rounded-lg border-2 border-emerald-600 p-4">
           <h2 className="text-xl font-semibold">{t.openTournaments}</h2>
           <ul className="mt-2 divide-y">

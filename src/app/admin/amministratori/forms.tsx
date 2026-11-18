@@ -1,6 +1,6 @@
 "use client";
 import { useActionState } from "react";
-import { addAdmin, removeAdmin, type AdminState } from "./actions";
+import { addAdmin, removeAdmin, setAdminOnlyFor, type AdminState } from "./actions";
 import { useTr } from "@/i18n/client";
 import { adminShellText } from "@/i18n/dict/admin-shell";
 
@@ -38,6 +38,19 @@ export function RemoveAdminButton({ userId, email }: { userId: string; email: st
     <form action={action} onSubmit={(e) => { if (!confirm(t.confirmRemoveAdmin(email))) e.preventDefault(); }}>
       <input type="hidden" name="user_id" value={userId} />
       <button disabled={pending} className="text-sm underline">{t.remove}</button>
+      <Msg s={state} />
+    </form>
+  );
+}
+
+export function AdminOnlyButton({ userId, on }: { userId: string; on: boolean }) {
+  const t = useTr(adminShellText);
+  const [state, action, pending] = useActionState<AdminState, FormData>(setAdminOnlyFor, {});
+  return (
+    <form action={action}>
+      <input type="hidden" name="user_id" value={userId} />
+      <input type="hidden" name="on" value={on ? "0" : "1"} />
+      <button disabled={pending} className="text-sm underline">{on ? t.adminOnlyUnset : t.adminOnlySet}</button>
       <Msg s={state} />
     </form>
   );
