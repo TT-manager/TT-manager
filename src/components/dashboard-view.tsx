@@ -122,9 +122,19 @@ export async function DashboardView({ d, me, children, challengeLeagues = [], ne
                   Il primo che c'è è rosso, gli altri hanno il bordo. */}
               <div className="mt-4 grid gap-2">
                 {newTournamentHref && <Link href={newTournamentHref} className="btn-primary w-full justify-center text-center">{t.newTournament}</Link>}
-                {challengeLeagues.slice(0, 3).map((c) => (
-                  <Link key={c.slug} href={`/c/${c.slug}#sfide-circuito`} className={`${newTournamentHref ? "btn-outline" : "btn-primary"} w-full justify-center text-center`}>
-                    {challengeLeagues.length === 1 ? t.launchChallenge : t.challengeIn(c.name)}</Link>))}
+                {challengeLeagues.length === 1 && (
+                  <Link href={`/c/${challengeLeagues[0].slug}#sfide-circuito`} className={`${newTournamentHref ? "btn-outline" : "btn-primary"} w-full justify-center text-center`}>{t.launchChallenge}</Link>)}
+                {challengeLeagues.length > 1 && (
+                  <details className="group">
+                    <summary className={`${newTournamentHref ? "btn-outline" : "btn-primary"} w-full cursor-pointer list-none justify-center text-center [&::-webkit-details-marker]:hidden`}>
+                      {t.launchChallenge} <span aria-hidden="true" className="ml-1 transition group-open:rotate-180">▾</span></summary>
+                    <ul className="mt-2 grid gap-2">
+                      {challengeLeagues.map((c) => (
+                        <li key={c.slug}><Link href={`/c/${c.slug}#sfide-circuito`}
+                          className="flex items-center justify-between rounded-lg border border-line bg-background px-3 py-2.5 font-semibold hover:border-brand">
+                          {c.name} <span aria-hidden="true" className="text-muted">›</span></Link></li>))}
+                    </ul>
+                  </details>)}
                 <Link href="/amichevole/nuovo" className={`${newTournamentHref || challengeLeagues.length ? "btn-outline" : "btn-primary"} w-full justify-center text-center`}>{t.createFriendly}</Link>
               </div>
             </div>
@@ -176,15 +186,30 @@ export async function DashboardView({ d, me, children, challengeLeagues = [], ne
             {[
               ...(newTournamentHref ? [{ href: newTournamentHref, icon: "tournament" as IconName, title: t.newTournament, sub: t.newTournamentSub }] : []),
               { href: "/amichevole/nuovo", icon: "add" as IconName, title: t.createFriendly, sub: t.challengeFriends },
-              ...challengeLeagues.map((c) => ({
-                href: `/c/${c.slug}#sfide-circuito`, icon: "match" as IconName,
-                title: challengeLeagues.length === 1 ? t.launchChallenge : t.challengeIn(c.name), sub: t.challengeSub,
-              })),
+              ...(challengeLeagues.length ? [{
+                href: challengeLeagues.length === 1 ? `/c/${challengeLeagues[0].slug}#sfide-circuito` : "", icon: "match" as IconName,
+                title: t.launchChallenge, sub: challengeLeagues.length === 1 ? t.challengeSub : t.challengeSubMany,
+              }] : []),
               { href: "/amici", icon: "friends" as IconName, title: d.kpi.friendRequests ? t.friendRequests : t.findFriends,
                 sub: d.kpi.friendRequests ? t.requestsToAccept(d.kpi.friendRequests) : t.searchPlayers, alert: d.kpi.friendRequests },
               { href: "/profilo", icon: "profile" as IconName, title: t.myProfile,
                 sub: d.kpi.openToJoin ? t.openRegistrations(d.kpi.openToJoin) : t.profileSub, alert: d.kpi.openToJoin },
-            ].map((a) => (
+            ].map((a) => a.href === "" ? (
+              // Più circuiti con le sfide attive: la riga si apre e mostra i circuiti.
+              <details key="sfida" className="group">
+                <summary className="flex cursor-pointer list-none items-center gap-3 rounded-lg border border-line bg-background px-3 py-2.5 transition hover:border-brand [&::-webkit-details-marker]:hidden">
+                  <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface text-brand"><Icon name={a.icon} /></span>
+                  <span className="flex-1"><span className="block text-sm font-bold">{a.title}</span><span className="text-xs text-muted">{a.sub}</span></span>
+                  <span aria-hidden="true" className="text-muted transition group-open:rotate-90">›</span>
+                </summary>
+                <ul className="mt-2 grid gap-2 pl-12">
+                  {challengeLeagues.map((c) => (
+                    <li key={c.slug}><Link href={`/c/${c.slug}#sfide-circuito`}
+                      className="flex items-center justify-between rounded-lg border border-line bg-background px-3 py-2 text-sm font-semibold hover:border-brand">
+                      {c.name} <span aria-hidden="true" className="text-muted">›</span></Link></li>))}
+                </ul>
+              </details>
+            ) : (
               <Link key={a.href} href={a.href} className="flex items-center gap-3 rounded-lg border border-line bg-background px-3 py-2.5 transition hover:border-brand">
                 <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface text-brand"><Icon name={a.icon} /></span>
                 <span className="flex-1"><span className="block text-sm font-bold">{a.title}</span><span className="text-xs text-muted">{a.sub}</span></span>
