@@ -4,6 +4,7 @@ import { cookieInvite, inviteFromPath } from "@/lib/invites";
 import { safeNext } from "@/lib/account";
 import { parseClubChoice } from "@/lib/clubs";
 import { siteOrigin as origin } from "@/lib/origin";
+import { LEGAL_UPDATED } from "@/lib/site";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { getLocale, tr } from "@/i18n/server";
 import { accountLoginText } from "@/i18n/dict/account-login";
@@ -36,6 +37,8 @@ export async function signup(_prev: LoginState, formData: FormData): Promise<Log
   if ("error" in club) return { error: clubErrorText(club.error, await getLocale()) };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: t.invalidEmail };
   if (password.length < 8) return { error: t.passwordTooShort };
+  // Le due caselle sono obbligatorie anche sul server: chi aggira il modulo non si registra.
+  if (formData.get("accept_terms") !== "on" || formData.get("accept_privacy") !== "on") return { error: t.mustAccept };
   // Invito al circuito da cui arriva (nell'indirizzo di ritorno o ricordato nel browser): resta nell'account.
   const invite = inviteFromPath(next) ?? await cookieInvite();
   const supabase = await createServerSupabase();
@@ -48,6 +51,9 @@ export async function signup(_prev: LoginState, formData: FormData): Promise<Log
         club_request: club.kind === "request" ? { name: club.name, city: club.city } : null,
         invite,
         locale: await getLocale(),
+        // Prova dell'accettazione: quando, e a quale versione dei testi legali.
+        terms_accepted_at: new Date().toISOString(),
+        legal_version: LEGAL_UPDATED,
       }, emailRedirectTo: `${await origin()}/auth/conferma?next=${encodeURIComponent(next)}` },
   });
   if (error?.code === "weak_password") return { error: t.weakPassword };

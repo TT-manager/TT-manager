@@ -41,11 +41,14 @@ export function SignupForm({ next, clubs = [] }: { next?: string; clubs?: Club[]
       <div><span className="block">{t.clubOptional}</span><ClubPicker clubs={clubs} allowRequest className={field} /></div>
       <label className="block">{t.email}<input name="email" type="email" required autoComplete="email" className={field} /></label>
       <label className="block">{t.passwordMin}<input name="password" type="password" required minLength={8} autoComplete="new-password" className={field} /></label>
+      <div className="space-y-2 text-sm">
+        <label className="flex items-start gap-2"><input type="checkbox" name="accept_terms" required className="mt-1" />
+          <span>{t.acceptTermsBefore}<Link href="/termini" target="_blank" className="underline">{t.termsLink}</Link></span></label>
+        <label className="flex items-start gap-2"><input type="checkbox" name="accept_privacy" required className="mt-1" />
+          <span>{t.acceptPrivacyBefore}<Link href="/privacy" target="_blank" className="underline">{t.privacyLink}</Link></span></label>
+      </div>
       <Msg s={state} />
       <button disabled={pending} className={btn}>{pending ? t.signingUp : t.signupButton}</button>
-      <p className="text-xs text-muted">
-        {t.termsBefore}<Link href="/termini" className="underline">{t.termsLink}</Link>{t.termsMiddle}<Link href="/privacy" className="underline">{t.privacyLink}</Link>{t.termsAfter}
-      </p>
       <p className="text-sm">{t.haveAccount} <Link href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"} className="underline">{t.loginLink}</Link></p>
     </form>
   );
