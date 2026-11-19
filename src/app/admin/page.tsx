@@ -54,6 +54,7 @@ export default async function AdminHome() {
     { href: "/admin/campionati", icon: "trophy" as IconName, title: t.navLeagues, text: t.homeLeagues, stat: t.statLeagues(leagues.length) },
     { href: "/admin/tornei", icon: "tournament" as IconName, title: t.navTournaments, text: t.homeTournaments,
       stat: live.length ? t.statLive(live.length) : t.statTournaments(rows.length), hot: live.length > 0 },
+    { href: "/admin/avvisi", icon: "notice" as IconName, title: t.navNotices, text: t.homeNotices, stat: null },
     ...(owner ? [
       { href: "/admin/giocatori", icon: "friends" as IconName, title: t.navPlayers, text: t.homePlayers, stat: t.statPlayers(players.count ?? 0) },
       { href: "/admin/circoli", icon: "clubs" as IconName, title: t.navClubs, text: t.homeClubs, stat: clubRequests.count ? t.statRequests(clubRequests.count) : null, hot: Boolean(clubRequests.count) },
@@ -72,6 +73,7 @@ export default async function AdminHome() {
         <h2 className="font-display text-xl font-bold uppercase">{t.quickTitle}</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link href={newHref} className="btn-primary"><Icon name="add" className="h-5 w-5" /> {t.newTournament}</Link>
+          <Link href={leagues.length === 1 ? `/admin/avvisi?a=c:${leagues[0].id}` : "/admin/avvisi"} className="btn-outline"><Icon name="notice" className="h-5 w-5" /> {t.quickNotice}</Link>
           {live.slice(0, 4).map((x) => (
             <Link key={x.id} href={`/gestione/${x.id}`} className="btn-outline"><span className="live-dot text-brand" /> {t.quickManage(x.name)}</Link>))}
         </div>

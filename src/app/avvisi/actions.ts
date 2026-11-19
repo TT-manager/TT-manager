@@ -14,8 +14,10 @@ const UUID = /^[0-9a-f-]{36}$/i;
  * (anche chi ha creato un amichevole). Restituisce l'autore e il destinatario, oppure null.
  */
 async function authorize(formData: FormData): Promise<{ userId: string; target: AnnouncementTarget } | null> {
-  const cid = String(formData.get("championship_id") ?? "");
-  const tid = String(formData.get("tournament_id") ?? "");
+  // Il destinatario arriva come campo nascosto oppure dalla scelta «A chi» della sezione Avvisi («c:…» o «t:…»).
+  const pick = String(formData.get("target") ?? "");
+  const cid = pick.startsWith("c:") ? pick.slice(2) : String(formData.get("championship_id") ?? "");
+  const tid = pick.startsWith("t:") ? pick.slice(2) : String(formData.get("tournament_id") ?? "");
   if (UUID.test(cid)) return { userId: (await requireChampionshipManager(cid)).userId, target: { championshipId: cid } };
   if (UUID.test(tid)) return { userId: (await requireTournamentManager(tid)).userId, target: { tournamentId: tid } };
   return null;

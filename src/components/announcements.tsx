@@ -1,7 +1,8 @@
 import { ActionForm } from "@/components/action-form";
 import { AnnouncementForm } from "@/components/announcement-form";
 import { deleteAnnouncementAction } from "@/app/avvisi/actions";
-import { listAnnouncements, type AnnouncementTarget } from "@/lib/announcements";
+import Link from "next/link";
+import { countAnnouncements, listAnnouncements, type AnnouncementTarget } from "@/lib/announcements";
 import { hasServiceKey } from "@/lib/organizer";
 import { timeAgo } from "@/lib/time";
 import { getLocale, tr } from "@/i18n/server";
@@ -60,5 +61,29 @@ export async function AnnouncementsAdmin({ target }: { target: AnnouncementTarge
           </ul>
         </>)}
     </section>
+  );
+}
+
+/** Link alla sezione Avvisi con il circuito o il torneo già scelto (nelle pagine di gestione). */
+export async function AnnouncementsLink({ target }: { target: AnnouncementTarget }) {
+  const t = await tr(announcementsText);
+  const n = hasServiceKey() ? await countAnnouncements(target) : 0;
+  const key = "championshipId" in target ? `c:${target.championshipId}` : `t:${target.tournamentId}`;
+  return (
+    <Link href={`/admin/avvisi?a=${key}`} title={t.linkHint}
+      className="inline-flex items-center gap-1 rounded-full border border-line px-3 py-1 text-sm hover:border-brand hover:text-brand">
+      {t.link(n)} <span aria-hidden="true">›</span></Link>
+  );
+}
+
+/** Per chi gestisce un amichevole senza essere amministratore: il riquadro avvisi, chiuso finché non lo apre. */
+export async function AnnouncementsCollapsible({ tournamentId }: { tournamentId: string }) {
+  const t = await tr(announcementsText);
+  const n = hasServiceKey() ? await countAnnouncements({ tournamentId }) : 0;
+  return (
+    <details className="card">
+      <summary className="cursor-pointer font-semibold">{t.summary(n)}</summary>
+      <div className="mt-2"><AnnouncementsAdmin target={{ tournamentId }} /></div>
+    </details>
   );
 }

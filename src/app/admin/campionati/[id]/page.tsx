@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AnnouncementsAdmin } from "@/components/announcements";
+import { AnnouncementsLink } from "@/components/announcements";
 import { ActionForm } from "@/components/action-form";
 import { DisputedChallenges } from "@/components/challenges";
 import { DeleteLeague } from "./delete-league";
@@ -39,12 +39,14 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
     <main className="space-y-10">
       <ChampionshipHeader c={c} current="" />
       {hasServiceKey() && <DisputedChallenges championshipId={id} />}
-      <AnnouncementsAdmin target={{ championshipId: id }} />
 
       <section>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">{tx.tournaments}</h2>
-          <Link href={`/admin/tornei/nuovo?campionato=${id}`} className="btn-primary">{tx.newTournament}</Link>
+          <span className="flex flex-wrap items-center gap-2">
+            <AnnouncementsLink target={{ championshipId: id }} />
+            <Link href={`/admin/tornei/nuovo?campionato=${id}`} className="btn-primary">{tx.newTournament}</Link>
+          </span>
         </div>
         {(tournaments ?? []).length === 0 ? <p className={`mt-2 ${muted}`}>{tx.noTournamentsYet}</p> : (
           <ul className="mt-3 grid gap-3 sm:grid-cols-2">

@@ -4,6 +4,7 @@ import { notifyUsers } from "./notifications";
 
 export type AnnouncementTarget = { championshipId: string } | { tournamentId: string };
 export type Announcement = { id: number; body: string; created_at: string };
+export type AnnouncementRow = Announcement & { championship_id: string | null; tournament_id: string | null };
 
 const column = (t: AnnouncementTarget) =>
   "championshipId" in t ? { col: "championship_id", id: t.championshipId } : { col: "tournament_id", id: t.tournamentId };
@@ -56,4 +57,23 @@ export async function postAnnouncement(target: AnnouncementTarget, body: string,
 export async function deleteAnnouncement(target: AnnouncementTarget, announcementId: number) {
   const { col, id } = column(target);
   await createServiceClient().from("announcements").delete().eq("id", announcementId).eq(col, id);
+}
+
+/** Avvisi di più circuiti e tornei insieme (per la sezione Avvisi). Da usare dopo i controlli. */
+export async function listAnnouncementsFor(championshipIds: string[], tournamentIds: string[], limit = 100): Promise<AnnouncementRow[]> {
+  const ors = [
+    championshipIds.length && `championship_id.in.(${championshipIds.join(",")})`,
+    tournamentIds.length && `tournament_id.in.(${tournamentIds.join(",")})`,
+  ].filter(Boolean).join(",");
+  if (!ors) return [];
+  const { data } = await createServiceClient().from("announcements").select("id, body, created_at, championship_id, tournament_id")
+    .or(ors).order("created_at", { ascending: false }).limit(limit);
+  return (data ?? []) as AnnouncementRow[];
+}
+
+/** Quanti avvisi ha un circuito o un torneo (per il link «Avvisi (n)»). */
+export async function countAnnouncements(target: AnnouncementTarget): Promise<number> {
+  const { col, id } = column(target);
+  const { count } = await createServiceClient().from("announcements").select("id", { count: "exact", head: true }).eq(col, id);
+  return count ?? 0;
 }
