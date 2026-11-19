@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AnnouncementsAdmin } from "@/components/announcements";
 import { RegistrationToggle } from "./registration-toggle";
 import { notFound } from "next/navigation";
 import { requireTournamentManager } from "@/lib/auth";
@@ -69,6 +70,8 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
         <p className="mt-2">{tx.publicCode} <span className="font-mono text-lg">{t.public_code}</span>{" "}
           <span className="text-sm text-neutral-600 dark:text-neutral-400">{tx.publicPagePath(t.public_code)}</span></p>
       </div>
+
+      {t.status !== "closed" && <AnnouncementsAdmin target={{ tournamentId: t.id }} />}
 
       <section>
         <h2 className="text-lg font-semibold">{tx.format}</h2>

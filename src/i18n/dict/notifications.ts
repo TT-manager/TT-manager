@@ -35,6 +35,7 @@ export const notificationsText = dict({
     friend_request: `${p.who} ti ha chiesto l'amicizia`,
     friend_accepted: `${p.who} ha accettato la tua richiesta d'amicizia`,
     join_approved: `Sei entrato nel circuito ${p.league}`,
+    announcement: `📣 ${p.from}: ${p.text}`,
   } as Record<string, string>)[kind] ?? "Nuova notifica",
   // email del nuovo torneo
   mailSubject: (tournament: string) => `Iscrizioni aperte: ${tournament}`,
@@ -75,6 +76,7 @@ export const notificationsText = dict({
     friend_request: `${p.who} sent you a friend request`,
     friend_accepted: `${p.who} accepted your friend request`,
     join_approved: `You've joined the ${p.league} league`,
+    announcement: `📣 ${p.from}: ${p.text}`,
   } as Record<string, string>)[kind] ?? "New notification",
   mailSubject: (tournament: string) => `Registration open: ${tournament}`,
   mailIntro: (league: string) => `A new tournament has opened in the ${league} league.`,

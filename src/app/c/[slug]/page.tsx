@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AnnouncementsBox } from "@/components/announcements";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getAccount } from "@/lib/account";
@@ -59,6 +60,7 @@ async function Championship({ params }: { params: PageProps<"/c/[slug]">["params
           </div>
         </div>
       </header>
+      <AnnouncementsBox target={{ championshipId: c.id }} sinceDays={30} />
 
       <h2 className="mt-8 text-2xl font-bold uppercase">{tx.ranking}</h2>
       <RankingTable rows={rows} label={c.settings.label} />

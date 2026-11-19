@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AnnouncementsAdmin } from "@/components/announcements";
 import { ActionForm } from "@/components/action-form";
 import { DisputedChallenges } from "@/components/challenges";
 import { DeleteLeague } from "./delete-league";
@@ -38,6 +39,7 @@ export default async function ChampionshipPage({ params }: PageProps<"/admin/cam
     <main className="space-y-10">
       <ChampionshipHeader c={c} current="" />
       {hasServiceKey() && <DisputedChallenges championshipId={id} />}
+      <AnnouncementsAdmin target={{ championshipId: id }} />
 
       <section>
         <div className="flex flex-wrap items-center justify-between gap-3">

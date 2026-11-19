@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AnnouncementsBox } from "@/components/announcements";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import AutoRefresh from "@/components/auto-refresh";
@@ -110,6 +111,7 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
           </div>
         </div>
       </header>
+      {t.status !== "closed" && <AnnouncementsBox target={{ tournamentId: t.id }} limit={5} />}
 
       {"format" in parsed && (
         <details className="card mt-4"><summary className="cursor-pointer font-medium">{tx.format}</summary>

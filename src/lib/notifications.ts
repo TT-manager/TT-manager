@@ -12,7 +12,7 @@ import { notificationsText } from "@/i18n/dict/notifications";
 export type NotificationKind =
   | "challenge_received" | "challenge_accepted" | "challenge_declined" | "challenge_cancelled" | "challenge_result"
   | "challenge_confirmed" | "challenge_disputed" | "challenge_decided" | "match_result" | "tournament_started"
-  | "tournament_open" | "friend_request" | "friend_accepted" | "join_approved";
+  | "tournament_open" | "friend_request" | "friend_accepted" | "join_approved" | "announcement";
 
 /** Avviso a una lista di account (senza doppioni e senza chi ha fatto l'azione). */
 export async function notifyUsers(userIds: (string | null | undefined)[], kind: NotificationKind, params: Record<string, string>, href: string, exceptUserId?: string) {
