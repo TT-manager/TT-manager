@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AnnouncementsCollapsible, AnnouncementsLink } from "@/components/announcements";
+import { AnnouncementsCollapsible } from "@/components/announcements";
 import { RegistrationToggle } from "./registration-toggle";
 import { notFound } from "next/navigation";
 import { requireTournamentManager } from "@/lib/auth";
@@ -71,9 +71,8 @@ export default async function TournamentAdminPage({ params }: PageProps<"/gestio
           <span className="text-sm text-neutral-600 dark:text-neutral-400">{tx.publicPagePath(t.public_code)}</span></p>
       </div>
 
-      {t.status !== "closed" && (access.isAdmin
-        ? <div><AnnouncementsLink target={{ tournamentId: t.id }} /></div>
-        : <AnnouncementsCollapsible tournamentId={t.id} />)}
+      {/* Gli amministratori scrivono dalla sezione Avvisi; chi gestisce solo il suo amichevole, da qui. */}
+      {t.status !== "closed" && !access.isAdmin && <AnnouncementsCollapsible tournamentId={t.id} />}
 
       <section>
         <h2 className="text-lg font-semibold">{tx.format}</h2>
