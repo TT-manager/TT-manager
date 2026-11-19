@@ -48,7 +48,7 @@ async function AccountNav() {
       { href: "/amici", label: t.friends, icon: "friends" as const },
       { href: "/amichevole/nuovo", label: t.createFriendly, icon: "add" as const },
     ]),
-    ...(admin ? [{ href: "/admin", label: t.admin, icon: "admin" as const }] : []),
+    ...(admin ? [{ href: "/admin", label: t.admin, icon: "admin" as const }, { href: "/admin/avvisi", label: t.notices, icon: "notice" as const }] : []),
     { href: "/faq", label: t.faq, icon: "help" as const },
   ];
   const [unread, tn] = [hasServiceKey() ? await unreadCount(data.claims.sub) : 0, await tr(notificationsText)];

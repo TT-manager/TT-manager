@@ -4,6 +4,11 @@ import { dict } from "../locale";
 export const announcementsText = dict({
   boxTitle: "Avvisi dell'organizzazione",
   pageTitle: "Avvisi",
+  tabLeagues: "Circuiti",
+  tabTournaments: "Tornei",
+  noneLeagues: "Nessun avviso inviato ai circuiti.",
+  noneTournaments: "Nessun avviso inviato ai tornei.",
+  nothingToWriteTournaments: "Non hai tornei da avvisare: servono tornei non ancora chiusi che gestisci.",
   pageIntro: "Messaggi a senso unico: a tutti i giocatori di un circuito o agli iscritti di un torneo. Arrivano nelle loro notifiche e compaiono in cima alla pagina del circuito o del torneo. Nessuno può rispondere.",
   writeTitle: "Scrivi un avviso",
   to: "A chi",
@@ -35,6 +40,11 @@ export const announcementsText = dict({
 }, {
   boxTitle: "Notices from the organisers",
   pageTitle: "Notices",
+  tabLeagues: "Leagues",
+  tabTournaments: "Tournaments",
+  noneLeagues: "No notices sent to leagues.",
+  noneTournaments: "No notices sent to tournaments.",
+  nothingToWriteTournaments: "No tournaments to notify: you need tournaments you manage that are not yet closed.",
   pageIntro: "One-way messages: to every player in a league or to a tournament's entrants. They reach their notifications and appear at the top of the league or tournament page. Nobody can reply.",
   writeTitle: "Write a notice",
   to: "To",

@@ -17,6 +17,7 @@ export function AnnouncementForm({ field, id, groups, initial }: {
 }) {
   const t = useTr(announcementsText);
   const [text, setText] = useState("");
+  const shownGroups = (groups ?? []).filter((g) => g.options.length);
   const [state, action, pending] = useActionState<ActionState, FormData>(async (prev, fd) => {
     const r = await postAnnouncementAction(prev, fd);
     if (r.ok) setText("");
@@ -28,10 +29,12 @@ export function AnnouncementForm({ field, id, groups, initial }: {
       {groups && (
         <label className="grid gap-1 text-sm font-semibold">{t.to}
           <select name="target" defaultValue={initial} required className="select-arrow w-full rounded border bg-transparent px-3 py-2 font-normal">
-            {groups.filter((g) => g.options.length).map((g) => (
-              <optgroup key={g.label} label={g.label}>
-                {g.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </optgroup>))}
+            {shownGroups.length === 1
+              ? shownGroups[0].options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
+              : shownGroups.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </optgroup>))}
           </select>
         </label>)}
       <textarea name="body" value={text} onChange={(e) => setText(e.target.value)} maxLength={500} rows={3} required

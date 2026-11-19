@@ -73,7 +73,7 @@ export default async function AdminHome() {
         <h2 className="font-display text-xl font-bold uppercase">{t.quickTitle}</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link href={newHref} className="btn-primary"><Icon name="add" className="h-5 w-5" /> {t.newTournament}</Link>
-          <Link href={leagues.length === 1 ? `/admin/avvisi?a=c:${leagues[0].id}` : "/admin/avvisi"} className="btn-outline"><Icon name="notice" className="h-5 w-5" /> {t.quickNotice}</Link>
+          <Link href={leagues.length === 1 ? `/admin/avvisi?scheda=circuiti&a=c:${leagues[0].id}` : "/admin/avvisi"} className="btn-outline"><Icon name="notice" className="h-5 w-5" /> {t.quickNotice}</Link>
           {live.slice(0, 4).map((x) => (
             <Link key={x.id} href={`/gestione/${x.id}`} className="btn-outline"><span className="live-dot text-brand" /> {t.quickManage(x.name)}</Link>))}
         </div>
