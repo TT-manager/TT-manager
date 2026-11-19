@@ -29,10 +29,12 @@ function SideView({ side, meId, right = false, you }: { side: Side; meId?: strin
     </div>);
 }
 
-export async function DashboardView({ d, me, children, challengeLeagues = [] }: {
+export async function DashboardView({ d, me, children, challengeLeagues = [], newTournamentHref = null }: {
   d: DashboardData; me: { id: string; full_name: string; avatar_path: string | null }; children: ReactNode;
   /** Circuiti di cui fai parte in cui le sfide sono attive. */
   challengeLeagues?: { name: string; slug: string }[];
+  /** Solo per gli amministratori: dove porta «Nuovo torneo». */
+  newTournamentHref?: string | null;
 }) {
   const t = await tr(compDashboard);
   const l = await getLocale();
@@ -122,6 +124,7 @@ export async function DashboardView({ d, me, children, challengeLeagues = [] }: 
                   <Link key={c.slug} href={`/c/${c.slug}#sfide-circuito`} className="btn-primary w-full justify-center text-center">
                     {challengeLeagues.length === 1 ? t.launchChallenge : t.challengeIn(c.name)}</Link>))}
                 <Link href="/amichevole/nuovo" className={`${challengeLeagues.length ? "btn-outline" : "btn-primary"} w-full justify-center text-center`}>{t.createFriendly}</Link>
+                {newTournamentHref && <Link href={newTournamentHref} className="btn-outline w-full justify-center text-center">{t.newTournament}</Link>}
               </div>
             </div>
           )}
@@ -170,6 +173,7 @@ export async function DashboardView({ d, me, children, challengeLeagues = [] }: 
           <h2 id="azioni-rapide" className="scroll-mt-24 text-2xl font-bold uppercase">{t.quickActions}</h2>
           <div className="card mt-3 grid gap-2 !p-3">
             {[
+              ...(newTournamentHref ? [{ href: newTournamentHref, icon: "tournament" as IconName, title: t.newTournament, sub: t.newTournamentSub }] : []),
               { href: "/amichevole/nuovo", icon: "add" as IconName, title: t.createFriendly, sub: t.challengeFriends },
               ...challengeLeagues.map((c) => ({
                 href: `/c/${c.slug}#sfide-circuito`, icon: "match" as IconName,

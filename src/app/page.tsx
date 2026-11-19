@@ -8,6 +8,7 @@ import { formatDeadline, registrationIsOpen } from "@/lib/registration";
 import { createPublicClient } from "@/lib/supabase/public";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { loadDashboard } from "@/lib/dashboard";
+import { managedChampionships } from "@/lib/auth";
 import { rememberedInvite } from "@/lib/invites";
 import { DashboardView } from "@/components/dashboard-view";
 import { HomeSkeleton } from "@/components/home-skeleton";
@@ -63,6 +64,12 @@ async function HomeContent() {
   }
   // Circuiti di cui fai parte in cui si possono lanciare sfide.
   const challengeLeagues = all.filter((c) => mine.has(c.id) && c.settings.challenges.enabled).map((c) => ({ name: c.name, slug: c.slug }));
+  // Chi amministra trova «Nuovo torneo» tra i passi rapidi (già nel circuito, se ne gestisce uno solo).
+  let newTournamentHref: string | null = null;
+  if (account?.isAdmin) {
+    const managed = await managedChampionships();
+    newTournamentHref = managed.length === 1 ? `/admin/tornei/nuovo?campionato=${managed[0].id}` : "/admin/tornei/nuovo";
+  }
   return (
     <>
       <section className="overflow-hidden rounded-2xl bg-ink text-white shadow-lg">
@@ -107,7 +114,7 @@ async function HomeContent() {
         </section>)}
 
       {player ? (
-        <Dashboard account={player} challengeLeagues={challengeLeagues}>
+        <Dashboard account={player} challengeLeagues={challengeLeagues} newTournamentHref={newTournamentHref}>
           {/* I tuoi circuiti; sotto, separati, i circuiti pubblici di cui non fai parte. */}
           {shown.some((c) => mine.has(c.id)) ? (
             <div className="mt-4 grid gap-5">
@@ -139,10 +146,10 @@ async function HomeContent() {
 }
 
 /** Dashboard di chi è collegato: numeri, prossima partita, leghe, azioni rapide, amici. */
-async function Dashboard({ account, children, challengeLeagues }: {
-  account: NonNullable<Awaited<ReturnType<typeof getAccount>>>; children: React.ReactNode; challengeLeagues: { name: string; slug: string }[];
+async function Dashboard({ account, children, challengeLeagues, newTournamentHref }: {
+  account: NonNullable<Awaited<ReturnType<typeof getAccount>>>; children: React.ReactNode; challengeLeagues: { name: string; slug: string }[]; newTournamentHref: string | null;
 }) {
-  return <DashboardView d={await loadDashboard(account)} me={account.player} challengeLeagues={challengeLeagues}>{children}</DashboardView>;
+  return <DashboardView d={await loadDashboard(account)} me={account.player} challengeLeagues={challengeLeagues} newTournamentHref={newTournamentHref}>{children}</DashboardView>;
 }
 
 const MEDAL = ["bg-gold", "bg-silver", "bg-bronze"];
