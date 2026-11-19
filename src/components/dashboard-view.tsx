@@ -119,13 +119,13 @@ export async function DashboardView({ d, me, children, challengeLeagues = [], ne
                   <p className="text-sm text-muted">{t.nothingText}</p></div>
               </div>
               {/* Stessa misura, peso decrescente: torneo (solo amministratori), sfida per la classifica, amichevole.
-                  Il primo che c'è è rosso; l'amichevole, quando ci sono altri sopra, è il più leggero. */}
+                  Il primo che c'è è rosso, gli altri hanno il bordo. */}
               <div className="mt-4 grid gap-2">
                 {newTournamentHref && <Link href={newTournamentHref} className="btn-primary w-full justify-center text-center">{t.newTournament}</Link>}
                 {challengeLeagues.slice(0, 3).map((c) => (
                   <Link key={c.slug} href={`/c/${c.slug}#sfide-circuito`} className={`${newTournamentHref ? "btn-outline" : "btn-primary"} w-full justify-center text-center`}>
                     {challengeLeagues.length === 1 ? t.launchChallenge : t.challengeIn(c.name)}</Link>))}
-                <Link href="/amichevole/nuovo" className={`${newTournamentHref || challengeLeagues.length ? "btn-outline !text-muted" : "btn-primary"} w-full justify-center text-center`}>{t.createFriendly}</Link>
+                <Link href="/amichevole/nuovo" className={`${newTournamentHref || challengeLeagues.length ? "btn-outline" : "btn-primary"} w-full justify-center text-center`}>{t.createFriendly}</Link>
               </div>
             </div>
           )}
