@@ -29,6 +29,7 @@ async function Header() {
     ? await (await createServerSupabase()).from("club_requests").select("id", { count: "exact", head: true }).eq("status", "pending")
     : { count: 0 };
   const items = [
+    { href: "/admin", label: t.navOverview },
     { href: "/admin/campionati", label: t.navLeagues },
     { href: "/admin/tornei", label: t.navTournaments },
     { href: "/admin/avvisi", label: t.navNotices },
