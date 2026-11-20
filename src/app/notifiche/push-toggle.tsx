@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Switch } from "@/components/switch";
 import { removePushSubscription, savePushSubscription } from "./actions";
 import { useTr } from "@/i18n/client";
 import { notificationsText } from "@/i18n/dict/notifications";
@@ -58,18 +59,16 @@ export function PushToggle({ publicKey }: { publicKey: string }) {
   }
 
   if (status === "loading") return null;
+  const canSwitch = status === "on" || status === "off";
   return (
-    <div className="mt-3 space-y-2">
-      {status === "unsupported" && <p className="text-sm text-muted">{t.pushUnsupported}</p>}
-      {status === "ios-install" && <p className="text-sm">{t.pushIosInstall}</p>}
-      {status === "denied" && <p className="text-sm text-amber-700 dark:text-amber-400">{t.pushDenied}</p>}
-      {status === "off" && <button onClick={enable} disabled={busy} className="btn-primary">{busy ? "…" : t.pushEnable}</button>}
-      {status === "on" && (
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-green-700 dark:text-green-400">✓ {t.pushActive}</span>
-          <button onClick={disable} disabled={busy} className="btn-outline px-3 py-1.5 text-sm">{busy ? "…" : t.pushDisable}</button>
-        </div>)}
-      {error && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{t.pushError}</p>}
+    <div>
+      {canSwitch
+        ? <Switch on={status === "on"} onChange={(next) => (next ? enable() : disable())} disabled={busy} label={t.pushRow} />
+        : null}
+      {status === "unsupported" && <p className="text-xs text-muted">{t.pushUnsupported}</p>}
+      {status === "ios-install" && <p className="max-w-[16rem] text-xs">{t.pushIosInstall}</p>}
+      {status === "denied" && <p className="max-w-[16rem] text-xs text-amber-700 dark:text-amber-400">{t.pushDenied}</p>}
+      {error && <p role="alert" className="mt-1 text-xs text-red-700 dark:text-red-400">{t.pushError}</p>}
     </div>
   );
 }

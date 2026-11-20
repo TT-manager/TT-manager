@@ -34,13 +34,10 @@ export async function markReadAction(): Promise<void> {
   revalidatePath("/", "layout");
 }
 
-export async function saveEmailPrefs(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function setEmailTournaments(on: boolean): Promise<void> {
   const account = await requireAccount("/notifiche");
   await emailPrefs(account.userId); // crea la riga se manca
-  await createServiceClient().from("notification_prefs")
-    .update({ email_tournaments: formData.get("email_tournaments") === "on" }).eq("user_id", account.userId);
-  refresh();
-  return { ok: (await tr(notificationsText)).emailSaved };
+  await createServiceClient().from("notification_prefs").update({ email_tournaments: Boolean(on) }).eq("user_id", account.userId);
 }
 
 /** Link «non ricevere più» delle email: funziona senza accesso, con il codice personale. */

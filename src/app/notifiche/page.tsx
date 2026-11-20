@@ -6,9 +6,10 @@ import { emailPrefs, listNotifications } from "@/lib/notifications";
 import { timeAgo } from "@/lib/time";
 import { getLocale, tr } from "@/i18n/server";
 import { notificationsText } from "@/i18n/dict/notifications";
-import { deleteAllNotificationsAction, deleteNotificationAction, saveEmailPrefs } from "./actions";
+import { deleteAllNotificationsAction, deleteNotificationAction } from "./actions";
 import { MarkRead } from "./mark-read";
 import { PushToggle } from "./push-toggle";
+import { EmailToggle } from "./email-toggle";
 import { pushPublicKey } from "@/lib/push";
 import { Icon } from "@/components/icons";
 
@@ -56,19 +57,23 @@ async function Notifications() {
             </li>))}
         </ul>)}
 
-      {pushKey && (
-        <section className="card mt-8">
-          <h2 className="text-lg font-semibold">{t.pushTitle}</h2>
-          <p className="mt-1 text-sm text-muted">{t.pushIntro}</p>
-          <PushToggle publicKey={pushKey} />
-        </section>)}
-
-      <section className="card mt-8">
-        <h2 className="text-lg font-semibold">{t.emailTitle}</h2>
-        <ActionForm action={saveEmailPrefs} submitLabel={t.save} primary={false} className="mt-3 space-y-3">
-          <label className="flex items-start gap-2"><input type="checkbox" name="email_tournaments" defaultChecked={prefs.email_tournaments} className="mt-1" /> {t.emailTournaments}</label>
-        </ActionForm>
-      </section>
+      {/* Impostazioni in fondo e chiuse: due interruttori, uno per il telefono e uno per le email. */}
+      <details className="card mt-8 [&_summary::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold">
+          <span>⚙ {t.settingsTitle}</span><span aria-hidden="true" className="text-muted">▾</span>
+        </summary>
+        <ul className="mt-3 divide-y divide-line">
+          {pushKey && (
+            <li className="flex items-start justify-between gap-4 py-3">
+              <span className="min-w-0"><span className="block font-medium">{t.pushRow}</span><span className="text-xs text-muted">{t.pushRowHint}</span></span>
+              <PushToggle publicKey={pushKey} />
+            </li>)}
+          <li className="flex items-start justify-between gap-4 py-3">
+            <span className="min-w-0"><span className="block font-medium">{t.emailRow}</span><span className="text-xs text-muted">{t.emailRowHint}</span></span>
+            <EmailToggle initial={prefs.email_tournaments} />
+          </li>
+        </ul>
+      </details>
     </>
   );
 }
