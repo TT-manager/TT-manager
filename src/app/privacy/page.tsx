@@ -33,6 +33,7 @@ function PrivacyIt() {
           <li><strong>Dati sportivi</strong>: iscrizioni a circuiti e tornei, risultati delle partite, punteggio di ranking e relativo storico, posizione in classifica.</li>
           <li><strong>Rete sociale</strong>: amicizie e richieste di amicizia con altri giocatori, richieste di partecipazione ai circuiti.</li>
           <li><strong>Dati tecnici</strong>: per proteggere l&apos;accesso degli organizzatori ai tornei conserviamo, per un periodo limitato, un&apos;impronta cifrata (hash) dell&apos;indirizzo IP per contare i tentativi di accesso errati. Non salviamo l&apos;IP in chiaro a questo scopo.</li>
+          <li><strong>Notifiche</strong>: gli avvisi che ricevi nell&apos;app, le tue preferenze sulle email e, se attivi le notifiche sul telefono o sul computer, l&apos;indirizzo tecnico del dispositivo fornito dal browser per recapitarle.</li>
           <li><strong>Messaggi</strong> che ci invii scrivendo all&apos;assistenza.</li>
         </ul>
         <p>Non raccogliamo dati particolari (come quelli sulla salute) né chiediamo documenti d&apos;identità.</p>
@@ -65,6 +66,8 @@ function PrivacyIt() {
         <ul>
           <li><strong>Supabase</strong>: database, autenticazione e archiviazione delle foto.</li>
           <li><strong>Vercel</strong>: hosting e distribuzione del sito.</li>
+          <li><strong>Brevo</strong>: invio delle email (nuovi tornei e comunicazioni di servizio).</li>
+          <li>I <strong>servizi di notifica del browser o del sistema</strong> (per esempio Apple, Google o Mozilla), solo se attivi le notifiche sul dispositivo: ricevono il testo della notifica per recapitartela.</li>
         </ul>
         <p>
           Questi fornitori possono trattare dati anche fuori dallo Spazio Economico Europeo. In tal caso il trasferimento avviene con garanzie adeguate,
@@ -78,6 +81,8 @@ function PrivacyIt() {
         <ul>
           <li>I dati dell&apos;account e quelli sportivi, finché mantieni l&apos;account. Se chiedi la cancellazione li eliminiamo o li rendiamo anonimi, salvo ciò che la legge ci obbliga a conservare.</li>
           <li>Le impronte dei tentativi di accesso degli organizzatori, solo per la breve finestra utile al controllo.</li>
+          <li>Gli avvisi nell&apos;app, per 90 giorni (prima, se li cancelli tu).</li>
+          <li>L&apos;indirizzo del dispositivo per le notifiche, finché non le disattivi o il dispositivo smette di riceverle.</li>
           <li>I messaggi all&apos;assistenza, per il tempo necessario a gestire la richiesta.</li>
         </ul>
       </section>
@@ -156,6 +161,7 @@ function PrivacyEn() {
           <li><strong>Sports data</strong>: entries in leagues and tournaments, match results, ranking score and its history, position in the ranking.</li>
           <li><strong>Social network</strong>: friendships and friend requests with other players, requests to join leagues.</li>
           <li><strong>Technical data</strong>: to protect organisers&apos; access to tournaments we keep, for a limited period, an encrypted fingerprint (hash) of the IP address to count failed login attempts. We do not store the IP address in plain text for this purpose.</li>
+          <li><strong>Notifications</strong>: the notices you receive in the app, your email preferences and, if you turn on notifications on your phone or computer, the technical address of the device provided by the browser to deliver them.</li>
           <li><strong>Messages</strong> you send us when you write to support.</li>
         </ul>
         <p>We do not collect special categories of data (such as health data) and we do not ask for identity documents.</p>
@@ -188,6 +194,8 @@ function PrivacyEn() {
         <ul>
           <li><strong>Supabase</strong>: database, authentication and photo storage.</li>
           <li><strong>Vercel</strong>: hosting and delivery of the site.</li>
+          <li><strong>Brevo</strong>: sending emails (new tournaments and service messages).</li>
+          <li>The <strong>browser or operating system notification services</strong> (for example Apple, Google or Mozilla), only if you turn on notifications on your device: they receive the text of the notification to deliver it.</li>
         </ul>
         <p>
           These providers may also process data outside the European Economic Area. In that case the transfer takes place with appropriate safeguards,
@@ -201,6 +209,8 @@ function PrivacyEn() {
         <ul>
           <li>Account and sports data, for as long as you keep your account. If you ask for deletion we erase or anonymise it, except for anything the law requires us to keep.</li>
           <li>Fingerprints of organisers&apos; login attempts, only for the short window needed for the check.</li>
+          <li>In-app notices, for 90 days (sooner if you delete them).</li>
+          <li>The device address for notifications, until you turn them off or the device stops receiving them.</li>
           <li>Messages to support, for as long as needed to handle the request.</li>
         </ul>
       </section>

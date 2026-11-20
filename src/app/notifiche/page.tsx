@@ -8,6 +8,8 @@ import { getLocale, tr } from "@/i18n/server";
 import { notificationsText } from "@/i18n/dict/notifications";
 import { deleteAllNotificationsAction, deleteNotificationAction, saveEmailPrefs } from "./actions";
 import { MarkRead } from "./mark-read";
+import { PushToggle } from "./push-toggle";
+import { pushPublicKey } from "@/lib/push";
 import { Icon } from "@/components/icons";
 
 export async function generateMetadata() {
@@ -26,6 +28,7 @@ async function Notifications() {
   const account = await requireAccount("/notifiche");
   const [t, l, list, prefs] = [await tr(notificationsText), await getLocale(), await listNotifications(account.userId), await emailPrefs(account.userId)];
   const unread = list.filter((n) => !n.read_at).length;
+  const pushKey = await pushPublicKey().catch(() => null);
   const now = new Date();
   return (
     <>
@@ -52,6 +55,13 @@ async function Notifications() {
               </form>
             </li>))}
         </ul>)}
+
+      {pushKey && (
+        <section className="card mt-8">
+          <h2 className="text-lg font-semibold">{t.pushTitle}</h2>
+          <p className="mt-1 text-sm text-muted">{t.pushIntro}</p>
+          <PushToggle publicKey={pushKey} />
+        </section>)}
 
       <section className="card mt-8">
         <h2 className="text-lg font-semibold">{t.emailTitle}</h2>

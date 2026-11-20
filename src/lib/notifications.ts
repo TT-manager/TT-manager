@@ -1,5 +1,7 @@
 import "server-only";
+import { after } from "next/server";
 import { createServiceClient } from "./supabase/admin";
+import { PUSH_KINDS, sendPush } from "./push";
 import { hasServiceKey } from "./organizer";
 import { SITE_URL, esc, hasEmail, sendEmail } from "./email";
 import { registrationIsOpen } from "./registration";
@@ -20,6 +22,11 @@ export async function notifyUsers(userIds: (string | null | undefined)[], kind: 
   if (!ids.length || !hasServiceKey()) return;
   const { error } = await createServiceClient().from("notifications").insert(ids.map((user_id) => ({ user_id, kind, params, href })));
   if (error) console.error("Notifica non salvata:", kind, error.message);
+  // Per le cose importanti anche la notifica sul telefono: parte dopo la risposta, così non rallenta chi ha agito.
+  if (PUSH_KINDS.has(kind)) {
+    const push = () => sendPush(ids, kind, params, href).catch((e) => console.error("Notifiche push:", (e as Error).message));
+    try { after(push); } catch { await push(); } // fuori da una richiesta (es. attività pianificate) si manda subito
+  }
 }
 
 /** Come notifyUsers, ma partendo dalle schede dei giocatori (chi non ha un account non riceve nulla). */

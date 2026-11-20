@@ -13,7 +13,7 @@ export const LEGAL_OWNER = clean(process.env.NEXT_PUBLIC_LEGAL_OWNER);
 export const LEGAL_ADDRESS = clean(process.env.NEXT_PUBLIC_LEGAL_ADDRESS);
 
 /** Da aggiornare a ogni modifica sostanziale dei testi legali (AAAA-MM-GG). */
-export const LEGAL_UPDATED = "2026-11-12";
+export const LEGAL_UPDATED = "2026-11-20";
 
 /** Data di aggiornamento leggibile nella lingua indicata (Intl), es. «12 novembre 2026» / «12 November 2026». */
 export function legalUpdatedLabel(intlTag: string): string {
