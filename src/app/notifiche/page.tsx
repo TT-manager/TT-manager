@@ -44,6 +44,7 @@ async function Notifications() {
             <li key={n.id} className="flex items-start gap-1">
               <Link href={n.href} className="flex min-w-0 flex-1 items-start gap-3 py-3 hover:text-brand">
                 <span aria-hidden="true" className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${n.read_at ? "bg-transparent" : "bg-brand"}`} />
+                {n.kind === "announcement" && <Icon name="notice" className="mt-1 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />}
                 <span className="min-w-0 flex-1">
                   <span className={`block ${n.read_at ? "" : "font-semibold"}`}>{t.text(n.kind, n.params)}</span>
                   <span className="text-xs text-muted">{timeAgo(n.created_at, now, l)}</span>
@@ -60,7 +61,7 @@ async function Notifications() {
       {/* Impostazioni in fondo e chiuse: due interruttori, uno per il telefono e uno per le email. */}
       <details className="card mt-8 [&_summary::-webkit-details-marker]:hidden">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold">
-          <span>⚙ {t.settingsTitle}</span><span aria-hidden="true" className="text-muted">▾</span>
+          <span className="flex items-center gap-2"><Icon name="settings" className="h-5 w-5 text-muted" /> {t.settingsTitle}</span><span aria-hidden="true" className="text-muted">▾</span>
         </summary>
         <ul className="mt-3 divide-y divide-line">
           {pushKey && (

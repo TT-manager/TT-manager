@@ -1,34 +1,50 @@
 import { ActionForm } from "@/components/action-form";
 import { AnnouncementForm } from "@/components/announcement-form";
-import { deleteAnnouncementAction } from "@/app/avvisi/actions";
-import { countAnnouncements, listAnnouncements, type AnnouncementTarget } from "@/lib/announcements";
+import { deleteAnnouncementAction, pinAnnouncementAction } from "@/app/avvisi/actions";
+import { countAnnouncements, listAnnouncements, pageAnnouncements, type AnnouncementTarget } from "@/lib/announcements";
+import { AnnouncementsView } from "@/components/announcements-view";
+import { Icon } from "@/components/icons";
 import { hasServiceKey } from "@/lib/organizer";
 import { timeAgo } from "@/lib/time";
 import { getLocale, tr } from "@/i18n/server";
 import { announcementsText } from "@/i18n/dict/announcements";
 
-const hidden = (target: AnnouncementTarget) => "championshipId" in target
-  ? <input type="hidden" name="championship_id" value={target.championshipId} />
-  : <input type="hidden" name="tournament_id" value={target.tournamentId} />;
-
-/** Riquadro pubblico con gli ultimi avvisi (in cima alla pagina del circuito o del torneo). Niente se non ce ne sono. */
-export async function AnnouncementsBox({ target, limit = 3, sinceDays }: { target: AnnouncementTarget; limit?: number; sinceDays?: number }) {
+/**
+ * Riquadro pubblico in cima alla pagina del circuito o del torneo: avvisi in evidenza più quelli recenti
+ * (`sinceDays`). Il resto (uno solo grande, gli altri raccolti, la × per nasconderli) lo fa AnnouncementsView.
+ */
+export async function AnnouncementsBox({ target, sinceDays }: { target: AnnouncementTarget; sinceDays?: number }) {
   if (!hasServiceKey()) return null;
-  const items = await listAnnouncements(target, { limit, sinceDays });
+  const items = await pageAnnouncements(target, sinceDays);
   if (!items.length) return null;
-  const [t, l] = [await tr(announcementsText), await getLocale()];
+  const l = await getLocale();
   const now = new Date();
+  return <AnnouncementsView items={items.map((a) => ({ id: a.id, body: a.body, pinned: a.pinned, when: timeAgo(a.created_at, now, l) }))} />;
+}
+
+const keyOf = (target: AnnouncementTarget) => ("championshipId" in target ? `c:${target.championshipId}` : `t:${target.tournamentId}`);
+
+/** Un avviso già inviato, nelle liste di gestione: testo, evidenza, data, e i comandi per l'evidenza e la cancellazione. */
+export async function SentAnnouncement({ a, targetKey, when, label }: {
+  a: { id: number; body: string; pinned: boolean }; targetKey: string; when: string; label?: string;
+}) {
+  const t = await tr(announcementsText);
+  const ids = <><input type="hidden" name="target" value={targetKey} /><input type="hidden" name="id" value={a.id} /></>;
   return (
-    <section className="mt-6 rounded-xl border-2 border-amber-400 bg-amber-400/10 p-4" aria-label={t.boxTitle}>
-      <h2 className="flex items-center gap-2 font-display text-lg font-bold uppercase"><span aria-hidden="true">📣</span> {t.boxTitle}</h2>
-      <ul className="mt-2 divide-y divide-amber-400/30">
-        {items.map((a) => (
-          <li key={a.id} className="py-2">
-            <p className="whitespace-pre-line [overflow-wrap:anywhere]">{a.body}</p>
-            <p className="mt-0.5 text-xs text-muted">{timeAgo(a.created_at, now, l)}</p>
-          </li>))}
-      </ul>
-    </section>
+    <li className="flex items-start justify-between gap-3 py-3">
+      <span className="min-w-0">
+        {label && <span className="text-xs font-bold uppercase tracking-wide text-brand">{label}</span>}
+        <span className="block whitespace-pre-line [overflow-wrap:anywhere]">{a.body}</span>
+        <span className="flex items-center gap-1 text-xs text-muted">
+          {a.pinned && <><Icon name="pin" className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" /> {t.pinnedBadge} · </>}{when}</span>
+      </span>
+      <span className="flex shrink-0 flex-col items-end gap-1">
+        <ActionForm action={pinAnnouncementAction} submitLabel={a.pinned ? t.unpin : t.pin} primary={false} inline>
+          {ids}<input type="hidden" name="on" value={a.pinned ? "0" : "1"} />
+        </ActionForm>
+        <ActionForm action={deleteAnnouncementAction} submitLabel={t.remove} confirmText={t.removeConfirm} primary={false} inline>{ids}</ActionForm>
+      </span>
+    </li>
   );
 }
 
@@ -47,16 +63,7 @@ export async function AnnouncementsAdmin({ target }: { target: AnnouncementTarge
         <>
           <h3 className="mt-4 text-sm font-semibold uppercase tracking-wide text-muted">{t.sentList}</h3>
           <ul className="mt-1 divide-y divide-line">
-            {items.map((a) => (
-              <li key={a.id} className="flex items-start justify-between gap-3 py-2">
-                <span className="min-w-0">
-                  <span className="block whitespace-pre-line [overflow-wrap:anywhere]">{a.body}</span>
-                  <span className="text-xs text-muted">{timeAgo(a.created_at, now, l)}</span>
-                </span>
-                <ActionForm action={deleteAnnouncementAction} submitLabel={t.remove} confirmText={t.removeConfirm} primary={false} inline>
-                  {hidden(target)}<input type="hidden" name="id" value={a.id} />
-                </ActionForm>
-              </li>))}
+            {items.map((a) => <SentAnnouncement key={a.id} a={a} targetKey={keyOf(target)} when={timeAgo(a.created_at, now, l)} />)}
           </ul>
         </>)}
     </section>
@@ -69,7 +76,7 @@ export async function AnnouncementsCollapsible({ tournamentId }: { tournamentId:
   const n = hasServiceKey() ? await countAnnouncements({ tournamentId }) : 0;
   return (
     <details className="card">
-      <summary className="cursor-pointer font-semibold">{t.summary(n)}</summary>
+      <summary className="flex cursor-pointer items-center gap-2 font-semibold"><Icon name="notice" className="h-5 w-5 text-brand" /> {t.summary(n)}</summary>
       <div className="mt-2"><AnnouncementsAdmin target={{ tournamentId }} /></div>
     </details>
   );

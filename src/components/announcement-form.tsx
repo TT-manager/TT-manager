@@ -39,6 +39,10 @@ export function AnnouncementForm({ field, id, groups, initial }: {
         </label>)}
       <textarea name="body" value={text} onChange={(e) => setText(e.target.value)} maxLength={500} rows={3} required
         placeholder={t.placeholder} aria-label={t.placeholder} className="w-full rounded border bg-transparent px-3 py-2" />
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="pinned" className="mt-1" />
+        <span><span className="font-medium">{t.pinLabel}</span><span className="block text-xs text-muted">{t.pinHint}</span></span>
+      </label>
       <div className="flex flex-wrap items-center gap-3">
         <button disabled={pending || !text.trim()} className="btn-primary">{pending ? t.sending : t.send}</button>
         <span className="text-xs text-muted tabular-nums">{text.length}/500</span>

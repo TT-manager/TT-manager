@@ -2,7 +2,7 @@
 import { refresh } from "next/cache";
 import { requireChampionshipManager, requireTournamentManager } from "@/lib/auth";
 import { hasServiceKey } from "@/lib/organizer";
-import { deleteAnnouncement, postAnnouncement, type AnnouncementTarget } from "@/lib/announcements";
+import { MAX_PINNED, deleteAnnouncement, pinnedCount, postAnnouncement, setPinned, type AnnouncementTarget } from "@/lib/announcements";
 import { tr } from "@/i18n/server";
 import { announcementsText } from "@/i18n/dict/announcements";
 import type { ActionState } from "@/components/action-form";
@@ -31,7 +31,9 @@ export async function postAnnouncementAction(_prev: ActionState, formData: FormD
   const body = String(formData.get("body") ?? "").trim().replace(/\n{3,}/g, "\n\n");
   if (!body) return { error: t.tooShort };
   if (body.length > 500) return { error: t.tooLong };
-  const n = await postAnnouncement(who.target, body, who.userId);
+  const pinned = formData.get("pinned") === "on";
+  if (pinned && (await pinnedCount(who.target)) >= MAX_PINNED) return { error: t.tooManyPinned(MAX_PINNED) };
+  const n = await postAnnouncement(who.target, body, who.userId, pinned);
   if (n === null) return { error: t.failed };
   refresh();
   return { ok: n ? t.sent(n) : t.sentNobody };
@@ -44,6 +46,20 @@ export async function deleteAnnouncementAction(_prev: ActionState, formData: For
   const id = String(formData.get("id") ?? "");
   if (!who || !/^\d{1,18}$/.test(id)) return { error: t.failed };
   await deleteAnnouncement(who.target, Number(id));
+  refresh();
+  return {};
+}
+
+/** Mette o toglie l'evidenza a un avviso già inviato (al massimo due in evidenza per circuito o torneo). */
+export async function pinAnnouncementAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const t = await tr(announcementsText);
+  if (!hasServiceKey()) return { error: t.failed };
+  const who = await authorize(formData);
+  const id = String(formData.get("id") ?? "");
+  if (!who || !/^\d{1,18}$/.test(id)) return { error: t.failed };
+  const on = formData.get("on") === "1";
+  if (on && (await pinnedCount(who.target)) >= MAX_PINNED) return { error: t.tooManyPinned(MAX_PINNED) };
+  await setPinned(who.target, Number(id), on);
   refresh();
   return {};
 }

@@ -60,7 +60,7 @@ async function Championship({ params }: { params: PageProps<"/c/[slug]">["params
           </div>
         </div>
       </header>
-      <AnnouncementsBox target={{ championshipId: c.id }} sinceDays={30} />
+      <AnnouncementsBox target={{ championshipId: c.id }} sinceDays={7} />
 
       <h2 className="mt-8 text-2xl font-bold uppercase">{tx.ranking}</h2>
       <RankingTable rows={rows} label={c.settings.label} />

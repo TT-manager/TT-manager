@@ -4,9 +4,8 @@ import { createServerSupabase } from "@/lib/supabase/server";
 import { listAnnouncementsFor } from "@/lib/announcements";
 import { hasServiceKey } from "@/lib/organizer";
 import { timeAgo } from "@/lib/time";
-import { ActionForm } from "@/components/action-form";
 import { AnnouncementForm } from "@/components/announcement-form";
-import { deleteAnnouncementAction } from "@/app/avvisi/actions";
+import { SentAnnouncement } from "@/components/announcements";
 import { intlTag } from "@/i18n/locale";
 import { getLocale, tr } from "@/i18n/server";
 import { announcementsText } from "@/i18n/dict/announcements";
@@ -81,20 +80,7 @@ export default async function NoticesPage({ searchParams }: PageProps<"/admin/av
           </div>)}
         {shown.length === 0 ? <p className="mt-2 text-muted">{tab === "circuiti" ? t.noneLeagues : t.noneTournaments}</p> : (
           <ul className="card mt-3 divide-y divide-line !py-1">
-            {shown.map((a) => {
-              const k = keyOf(a);
-              return (
-                <li key={a.id} className="flex items-start justify-between gap-3 py-3">
-                  <span className="min-w-0">
-                    <span className="text-xs font-bold uppercase tracking-wide text-brand">{labelOf(k)}</span>
-                    <span className="block whitespace-pre-line [overflow-wrap:anywhere]">{a.body}</span>
-                    <span className="text-xs text-muted">{timeAgo(a.created_at, now, l)}</span>
-                  </span>
-                  <ActionForm action={deleteAnnouncementAction} submitLabel={t.remove} confirmText={t.removeConfirm} primary={false} inline>
-                    <input type="hidden" name="target" value={k} /><input type="hidden" name="id" value={a.id} />
-                  </ActionForm>
-                </li>);
-            })}
+            {shown.map((a) => <SentAnnouncement key={a.id} a={a} targetKey={keyOf(a)} label={labelOf(keyOf(a))} when={timeAgo(a.created_at, now, l)} />)}
           </ul>)}
       </section>
     </main>

@@ -3,7 +3,7 @@ import { dict } from "../locale";
 /** Pagina pubblica del torneo (/t/CODICE): intestazione, gironi, tabellone. */
 export const publicTournamentText = dict({
   loading: "Caricamento…",
-  manage: "⚙ Gestisci torneo",
+  manage: "Gestisci torneo",
   inProgress: "In corso",
   finished: "Concluso",
   inPreparation: "In preparazione",
@@ -44,7 +44,7 @@ export const publicTournamentText = dict({
   toPlay: "da giocare",
 }, {
   loading: "Loading…",
-  manage: "⚙ Manage tournament",
+  manage: "Manage tournament",
   inProgress: "Live",
   finished: "Finished",
   inPreparation: "In preparation",

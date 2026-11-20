@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icon } from "@/components/icons";
 import { AnnouncementsBox } from "@/components/announcements";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -38,7 +39,7 @@ async function ManageLink({ id }: { id: string }) {
   const { data } = await supabase.from("tournaments").select("id").eq("id", id).maybeSingle();
   if (!data) return null;
   const t = await tr(publicTournamentText);
-  return <Link href={`/gestione/${id}`} className="btn border border-white/30 py-1.5 text-sm hover:bg-white/10">{t.manage}</Link>;
+  return <Link href={`/gestione/${id}`} className="btn border border-white/30 py-1.5 text-sm hover:bg-white/10"><Icon name="settings" className="h-4 w-4" /> {t.manage}</Link>;
 }
 
 function score(m: MatchRow) {
@@ -111,7 +112,7 @@ async function Tournament({ params, searchParams }: Pick<PageProps<"/t/[codice]"
           </div>
         </div>
       </header>
-      {t.status !== "closed" && <AnnouncementsBox target={{ tournamentId: t.id }} limit={5} />}
+      {t.status !== "closed" && <AnnouncementsBox target={{ tournamentId: t.id }} />}
 
       {"format" in parsed && (
         <details className="card mt-4"><summary className="cursor-pointer font-medium">{tx.format}</summary>
