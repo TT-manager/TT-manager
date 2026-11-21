@@ -58,6 +58,6 @@ async function AccountNav() {
       {unread > 0 && <span className="absolute right-0.5 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-xs font-bold leading-none">{unread > 9 ? "9+" : unread}</span>}
     </Link>
     <AccountMenu items={items} logout={logout} logoutLabel={t.logout} menuLabel={t.menu} languageLabel={t.language}
-      install={{ install: t.installApp, iosTitle: t.iosInstallTitle, iosStep1: t.iosInstallStep1, iosStep2: t.iosInstallStep2, iosStep3: t.iosInstallStep3, close: t.close }} />
+      install={{ install: t.installApp, iosTitle: t.iosInstallTitle, iosStep1: t.iosInstallStep1, iosStep2: t.iosInstallStep2, iosStep3: t.iosInstallStep3, safariNote: t.iosSafariNote, chromeNote: t.iosChromeNote, gotIt: t.gotIt, close: t.close }} />
   </>;
 }

@@ -11,7 +11,7 @@ type Item = { href: string; label: string; icon: IconName };
 /** Menu a tendina (hamburger) per chi ha fatto l'accesso. Si chiude cambiando pagina, toccando fuori o con Esc. */
 export function AccountMenu({ items, logout, logoutLabel, menuLabel, languageLabel, install }: {
   items: Item[]; logout: () => Promise<void>; logoutLabel: string; menuLabel: string; languageLabel: string;
-  install: { install: string; iosTitle: string; iosStep1: string; iosStep2: string; iosStep3: string; close: string };
+  install: { install: string; iosTitle: string; iosStep1: string; iosStep2: string; iosStep3: string; safariNote: string; chromeNote: string; gotIt: string; close: string };
 }) {
   const [open, setOpen] = useState(false);
   const path = usePathname();

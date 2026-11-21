@@ -3,7 +3,7 @@ import { useState, useSyncExternalStore } from "react";
 import { Download, Share, SquarePlus } from "lucide-react";
 
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
-type Labels = { install: string; iosTitle: string; iosStep1: string; iosStep2: string; iosStep3: string; close: string };
+type Labels = { install: string; iosTitle: string; iosStep1: string; iosStep2: string; iosStep3: string; safariNote: string; chromeNote: string; gotIt: string; close: string };
 
 /**
  * Registra il programma di servizio e propone di installare l'app.
@@ -48,14 +48,22 @@ export function InstallApp({ labels, className = "" }: { labels: Labels; classNa
         <Download aria-hidden="true" className="h-5 w-5 shrink-0 text-white/70" strokeWidth={2} />{labels.install}
       </button>
       {guide && kind === "ios" && (
-        <div className="mx-4 mb-2 rounded-lg bg-white/5 p-3 text-sm text-white/85">
-          <p className="font-semibold">{labels.iosTitle}</p>
-          <ol className="mt-2 space-y-1.5">
-            <li className="flex items-start gap-2"><Share aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />{labels.iosStep1}</li>
-            <li className="flex items-start gap-2"><SquarePlus aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />{labels.iosStep2}</li>
-            <li className="flex items-start gap-2"><span aria-hidden="true" className="w-4 shrink-0 text-center font-bold">3</span>{labels.iosStep3}</li>
-          </ol>
-        </div>)}
+        // Finestra a tutta larghezza (livello superiore della pagina): nel menu a tendina lo spazio è troppo stretto.
+        <dialog ref={(el) => { if (el && !el.open) el.showModal(); }} onClose={() => setGuide(false)}
+          onClick={(e) => { if (e.target === e.currentTarget) e.currentTarget.close(); }}
+          className="m-auto w-[min(92vw,26rem)] rounded-2xl border border-white/15 bg-ink p-0 text-white shadow-2xl backdrop:bg-black/70">
+          <div className="p-5">
+            <h2 className="font-display text-2xl font-bold uppercase">{labels.iosTitle}</h2>
+            <p className={`mt-3 rounded-lg p-3 text-sm ${/CriOS/.test(navigator.userAgent) ? "bg-amber-400/15 text-amber-100" : "bg-white/5 text-white/80"}`}>
+              {/CriOS/.test(navigator.userAgent) ? labels.chromeNote : labels.safariNote}</p>
+            <ol className="mt-4 space-y-4 text-base">
+              <li className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10"><Share aria-hidden="true" className="h-5 w-5" /></span><span className="pt-1.5">{labels.iosStep1}</span></li>
+              <li className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10"><SquarePlus aria-hidden="true" className="h-5 w-5" /></span><span className="pt-1.5">{labels.iosStep2}</span></li>
+              <li className="flex items-start gap-3"><span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 font-bold">3</span><span className="pt-1.5">{labels.iosStep3}</span></li>
+            </ol>
+            <button type="button" onClick={(e) => e.currentTarget.closest("dialog")?.close()} className="btn-primary mt-6 w-full justify-center">{labels.gotIt}</button>
+          </div>
+        </dialog>)}
     </div>
   );
 }
