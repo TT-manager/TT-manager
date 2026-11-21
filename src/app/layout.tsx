@@ -3,6 +3,7 @@ import { Barlow_Condensed, Geist, Geist_Mono } from "next/font/google";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { ClickFeedback } from "@/components/click-feedback";
+import { OnlineStatus, SplashHide } from "@/components/splash";
 import { SITE_NAME } from "@/components/logo";
 import { Suspense } from "react";
 import { getLocale, tr } from "@/i18n/server";
@@ -34,8 +35,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="it" className={`${geistSans.variable} ${geistMono.variable} ${display.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
+        {/* Schermata di apertura (solo nell'app installata): è nell'HTML iniziale, quindi si vede subito. */}
+        <div id="pf-splash" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element -- logo vettoriale, nessuna ottimizzazione necessaria */}
+          <img src="/logo-scuro.svg" alt="" width={181} height={48} className="h-12 w-auto" />
+          <span className="pf-splash-spinner" />
+        </div>
         <Suspense fallback={null}>
           <Localized>
+            <SplashHide />
+            <OnlineStatus />
             <ClickFeedback />
             <SiteHeader />
             <div className="flex-1">{children}</div>

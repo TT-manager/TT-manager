@@ -2,6 +2,7 @@ import { dict } from "../locale";
 
 /** Barra in alto, footer e testi generali del sito. */
 export const layoutText = dict({
+  offline: "Nessuna connessione",
   siteTitle: "Tennis tavolo",
   siteDescription: "Circuiti amatoriali di tennis tavolo tra amici: ranking, tornei e risultati in diretta.",
   home: "Home",
@@ -32,6 +33,7 @@ export const layoutText = dict({
   cookies: "Usiamo solo cookie tecnici: nessuna pubblicità, nessun tracciamento.",
   language: "Lingua",
 }, {
+  offline: "No connection",
   siteTitle: "Table tennis",
   siteDescription: "Amateur table tennis leagues among friends: rankings, tournaments and live results.",
   home: "Home",
