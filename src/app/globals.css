@@ -106,7 +106,8 @@ body {
    dall'icona (display-mode standalone); sparisce appena la pagina è pronta, o comunque dopo qualche secondo. */
 #pf-splash { display: none; }
 @media (display-mode: standalone) {
-  #pf-splash { display: flex; position: fixed; inset: 0; z-index: 100; flex-direction: column; align-items: center; justify-content: center; gap: 1.75rem; background: #111113; animation: pf-splash-out 0.3s ease 8s forwards; }
+  #pf-splash { display: flex; position: fixed; inset: 0; z-index: 100; align-items: center; justify-content: center; background: #111113; animation: pf-splash-out 0.3s ease 8s forwards; }
+  #pf-splash .pf-splash-spinner { position: absolute; left: 50%; top: calc(50% + 2.75rem); margin-left: -0.875rem; }
   #pf-splash.pf-hide { opacity: 0; visibility: hidden; transition: opacity 0.25s ease, visibility 0s linear 0.25s; }
 }
 @keyframes pf-splash-out { to { opacity: 0; visibility: hidden; } }

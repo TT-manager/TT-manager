@@ -16,11 +16,24 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 // Carattere stretto e deciso per titoli e numeri, da tabellone sportivo.
 const display = Barlow_Condensed({ variable: "--font-display", subsets: ["latin"], weight: ["500", "600", "700"] });
 
+/**
+ * Immagini di apertura per iPhone (logo su fondo scuro): iOS le mostra mentre apre l'app installata, prima ancora che
+ * il sito risponda. Una per modello: larghezza e altezza in punti, densità dello schermo.
+ */
+const IPHONE_SPLASH: [number, number, number][] = [
+  [440, 956, 3], [420, 912, 3], [402, 874, 3], [430, 932, 3], [393, 852, 3], [390, 844, 3],
+  [428, 926, 3], [414, 896, 3], [414, 896, 2], [375, 812, 3], [414, 736, 3], [375, 667, 2],
+];
+const startupImage = IPHONE_SPLASH.map(([w, h, r]) => ({
+  url: `/splash/iphone-${w * r}x${h * r}.png`,
+  media: `(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${r}) and (orientation: portrait)`,
+}));
+
 export async function generateMetadata(): Promise<Metadata> {
   const t = await tr(layoutText);
   return {
     title: { default: `${SITE_NAME} · ${t.siteTitle}`, template: `%s · ${SITE_NAME}` }, description: t.siteDescription,
-    appleWebApp: { capable: true, title: SITE_NAME, statusBarStyle: "black-translucent" },
+    appleWebApp: { capable: true, title: SITE_NAME, statusBarStyle: "black-translucent", startupImage },
   };
 }
 
